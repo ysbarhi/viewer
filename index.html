@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Viewer CAO - Précision Absolue</title>
+    <title>Viewer CAO - Style SketchUp</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
@@ -37,7 +37,7 @@
 <body>
     <div id="loader">
         <div class="spinner"></div>
-        <div id="version-badge">VERSION 6.0<br>(Matrice & Zoom Débridé)</div>
+        <div id="version-badge">VERSION 8.0<br>(Arêtes SketchUp ajoutées)</div>
     </div>
     <div id="canvas-container"></div>
     <div id="ui-panel" style="display: none;"></div>
@@ -71,16 +71,17 @@
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.1;
-            controls.enablePan = false; 
-            
-            // DÉBRIDAGE DU ZOOM : Empêche le blocage de la caméra
+            controls.enablePan = true; 
+            controls.screenSpacePanning = true; 
+            controls.keyPanSpeed = 7.0; 
             controls.minDistance = 0.00001; 
-            controls.zoomSpeed = 2.5; // Rendu du pincement beaucoup plus rapide/agressif
+            controls.zoomSpeed = 2.5; 
 
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            // Éclairage légèrement augmenté pour bien contraster avec les arêtes noires
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
             scene.add(ambientLight);
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
-            dirLight.position.set(10, 10, 10);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 20, 10);
             scene.add(dirLight);
 
             const loader = new GLTFLoader();
@@ -90,16 +91,20 @@
                 const model = gltf.scene;
                 scene.add(model);
 
-                // CORRECTION MAJEURE : Force le calcul spatial réel AVANT de mesurer l'objet
                 scene.updateMatrixWorld(true);
 
                 let targetNode = null;
 
-                const baseMaterial = new THREE.MeshLambertMaterial({ color: 0xcccccc });
-                const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false });
+                // Couleurs : Gris un peu plus clair pour faire ressortir les lignes noires
+                const baseMaterial = new THREE.MeshLambertMaterial({ color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+                const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+                
+                // Matériel pour les arêtes noires
+                const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
 
                 model.traverse(function (node) {
                     if (node.isMesh) {
+                        // Application de la couleur de base ou de la surbrillance
                         if (targetId && node.name.includes(targetId)) {
                             targetNode = node;
                             node.material = highlightMaterial;
@@ -107,11 +112,23 @@
                         } else {
                             node.material = baseMaterial;
                         }
+
+                        // AJOUT DES ARÊTES (Style SketchUp)
+                        // Le paramètre 30 (degrés) empêche de dessiner les arêtes sur des surfaces planes continues
+                        const edgesGeometry = new THREE.EdgesGeometry(node.geometry, 30);
+                        const edges = new THREE.LineSegments(edgesGeometry, edgeMaterial);
+                        
+                        // Si c'est l'objet ciblé, on s'assure que ses arêtes passent aussi au-dessus du reste
+                        if (targetId && node.name.includes(targetId)) {
+                            edges.material.depthTest = false;
+                            edges.renderOrder = 1000;
+                        }
+                        
+                        node.add(edges);
                     }
                 });
 
                 if (targetNode) {
-                    // Mesure exacte de la boîte avec les vraies coordonnées mondiales mises à jour
                     const box = new THREE.Box3().setFromObject(targetNode);
                     const center = new THREE.Vector3();
                     box.getCenter(center);
@@ -120,7 +137,6 @@
 
                     controls.target.copy(center);
 
-                    // Caméra placée beaucoup plus près (multiplier x1.2 au lieu de x2.5)
                     const maxDim = Math.max(size.x, size.y, size.z);
                     const cameraDistance = maxDim * 1.2; 
 
