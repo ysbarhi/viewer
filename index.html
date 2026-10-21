@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viewer 3D SketchUp QR</title>
+    <!-- Chargement du composant Google Model-Viewer -->
+    <script type="module" src="https://googleapis.com"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: sans-serif; }
+        model-viewer { width: 100%; height: 100%; background-color: #f0f0f0; }
+        #info-box { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Le viewer charge votre fichier scene.gltf exporté de SketchUp -->
+    <model-viewer id="sketchupViewer" src="scene.gltf" ar camera-controls touch-action="pan-y" shadow-intensity="1">
+        <div id="info-box">Scannez un objet pour le surligner</div>
+    </model-viewer>
+
+    <script>
+        const viewer = document.querySelector('#sketchupViewer');
+        const infoBox = document.querySelector('#info-box');
+
+        // Écouter le chargement complet du modèle 3D
+        viewer.addEventListener('load', () => {
+            // 1. Lire le paramètre 'id' dans l'URL (ex: ?id=objet_123)
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetId = urlParams.get('id');
+
+            if (targetId) {
+                infoBox.innerText = "Objet recherché : " + targetId;
+                
+                // 2. Parcourir les éléments du modèle 3D
+                const model = viewer.model;
+                let objetTrouve = false;
+
+                // Cherche le nœud matériel ou mesh qui correspond à l'ID
+                model.materials.forEach((material) => {
+                    // Si le nom du matériau ou du nœud parent contient l'ID
+                    if (material.name.includes(targetId)) {
+                        // 3. Appliquer la surbrillance (Jaune vif émissif)
+                        material.emissiveFactor.setRGB(1, 1, 0); // Couleur émissive Jaune
+                        material.pbrMetallicRoughness.setBaseColorFactor([1, 1, 0, 1]); // Base couleur Jaune
+                        objetTrouve = true;
+                    }
+                });
+
+                if (!objetTrouve) {
+                    infoBox.innerText = `ID "${targetId}" non trouvé dans la scène.`;
+                } else {
+                    infoBox.innerText = `Objet "${targetId}" surligné !`;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
