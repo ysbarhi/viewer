@@ -3,23 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Viewer CAO - Performance</title>
+    <title>Viewer Millimétrique</title>
     <style>
-        /* Le touch-action: none est CRUCIAL pour empêcher le navigateur d'interférer avec la 3D */
-        body { margin: 0; overflow: hidden; background-color: #dddddd; font-family: sans-serif; touch-action: none; }
+        body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
         #loader {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #dddddd; display: flex; flex-direction: column;
+            background-color: #e5e5e5; display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 999;
         }
         .spinner {
             width: 50px; height: 50px; border: 4px solid #bbb;
-            border-top: 4px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite;
+            border-top: 4px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Badge de version pour prouver que le code a été mis à jour */
+        #version-badge { font-weight: bold; font-size: 20px; color: #333; }
         #ui-panel {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
             background: #ffffff; border: 2px solid #ff0000; color: #000; 
             padding: 10px 20px; border-radius: 5px; font-weight: bold; font-size: 16px;
             pointer-events: none; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -35,7 +36,11 @@
     </script>
 </head>
 <body>
-    <div id="loader"><div class="spinner"></div></div>
+    <div id="loader">
+        <div class="spinner"></div>
+        <!-- SI VOUS NE VOYEZ PAS CE TEXTE SUR LE TÉLÉPHONE, C'EST LE CACHE QUI BLOQUE -->
+        <div id="version-badge">VERSION 5.0 (Spécial Millimètres)</div>
+    </div>
     <div id="canvas-container"></div>
     <div id="ui-panel" style="display: none;"></div>
 
@@ -56,47 +61,40 @@
             const container = document.getElementById('canvas-container');
 
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xdddddd); // Fond gris neutre CAO
+            scene.background = new THREE.Color(0xe5e5e5);
 
-            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
+            // CHANGEMENT CRUCIAL ICI : Le paramètre "near" passe à 0.001 pour voir les objets en millimètres
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.001, 1000);
             
-            // Rendu basique, aucune option gourmande
-            renderer = new THREE.WebGLRenderer({ antialias: false }); // Antialias désactivé pour max FPS sur vieux mobiles
+            renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             container.appendChild(renderer.domElement);
 
-            // Contrôles optimisés CAO
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.dampingFactor = 0.15; // Réactivité maximale
-            controls.enablePan = true; // Autorise le glissement à 2 doigts
-            controls.screenSpacePanning = true; // Glissement parallèle à l'écran (très naturel)
-            controls.zoomSpeed = 1.2; // Zoom légèrement plus rapide
+            controls.dampingFactor = 0.1;
+            controls.enablePan = false; // Désactivé : force la rotation parfaite sur l'objet ciblé
 
-            // Lumière très basique pour révéler les volumes sans calculs lourds
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
             scene.add(ambientLight);
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-            dirLight.position.set(10, 20, 10);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 10, 10);
             scene.add(dirLight);
 
             const loader = new GLTFLoader();
-            loader.load('scene.glb', function (gltf) {
+            
+            // Astuce anti-cache pour forcer le chargement du TOUT DERNIER modèle 3D
+            const modelUrl = 'scene.glb?v=' + new Date().getTime(); 
+
+            loader.load(modelUrl, function (gltf) {
                 const model = gltf.scene;
                 scene.add(model);
 
                 let targetNode = null;
 
-                // Matériaux ultra-légers
-                const baseMaterial = new THREE.MeshLambertMaterial({ 
-                    color: 0xaaaaaa // Gris CAO standard
-                });
-
-                const highlightMaterial = new THREE.MeshBasicMaterial({ 
-                    color: 0xff0000, // Rouge pur
-                    depthTest: false // Reste visible même caché dans le meuble
-                });
+                const baseMaterial = new THREE.MeshLambertMaterial({ color: 0xcccccc });
+                const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false });
 
                 model.traverse(function (node) {
                     if (node.isMesh) {
@@ -111,41 +109,36 @@
                 });
 
                 if (targetNode) {
-                    const box = new THREE.Box3();
-                    targetNode.traverse(function(child) {
-                        if (child.isMesh && child.geometry) {
-                            child.geometry.computeBoundingBox();
-                            let childBox = child.geometry.boundingBox.clone();
-                            childBox.applyMatrix4(child.matrixWorld);
-                            box.union(childBox);
-                        }
-                    });
-
+                    // Calcul exact de la boîte englobante de ce cube précis
+                    const box = new THREE.Box3().setFromObject(targetNode);
                     const center = new THREE.Vector3();
                     box.getCenter(center);
                     const size = new THREE.Vector3();
                     box.getSize(size);
 
-                    // Verrouillage du pivot sur la pièce
+                    // 1. On force le pivot (axe de rotation) sur le centre EXACT du cube
                     controls.target.copy(center);
 
-                    // Recul de la caméra ajusté
+                    // 2. Calcul de la distance adapté aux millimètres
                     const maxDim = Math.max(size.x, size.y, size.z);
-                    let cameraDistance = maxDim * 2.5; 
-                    if(cameraDistance < 0.5) cameraDistance = 0.5;
+                    // On retire la limite de 0.5. Si le cube fait 0.01 de taille, la caméra sera à 0.02.
+                    const cameraDistance = maxDim * 2.0; 
 
                     camera.position.set(center.x + cameraDistance, center.y + cameraDistance, center.z + cameraDistance);
                     
                     const uiPanel = document.getElementById('ui-panel');
                     uiPanel.style.display = 'block';
-                    uiPanel.innerText = targetId.replace('obj_', '').split('_')[0].toUpperCase();
+                    uiPanel.innerText = `CIBLE : ${targetId.replace('obj_', '').split('_')[0]}`;
                 } else {
                     const box = new THREE.Box3().setFromObject(model);
                     const center = new THREE.Vector3();
                     box.getCenter(center);
                     controls.target.copy(center);
-                    camera.position.set(center.x + 3, center.y + 3, center.z + 3);
+                    camera.position.set(center.x + 0.1, center.y + 0.1, center.z + 0.1);
                 }
+
+                // Applique instantanément la position de la caméra et du pivot
+                controls.update();
 
                 document.getElementById('loader').style.display = 'none';
             });
