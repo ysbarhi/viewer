@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Viewer CAO - Profondeur Réelle</title>
+    <title>Viewer CAO - Scanner Intégré</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
@@ -18,13 +18,39 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #version-badge { font-weight: bold; font-size: 18px; color: #333; text-align: center; }
+        
         #ui-panel {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
             background: #ffffff; border: 2px solid #ff0000; color: #000; 
             padding: 10px 20px; border-radius: 5px; font-weight: bold; font-size: 16px;
             pointer-events: none; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 50; display: none;
         }
+
+        /* Bouton de scan au centre en bas */
+        #scan-btn {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            background: #000000; color: #ffffff; border: 2px solid #ffffff;
+            padding: 15px 30px; border-radius: 30px; font-size: 18px; font-weight: bold;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3); z-index: 100;
+        }
+        #scan-btn:active { background: #333333; transform: translateX(-50%) scale(0.95); }
+
+        /* Interface de la caméra */
+        #reader-container {
+            display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000000; z-index: 1000;
+        }
+        #close-scan-btn {
+            position: absolute; top: 20px; right: 20px; background: #ff0000; color: white;
+            border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; z-index: 1001;
+        }
+        #reader { width: 100vw; height: 100vh; }
     </style>
+    
+    <!-- Script pour lire les QR Codes depuis la caméra -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
     <script type="importmap">
         {
             "imports": {
@@ -37,23 +63,33 @@
 <body>
     <div id="loader">
         <div class="spinner"></div>
-        <div id="version-badge">VERSION 9.0<br>(Profondeur réelle)</div>
+        <div id="version-badge">VERSION 10.0<br>(Scanner Intégré)</div>
     </div>
+    
+    <div id="ui-panel">PIÈCE : ...</div>
     <div id="canvas-container"></div>
-    <div id="ui-panel" style="display: none;"></div>
+    
+    <button id="scan-btn">📷 SCANNER</button>
+
+    <div id="reader-container">
+        <button id="close-scan-btn">Annuler</button>
+        <div id="reader"></div>
+    </div>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const targetId = urlParams.get('id');
+        let scene, camera, renderer, controls, globalModel;
 
-        let scene, camera, renderer, controls;
+        const baseMaterial = new THREE.MeshLambertMaterial({ color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+        const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+        const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
 
         init();
         animate();
+        setupScanner();
 
         function init() {
             const container = document.getElementById('canvas-container');
@@ -73,7 +109,6 @@
             controls.dampingFactor = 0.1;
             controls.enablePan = true; 
             controls.screenSpacePanning = true; 
-            controls.keyPanSpeed = 7.0; 
             controls.minDistance = 0.00001; 
             controls.zoomSpeed = 2.5; 
 
@@ -87,82 +122,113 @@
             const modelUrl = 'scene.glb?v=' + new Date().getTime(); 
 
             loader.load(modelUrl, function (gltf) {
-                const model = gltf.scene;
-                scene.add(model);
-
+                globalModel = gltf.scene;
+                scene.add(globalModel);
                 scene.updateMatrixWorld(true);
 
-                let targetNode = null;
-
-                // RETRAIT DES OPTIONS "RAYON X" (depthTest est maintenant par défaut à true)
-                // polygonOffset repousse légèrement les faces pour laisser les arêtes noires s'afficher proprement au-dessus
-                const baseMaterial = new THREE.MeshLambertMaterial({ 
-                    color: 0xd5d5d5, 
-                    polygonOffset: true, 
-                    polygonOffsetFactor: 1, 
-                    polygonOffsetUnits: 1 
-                });
-                const highlightMaterial = new THREE.MeshBasicMaterial({ 
-                    color: 0xff0000, 
-                    polygonOffset: true, 
-                    polygonOffsetFactor: 1, 
-                    polygonOffsetUnits: 1 
-                });
-                
-                const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
-
-                model.traverse(function (node) {
+                // Initialisation du modèle
+                globalModel.traverse(function (node) {
                     if (node.isMesh) {
-                        if (targetId && node.name.includes(targetId)) {
-                            targetNode = node;
-                            node.material = highlightMaterial;
-                            // Suppression du renderOrder = 999
-                        } else {
-                            node.material = baseMaterial;
-                        }
+                        node.userData.isOriginalMesh = true; // Marqueur pour ne pas confondre avec les arêtes
+                        node.material = baseMaterial;
 
                         const edgesGeometry = new THREE.EdgesGeometry(node.geometry, 30);
                         const edges = new THREE.LineSegments(edgesGeometry, edgeMaterial);
-                        // Suppression du code qui passait les arêtes au travers du modèle
-                        
                         node.add(edges);
                     }
                 });
 
-                if (targetNode) {
-                    const box = new THREE.Box3().setFromObject(targetNode);
-                    const center = new THREE.Vector3();
-                    box.getCenter(center);
-                    const size = new THREE.Vector3();
-                    box.getSize(size);
-
-                    controls.target.copy(center);
-
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    const cameraDistance = maxDim * 1.2; 
-
-                    camera.position.set(center.x + cameraDistance, center.y + cameraDistance, center.z + cameraDistance);
-                    
-                    const uiPanel = document.getElementById('ui-panel');
-                    uiPanel.style.display = 'block';
-                    uiPanel.innerText = `CIBLE : ${targetId.replace('obj_', '').split('_')[0]}`;
-                } else {
-                    const box = new THREE.Box3().setFromObject(model);
-                    const center = new THREE.Vector3();
-                    box.getCenter(center);
-                    controls.target.copy(center);
-                    
-                    const size = new THREE.Vector3();
-                    box.getSize(size);
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    camera.position.set(center.x + maxDim, center.y + maxDim, center.z + maxDim);
-                }
+                // Vue globale au chargement
+                const box = new THREE.Box3().setFromObject(globalModel);
+                const center = new THREE.Vector3();
+                box.getCenter(center);
+                controls.target.copy(center);
+                
+                const size = new THREE.Vector3();
+                box.getSize(size);
+                const maxDim = Math.max(size.x, size.y, size.z);
+                camera.position.set(center.x + maxDim, center.y + maxDim, center.z + maxDim);
 
                 controls.update();
                 document.getElementById('loader').style.display = 'none';
             });
 
             window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function highlightScannedPart(scannedText) {
+            const textLower = scannedText.toLowerCase();
+            let targetNode = null;
+
+            globalModel.traverse(function (node) {
+                if (node.isMesh && node.userData.isOriginalMesh) {
+                    node.material = baseMaterial; // Réinitialise tout en gris
+                    
+                    const nodeName = node.name.toLowerCase();
+                    // On vérifie si le texte du QR d'ABF correspond au nom de la pièce SketchUp
+                    if (nodeName !== "" && (textLower.includes(nodeName) || nodeName.includes(textLower))) {
+                        targetNode = node;
+                        node.material = highlightMaterial;
+                    }
+                }
+            });
+
+            if (targetNode) {
+                const box = new THREE.Box3().setFromObject(targetNode);
+                const center = new THREE.Vector3();
+                box.getCenter(center);
+                const size = new THREE.Vector3();
+                box.getSize(size);
+
+                controls.target.copy(center);
+
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const cameraDistance = maxDim * 1.2; 
+                camera.position.set(center.x + cameraDistance, center.y + cameraDistance, center.z + cameraDistance);
+                
+                const uiPanel = document.getElementById('ui-panel');
+                uiPanel.style.display = 'block';
+                uiPanel.innerText = `CIBLE : ${targetNode.name.split('_')[0].toUpperCase()}`;
+            } else {
+                alert("Pièce non trouvée. Code lu : " + scannedText);
+            }
+        }
+
+        function setupScanner() {
+            const scanBtn = document.getElementById('scan-btn');
+            const closeBtn = document.getElementById('close-scan-btn');
+            const container = document.getElementById('reader-container');
+            let html5QrCode = null;
+
+            scanBtn.addEventListener('click', () => {
+                container.style.display = 'block';
+                html5QrCode = new Html5Qrcode("reader");
+                
+                // Demande l'accès à la caméra et lance le scan
+                html5QrCode.start(
+                    { facingMode: "environment" }, // Caméra arrière
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (decodedText) => {
+                        // QR Code lu avec succès !
+                        html5QrCode.stop().then(() => {
+                            container.style.display = 'none';
+                            highlightScannedPart(decodedText);
+                        });
+                    },
+                    (errorMessage) => { /* Ignore les erreurs de lecture continues */ }
+                ).catch(err => {
+                    alert("Impossible d'accéder à la caméra. Vérifiez les permissions.");
+                    container.style.display = 'none';
+                });
+            });
+
+            closeBtn.addEventListener('click', () => {
+                if(html5QrCode) {
+                    html5QrCode.stop().then(() => {
+                        container.style.display = 'none';
+                    });
+                }
+            });
         }
 
         function onWindowResize() {
