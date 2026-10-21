@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Viewer CAO - Scanner Intégré</title>
+    <title>Viewer CAO - Scanner Intelligent</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
@@ -27,7 +27,6 @@
             z-index: 50; display: none;
         }
 
-        /* Bouton de scan au centre en bas */
         #scan-btn {
             position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
             background: #000000; color: #ffffff; border: 2px solid #ffffff;
@@ -36,7 +35,6 @@
         }
         #scan-btn:active { background: #333333; transform: translateX(-50%) scale(0.95); }
 
-        /* Interface de la caméra */
         #reader-container {
             display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
             background: #000000; z-index: 1000;
@@ -48,7 +46,6 @@
         #reader { width: 100vw; height: 100vh; }
     </style>
     
-    <!-- Script pour lire les QR Codes depuis la caméra -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
     <script type="importmap">
@@ -63,7 +60,7 @@
 <body>
     <div id="loader">
         <div class="spinner"></div>
-        <div id="version-badge">VERSION 10.0<br>(Scanner Intégré)</div>
+        <div id="version-badge">VERSION 11.0<br>(Recherche Intelligente)</div>
     </div>
     
     <div id="ui-panel">PIÈCE : ...</div>
@@ -126,19 +123,16 @@
                 scene.add(globalModel);
                 scene.updateMatrixWorld(true);
 
-                // Initialisation du modèle
                 globalModel.traverse(function (node) {
                     if (node.isMesh) {
-                        node.userData.isOriginalMesh = true; // Marqueur pour ne pas confondre avec les arêtes
+                        node.userData.isOriginalMesh = true;
                         node.material = baseMaterial;
-
                         const edgesGeometry = new THREE.EdgesGeometry(node.geometry, 30);
                         const edges = new THREE.LineSegments(edgesGeometry, edgeMaterial);
                         node.add(edges);
                     }
                 });
 
-                // Vue globale au chargement
                 const box = new THREE.Box3().setFromObject(globalModel);
                 const center = new THREE.Vector3();
                 box.getCenter(center);
@@ -157,24 +151,62 @@
         }
 
         function highlightScannedPart(scannedText) {
-            const textLower = scannedText.toLowerCase();
-            let targetNode = null;
+            const rawScan = scannedText.trim().toLowerCase();
+            // Traduit "1.1" en "1_1" car l'exportateur GLTF remplace souvent les points par des underscores
+            const normalizedScan = rawScan.replace(/\./g, '_');
+            const cleanScan = rawScan.replace(/[^a-z0-9]/g, '');
 
+            let targetMeshes = [];
+
+            // 1. Remettre tout le meuble en gris
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
-                    node.material = baseMaterial; // Réinitialise tout en gris
+                    node.material = baseMaterial;
+                }
+            });
+
+            // 2. Recherche intelligente dans toute l'arborescence (Groupes et Composants)
+            globalModel.traverse(function (node) {
+                if (node.isMesh && node.userData.isOriginalMesh) {
+                    let matchFound = false;
+                    let current = node;
                     
-                    const nodeName = node.name.toLowerCase();
-                    // On vérifie si le texte du QR d'ABF correspond au nom de la pièce SketchUp
-                    if (nodeName !== "" && (textLower.includes(nodeName) || nodeName.includes(textLower))) {
-                        targetNode = node;
+                    while (current && current !== globalModel) {
+                        if (current.name) {
+                            const rawName = current.name.toLowerCase();
+                            const normalizedName = rawName.replace(/\./g, '_');
+                            const cleanName = rawName.replace(/[^a-z0-9]/g, '');
+                            
+                            // Si le scan est "1.1", on matche avec "1.1", "1_1", ou si le nom le contient
+                            if (rawName === rawScan || normalizedName === normalizedScan || normalizedName.includes(normalizedScan)) {
+                                matchFound = true;
+                                break;
+                            }
+                            
+                            // Tolérance si le nom contient plus d'infos (ex: "1.1 Cote" contient "Cote")
+                            if (cleanName.length > 2 && cleanScan.includes(cleanName)) {
+                                matchFound = true;
+                                break;
+                            }
+                        }
+                        current = current.parent;
+                    }
+
+                    if (matchFound) {
                         node.material = highlightMaterial;
+                        targetMeshes.push(node);
                     }
                 }
             });
 
-            if (targetNode) {
-                const box = new THREE.Box3().setFromObject(targetNode);
+            if (targetMeshes.length > 0) {
+                // Création d'une boîte englobante de toutes les parties de la pièce trouvée
+                const box = new THREE.Box3();
+                targetMeshes.forEach(m => {
+                    const childBox = new THREE.Box3().setFromObject(m);
+                    box.union(childBox);
+                });
+
                 const center = new THREE.Vector3();
                 box.getCenter(center);
                 const size = new THREE.Vector3();
@@ -183,14 +215,14 @@
                 controls.target.copy(center);
 
                 const maxDim = Math.max(size.x, size.y, size.z);
-                const cameraDistance = maxDim * 1.2; 
+                const cameraDistance = maxDim * 1.5; 
                 camera.position.set(center.x + cameraDistance, center.y + cameraDistance, center.z + cameraDistance);
                 
                 const uiPanel = document.getElementById('ui-panel');
                 uiPanel.style.display = 'block';
-                uiPanel.innerText = `CIBLE : ${targetNode.name.split('_')[0].toUpperCase()}`;
+                uiPanel.innerText = `CIBLE : ${scannedText.toUpperCase()}`;
             } else {
-                alert("Pièce non trouvée. Code lu : " + scannedText);
+                alert("Pièce introuvable dans la 3D.\nCode lu : " + scannedText + "\n\nVérifiez que ce nom existe bien dans le modèle assemblé de SketchUp.");
             }
         }
 
@@ -204,18 +236,16 @@
                 container.style.display = 'block';
                 html5QrCode = new Html5Qrcode("reader");
                 
-                // Demande l'accès à la caméra et lance le scan
                 html5QrCode.start(
-                    { facingMode: "environment" }, // Caméra arrière
+                    { facingMode: "environment" },
                     { fps: 10, qrbox: { width: 250, height: 250 } },
                     (decodedText) => {
-                        // QR Code lu avec succès !
                         html5QrCode.stop().then(() => {
                             container.style.display = 'none';
                             highlightScannedPart(decodedText);
                         });
                     },
-                    (errorMessage) => { /* Ignore les erreurs de lecture continues */ }
+                    (errorMessage) => {}
                 ).catch(err => {
                     alert("Impossible d'accéder à la caméra. Vérifiez les permissions.");
                     container.style.display = 'none';
