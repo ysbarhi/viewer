@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Viewer CAO - Style SketchUp</title>
+    <title>Viewer CAO - Profondeur Réelle</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
@@ -37,7 +37,7 @@
 <body>
     <div id="loader">
         <div class="spinner"></div>
-        <div id="version-badge">VERSION 8.0<br>(Arêtes SketchUp ajoutées)</div>
+        <div id="version-badge">VERSION 9.0<br>(Profondeur réelle)</div>
     </div>
     <div id="canvas-container"></div>
     <div id="ui-panel" style="display: none;"></div>
@@ -77,7 +77,6 @@
             controls.minDistance = 0.00001; 
             controls.zoomSpeed = 2.5; 
 
-            // Éclairage légèrement augmenté pour bien contraster avec les arêtes noires
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
             scene.add(ambientLight);
             const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -95,34 +94,36 @@
 
                 let targetNode = null;
 
-                // Couleurs : Gris un peu plus clair pour faire ressortir les lignes noires
-                const baseMaterial = new THREE.MeshLambertMaterial({ color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
-                const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+                // RETRAIT DES OPTIONS "RAYON X" (depthTest est maintenant par défaut à true)
+                // polygonOffset repousse légèrement les faces pour laisser les arêtes noires s'afficher proprement au-dessus
+                const baseMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0xd5d5d5, 
+                    polygonOffset: true, 
+                    polygonOffsetFactor: 1, 
+                    polygonOffsetUnits: 1 
+                });
+                const highlightMaterial = new THREE.MeshBasicMaterial({ 
+                    color: 0xff0000, 
+                    polygonOffset: true, 
+                    polygonOffsetFactor: 1, 
+                    polygonOffsetUnits: 1 
+                });
                 
-                // Matériel pour les arêtes noires
                 const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
 
                 model.traverse(function (node) {
                     if (node.isMesh) {
-                        // Application de la couleur de base ou de la surbrillance
                         if (targetId && node.name.includes(targetId)) {
                             targetNode = node;
                             node.material = highlightMaterial;
-                            node.renderOrder = 999;
+                            // Suppression du renderOrder = 999
                         } else {
                             node.material = baseMaterial;
                         }
 
-                        // AJOUT DES ARÊTES (Style SketchUp)
-                        // Le paramètre 30 (degrés) empêche de dessiner les arêtes sur des surfaces planes continues
                         const edgesGeometry = new THREE.EdgesGeometry(node.geometry, 30);
                         const edges = new THREE.LineSegments(edgesGeometry, edgeMaterial);
-                        
-                        // Si c'est l'objet ciblé, on s'assure que ses arêtes passent aussi au-dessus du reste
-                        if (targetId && node.name.includes(targetId)) {
-                            edges.material.depthTest = false;
-                            edges.renderOrder = 1000;
-                        }
+                        // Suppression du code qui passait les arêtes au travers du modèle
                         
                         node.add(edges);
                     }
