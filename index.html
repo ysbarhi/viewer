@@ -2,60 +2,27 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Visualiseur 3D - Inspection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Viewer CAO - Performance</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #ffffff; /* Fond Blanc */
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #333333;
-        }
-        #canvas-container {
-            width: 100vw;
-            height: 100vh;
-            display: block;
-        }
+        /* Le touch-action: none est CRUCIAL pour empêcher le navigateur d'interférer avec la 3D */
+        body { margin: 0; overflow: hidden; background-color: #dddddd; font-family: sans-serif; touch-action: none; }
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
         #loader {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 999;
-            transition: opacity 0.5s ease;
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #dddddd; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 999;
         }
         .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-top: 4px solid #ff4400; /* Spinner de couleur vive */
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
+            width: 50px; height: 50px; border: 4px solid #bbb;
+            border-top: 4px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #ui-panel {
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.95);
-            border: 2px solid #ff4400;
-            color: #333333;
-            padding: 12px 24px;
-            border-radius: 8px;
-            text-align: center;
-            pointer-events: none;
-            font-size: 15px;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: #ffffff; border: 2px solid #ff0000; color: #000; 
+            padding: 10px 20px; border-radius: 5px; font-weight: bold; font-size: 16px;
+            pointer-events: none; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
     </style>
     <script type="importmap">
@@ -68,25 +35,19 @@
     </script>
 </head>
 <body>
-
-    <div id="loader">
-        <div class="spinner"></div>
-        <div id="loading-text">Chargement du modèle...</div>
-    </div>
-
+    <div id="loader"><div class="spinner"></div></div>
     <div id="canvas-container"></div>
-    <div id="ui-panel" style="display: none;">Pièce identifiée</div>
+    <div id="ui-panel" style="display: none;"></div>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        let scene, camera, renderer, controls;
-        
-        // Récupération de l'ID depuis le QR Code
         const urlParams = new URLSearchParams(window.location.search);
         const targetId = urlParams.get('id');
+
+        let scene, camera, renderer, controls;
 
         init();
         animate();
@@ -94,107 +55,99 @@
         function init() {
             const container = document.getElementById('canvas-container');
 
-            // Scène sur fond blanc
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xffffff);
+            scene.background = new THREE.Color(0xdddddd); // Fond gris neutre CAO
 
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 5000);
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
             
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            // Rendu basique, aucune option gourmande
+            renderer = new THREE.WebGLRenderer({ antialias: false }); // Antialias désactivé pour max FPS sur vieux mobiles
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.outputColorSpace = THREE.SRGBColorSpace; 
             container.appendChild(renderer.domElement);
 
-            // Contrôles
+            // Contrôles optimisés CAO
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            // CRUCIAL : Désactiver le panoramique force la rotation sur l'objet ciblé uniquement
-            controls.enablePan = false; 
+            controls.dampingFactor = 0.15; // Réactivité maximale
+            controls.enablePan = true; // Autorise le glissement à 2 doigts
+            controls.screenSpacePanning = true; // Glissement parallèle à l'écran (très naturel)
+            controls.zoomSpeed = 1.2; // Zoom légèrement plus rapide
 
-            // Éclairage ajusté pour le fond blanc
+            // Lumière très basique pour révéler les volumes sans calculs lourds
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
-
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
-            directionalLight.position.set(10, 20, 15);
-            scene.add(directionalLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
 
             const loader = new GLTFLoader();
-            
-            // Chargement du fichier GLB
             loader.load('scene.glb', function (gltf) {
                 const model = gltf.scene;
                 scene.add(model);
 
-                let objectFound = false;
+                let targetNode = null;
 
-                if (targetId) {
-                    model.traverse(function (node) {
-                        if (node.isMesh && node.name.includes(targetId)) {
-                            objectFound = true;
-                            
-                            // Matériau orange/rouge vif pour être bien visible sur fond blanc
-                            const highlightMaterial = new THREE.MeshStandardMaterial({
-                                color: 0xff4400,
-                                emissive: 0xcc2200,
-                                emissiveIntensity: 0.4,
-                                roughness: 0.2,
-                                metalness: 0.1,
-                                depthTest: false // Reste visible à travers les autres objets
-                            });
-                            
+                // Matériaux ultra-légers
+                const baseMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0xaaaaaa // Gris CAO standard
+                });
+
+                const highlightMaterial = new THREE.MeshBasicMaterial({ 
+                    color: 0xff0000, // Rouge pur
+                    depthTest: false // Reste visible même caché dans le meuble
+                });
+
+                model.traverse(function (node) {
+                    if (node.isMesh) {
+                        if (targetId && node.name.includes(targetId)) {
+                            targetNode = node;
                             node.material = highlightMaterial;
                             node.renderOrder = 999;
+                        } else {
+                            node.material = baseMaterial;
+                        }
+                    }
+                });
 
-                            // Calcul de la taille et du centre
-                            const box = new THREE.Box3().setFromObject(node);
-                            const center = box.getCenter(new THREE.Vector3());
-                            const size = box.getSize(new THREE.Vector3());
-                            
-                            // 1. On verrouille le centre de rotation exactement sur la pièce
-                            controls.target.copy(center);
-                            
-                            // 2. Calcul mathématique de la distance idéale de la caméra
-                            const maxDim = Math.max(size.x, size.y, size.z);
-                            const fov = camera.fov * (Math.PI / 180);
-                            // On utilise la trigonométrie pour que l'objet remplisse bien l'écran
-                            let cameraDistance = Math.abs(maxDim / Math.sin(fov / 2));
-                            
-                            // Placement de la caméra
-                            camera.position.set(
-                                center.x + cameraDistance * 0.6, 
-                                center.y + cameraDistance * 0.6, 
-                                center.z + cameraDistance * 0.8
-                            );
-                            
-                            // On force la caméra à regarder le centre
-                            camera.lookAt(center);
-                            controls.update(); // Met à jour les contrôles immédiatement
+                if (targetNode) {
+                    const box = new THREE.Box3();
+                    targetNode.traverse(function(child) {
+                        if (child.isMesh && child.geometry) {
+                            child.geometry.computeBoundingBox();
+                            let childBox = child.geometry.boundingBox.clone();
+                            childBox.applyMatrix4(child.matrixWorld);
+                            box.union(childBox);
                         }
                     });
-                }
 
-                // Cacher l'écran de chargement
-                const loaderElement = document.getElementById('loader');
-                loaderElement.style.opacity = '0';
-                setTimeout(() => loaderElement.style.display = 'none', 500);
+                    const center = new THREE.Vector3();
+                    box.getCenter(center);
+                    const size = new THREE.Vector3();
+                    box.getSize(size);
 
-                // Message UI
-                if (objectFound) {
+                    // Verrouillage du pivot sur la pièce
+                    controls.target.copy(center);
+
+                    // Recul de la caméra ajusté
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    let cameraDistance = maxDim * 2.5; 
+                    if(cameraDistance < 0.5) cameraDistance = 0.5;
+
+                    camera.position.set(center.x + cameraDistance, center.y + cameraDistance, center.z + cameraDistance);
+                    
                     const uiPanel = document.getElementById('ui-panel');
                     uiPanel.style.display = 'block';
-                    uiPanel.innerText = `Focus: ${targetId.replace('obj_', '').split('_')[0]}`; 
-                } else if (!targetId) {
-                    // Cadrage par défaut si aucun QR code n'est ciblé
+                    uiPanel.innerText = targetId.replace('obj_', '').split('_')[0].toUpperCase();
+                } else {
                     const box = new THREE.Box3().setFromObject(model);
-                    const center = box.getCenter(new THREE.Vector3());
+                    const center = new THREE.Vector3();
+                    box.getCenter(center);
                     controls.target.copy(center);
-                    camera.position.set(center.x + 2, center.y + 2, center.z + 2);
-                    controls.update();
+                    camera.position.set(center.x + 3, center.y + 3, center.z + 3);
                 }
 
+                document.getElementById('loader').style.display = 'none';
             });
 
             window.addEventListener('resize', onWindowResize, false);
