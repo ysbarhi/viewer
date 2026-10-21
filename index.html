@@ -8,8 +8,9 @@
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #121212; /* Fond très sombre "dans le vide" */
+            background-color: #ffffff; /* Fond Blanc */
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333333;
         }
         #canvas-container {
             width: 100vw;
@@ -19,18 +20,17 @@
         #loader {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #121212;
+            background-color: #ffffff;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            color: #ffffff;
             z-index: 999;
             transition: opacity 0.5s ease;
         }
         .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            border-top: 4px solid #ffcc00;
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-top: 4px solid #ff4400; /* Spinner de couleur vive */
             border-radius: 50%;
             width: 50px;
             height: 50px;
@@ -46,16 +46,16 @@
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(30, 30, 30, 0.85);
-            border: 1px solid #ffcc00;
-            color: white;
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid #ff4400;
+            color: #333333;
             padding: 12px 24px;
             border-radius: 8px;
             text-align: center;
             pointer-events: none;
             font-size: 15px;
             font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
         }
     </style>
     <script type="importmap">
@@ -94,11 +94,11 @@
         function init() {
             const container = document.getElementById('canvas-container');
 
-            // Scène "dans le vide"
+            // Scène sur fond blanc
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x121212);
+            scene.background = new THREE.Color(0xffffff);
 
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 5000);
             
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -106,15 +106,18 @@
             renderer.outputColorSpace = THREE.SRGBColorSpace; 
             container.appendChild(renderer.domElement);
 
+            // Contrôles
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
+            // CRUCIAL : Désactiver le panoramique force la rotation sur l'objet ciblé uniquement
+            controls.enablePan = false; 
 
-            // Éclairage neutre pour bien voir toutes les pièces
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            // Éclairage ajusté pour le fond blanc
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
 
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
             directionalLight.position.set(10, 20, 15);
             scene.add(directionalLight);
 
@@ -132,32 +135,43 @@
                         if (node.isMesh && node.name.includes(targetId)) {
                             objectFound = true;
                             
-                            // Matériau très voyant pour la pièce scannée
+                            // Matériau orange/rouge vif pour être bien visible sur fond blanc
                             const highlightMaterial = new THREE.MeshStandardMaterial({
-                                color: 0xffcc00,          // Jaune
-                                emissive: 0xffaa00,       // Émission lumineuse
-                                emissiveIntensity: 0.8,
+                                color: 0xff4400,
+                                emissive: 0xcc2200,
+                                emissiveIntensity: 0.4,
                                 roughness: 0.2,
                                 metalness: 0.1,
-                                depthTest: false          // Permet de voir la surbrillance même à travers d'autres objets
+                                depthTest: false // Reste visible à travers les autres objets
                             });
                             
                             node.material = highlightMaterial;
-                            node.renderOrder = 999; // Affiche cet objet en priorité par-dessus les autres
+                            node.renderOrder = 999;
 
-                            // Calcul de la boîte englobante pour centrer et zoomer parfaitement
+                            // Calcul de la taille et du centre
                             const box = new THREE.Box3().setFromObject(node);
                             const center = box.getCenter(new THREE.Vector3());
                             const size = box.getSize(new THREE.Vector3());
                             
-                            // On centre la rotation sur la pièce
+                            // 1. On verrouille le centre de rotation exactement sur la pièce
                             controls.target.copy(center);
                             
-                            // On recule la caméra proportionnellement à la taille de la pièce
+                            // 2. Calcul mathématique de la distance idéale de la caméra
                             const maxDim = Math.max(size.x, size.y, size.z);
-                            const cameraDistance = maxDim * 2.5; 
+                            const fov = camera.fov * (Math.PI / 180);
+                            // On utilise la trigonométrie pour que l'objet remplisse bien l'écran
+                            let cameraDistance = Math.abs(maxDim / Math.sin(fov / 2));
                             
-                            camera.position.set(center.x + cameraDistance, center.y + cameraDistance, center.z + cameraDistance);
+                            // Placement de la caméra
+                            camera.position.set(
+                                center.x + cameraDistance * 0.6, 
+                                center.y + cameraDistance * 0.6, 
+                                center.z + cameraDistance * 0.8
+                            );
+                            
+                            // On force la caméra à regarder le centre
+                            camera.lookAt(center);
+                            controls.update(); // Met à jour les contrôles immédiatement
                         }
                     });
                 }
@@ -172,13 +186,13 @@
                     const uiPanel = document.getElementById('ui-panel');
                     uiPanel.style.display = 'block';
                     uiPanel.innerText = `Focus: ${targetId.replace('obj_', '').split('_')[0]}`; 
-                    // Affiche uniquement le nom de base sans le timestamp pour plus de lisibilité
                 } else if (!targetId) {
-                    // Centrage global si aucun QR code n'est ciblé
+                    // Cadrage par défaut si aucun QR code n'est ciblé
                     const box = new THREE.Box3().setFromObject(model);
                     const center = box.getCenter(new THREE.Vector3());
                     controls.target.copy(center);
-                    camera.position.set(center.x + 5, center.y + 5, center.z + 5);
+                    camera.position.set(center.x + 2, center.y + 2, center.z + 2);
+                    controls.update();
                 }
 
             });
