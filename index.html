@@ -50,31 +50,40 @@
         }
 
         #scan-btn {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
             background: #000000; color: #ffffff; border: 2px solid #ffffff;
             padding: 12px 25px; border-radius: 30px; font-size: 16px; font-weight: bold;
             box-shadow: 0 6px 12px rgba(0,0,0,0.3); z-index: 100; display: none;
         }
         #scan-btn:active { background: #333333; transform: translateX(-50%) scale(0.95); }
 
-        /* DOUBLE SLIDER UI */
-        #slider-container {
-            position: absolute; bottom: 75px; left: 50%; transform: translateX(-50%);
-            width: 85%; max-width: 350px; background: rgba(0, 0, 0, 0.7);
+        /* UI DES CONTRÔLES (Textures + Sliders) */
+        #controls-container {
+            position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%);
+            width: 85%; max-width: 350px; background: rgba(0, 0, 0, 0.75);
             padding: 15px; border-radius: 15px; display: none; flex-direction: column;
             z-index: 90; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
-        .slider-group {
-            width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 10px;
+        .control-group {
+            width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 12px;
         }
-        .slider-group:last-child { margin-bottom: 0; }
+        .control-group:last-child { margin-bottom: 0; }
         
-        .slider-group label { color: white; font-weight: bold; font-size: 13px; margin-bottom: 5px; }
-        .slider-group input { width: 100%; margin: 0; }
+        .control-group label { color: white; font-weight: bold; font-size: 13px; margin-bottom: 5px; }
+        .control-group input[type="range"] { width: 100%; margin: 0; }
+        
         .slider-labels {
             display: flex; justify-content: space-between; width: 100%;
             color: #ddd; font-size: 11px; font-weight: bold; margin-top: 2px;
         }
+
+        /* Bouton Texture */
+        #texture-btn {
+            width: 100%; padding: 8px; border-radius: 8px; border: none; font-weight: bold;
+            font-size: 14px; cursor: pointer; transition: background 0.2s;
+        }
+        #texture-btn.off { background: #555555; color: #cccccc; }
+        #texture-btn.on { background: #2563eb; color: #ffffff; }
 
         #close-project-btn {
             position: absolute; top: 20px; right: 20px;
@@ -106,7 +115,7 @@
 </head>
 <body>
     <div id="start-menu">
-        <div id="version-badge">VERSION 16.0<br>(Rayon X + Vue Éclatée)</div>
+        <div id="version-badge">VERSION 17.0<br>(Textures + Rayon X + Éclaté)</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb" style="display: none;">
     </div>
@@ -120,16 +129,20 @@
     <div id="ui-panel">PIÈCE : ...</div>
     <div id="canvas-container"></div>
     
-    <!-- Boîte contenant les deux sliders -->
-    <div id="slider-container">
-        <div class="slider-group">
+    <!-- Boîte de contrôles -->
+    <div id="controls-container">
+        <div class="control-group">
+            <label>Matières & Textures</label>
+            <button id="texture-btn" class="off">DÉSACTIVÉ (Gris uni)</button>
+        </div>
+        <div class="control-group">
             <label>Visibilité Globale (Rayon X)</label>
             <input type="range" id="opacity-slider" min="0" max="4" step="1" value="4">
             <div class="slider-labels">
                 <span>10%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
             </div>
         </div>
-        <div class="slider-group">
+        <div class="control-group">
             <label>Vue Éclatée (Explosion)</label>
             <input type="range" id="explode-slider" min="0" max="100" step="1" value="0">
             <div class="slider-labels">
@@ -152,6 +165,11 @@
 
         let scene, camera, renderer, controls, globalModel;
 
+        // États globaux
+        let isTextureOn = false;
+        let currentOpacity = 1.0;
+        const opacityValues = [0.10, 0.25, 0.50, 0.75, 1.0];
+
         const baseMaterial = new THREE.MeshLambertMaterial({ 
             color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, 
             transparent: true, opacity: 1.0 
@@ -166,13 +184,11 @@
             color: 0x000000, transparent: true, opacity: 1.0 
         });
 
-        const opacityValues = [0.10, 0.25, 0.50, 0.75, 1.0];
-
         init();
         animate();
         setupScanner();
         setupFileUploader();
-        setupSliders();
+        setupControls();
 
         function init() {
             const container = document.getElementById('canvas-container');
@@ -202,26 +218,62 @@
             window.addEventListener('resize', onWindowResize, false);
         }
 
-        function setupSliders() {
+        // Fonction centralisée pour appliquer les bons matériaux en fonction des 3 états (Texture, Opacité, Highlight)
+        function updateMaterials() {
+            if (!globalModel) return;
+            
+            baseMaterial.opacity = currentOpacity;
+            edgeMaterial.opacity = currentOpacity;
+
+            globalModel.traverse(function (node) {
+                if (node.isMesh && node.userData.isOriginalMesh) {
+                    if (node.userData.isHighlighted) {
+                        // Reste toujours rouge vif
+                        node.material = highlightMaterial;
+                    } else {
+                        // Alterne entre texture originale ou gris de base
+                        if (isTextureOn && node.userData.originalMaterial) {
+                            node.material = node.userData.originalMaterial;
+                            node.material.opacity = currentOpacity;
+                        } else {
+                            node.material = baseMaterial;
+                        }
+                    }
+                }
+            });
+        }
+
+        function setupControls() {
+            // Bouton Texture
+            const textureBtn = document.getElementById('texture-btn');
+            textureBtn.addEventListener('click', () => {
+                isTextureOn = !isTextureOn;
+                if (isTextureOn) {
+                    textureBtn.classList.remove('off');
+                    textureBtn.classList.add('on');
+                    textureBtn.innerText = 'ACTIVÉ (Textures du fichier)';
+                } else {
+                    textureBtn.classList.remove('on');
+                    textureBtn.classList.add('off');
+                    textureBtn.innerText = 'DÉSACTIVÉ (Gris uni)';
+                }
+                updateMaterials();
+            });
+
             // Slider Opacité
             const opacitySlider = document.getElementById('opacity-slider');
             opacitySlider.addEventListener('input', (e) => {
-                const selectedOpacity = opacityValues[e.target.value];
-                baseMaterial.opacity = selectedOpacity;
-                edgeMaterial.opacity = selectedOpacity;
+                currentOpacity = opacityValues[e.target.value];
+                updateMaterials();
             });
 
             // Slider Explosion
             const explodeSlider = document.getElementById('explode-slider');
             explodeSlider.addEventListener('input', (e) => {
                 if (!globalModel) return;
-                
-                // Calcul de la force d'écartement (le facteur 1.5 permet un bel espacement)
                 const factor = (e.target.value / 100) * 1.5;
-
                 globalModel.traverse(function (node) {
                     if (node.isMesh && node.userData.isOriginalMesh) {
-                        // On remet la pièce à sa place d'origine, puis on l'écarte selon son vecteur d'explosion
                         node.position.copy(node.userData.originalPosition)
                             .addScaledVector(node.userData.explodeDirection, factor);
                     }
@@ -251,14 +303,18 @@
                 }
                 document.getElementById('start-menu').style.display = 'flex';
                 document.getElementById('scan-btn').style.display = 'none';
-                document.getElementById('slider-container').style.display = 'none';
+                document.getElementById('controls-container').style.display = 'none';
                 closeProjectBtn.style.display = 'none';
                 document.getElementById('ui-panel').style.display = 'none';
                 fileInput.value = ""; 
                 
-                // Réinitialiser les sliders
+                // Réinitialiser les états
                 document.getElementById('opacity-slider').value = 4;
                 document.getElementById('explode-slider').value = 0;
+                document.getElementById('texture-btn').className = 'off';
+                document.getElementById('texture-btn').innerText = 'DÉSACTIVÉ (Gris uni)';
+                isTextureOn = false;
+                currentOpacity = 1.0;
                 baseMaterial.opacity = 1.0;
                 edgeMaterial.opacity = 1.0;
             });
@@ -274,32 +330,35 @@
                 scene.add(globalModel);
                 scene.updateMatrixWorld(true);
 
-                // 1. Trouver le centre géométrique de tout le meuble
                 const globalBox = new THREE.Box3().setFromObject(globalModel);
                 const globalCenter = new THREE.Vector3();
                 globalBox.getCenter(globalCenter);
 
-                // 2. Préparer chaque pièce (matériaux et vecteurs d'explosion)
                 globalModel.traverse(function (node) {
                     if (node.isMesh) {
                         node.userData.isOriginalMesh = true;
+                        node.userData.isHighlighted = false;
+                        
+                        // Sauvegarde du matériau original (texture) pour permettre la transparence
+                        node.userData.originalMaterial = node.material.clone();
+                        node.userData.originalMaterial.transparent = true;
+                        node.userData.originalMaterial.polygonOffset = true;
+                        node.userData.originalMaterial.polygonOffsetFactor = 1;
+                        node.userData.originalMaterial.polygonOffsetUnits = 1;
+
+                        // Application du matériau gris par défaut
                         node.material = baseMaterial;
                         const edgesGeometry = new THREE.EdgesGeometry(node.geometry, 30);
                         const edges = new THREE.LineSegments(edgesGeometry, edgeMaterial);
                         node.add(edges);
 
-                        // --- LOGIQUE D'EXPLOSION ---
-                        // Sauvegarder la position de base
+                        // Calculs pour l'explosion
                         node.userData.originalPosition = node.position.clone();
-                        
-                        // Calculer le centre de cette pièce spécifique
                         const meshBox = new THREE.Box3().setFromObject(node);
                         const meshCenter = new THREE.Vector3();
                         meshBox.getCenter(meshCenter);
                         
-                        // Créer un vecteur d'écartement (direction + distance) par rapport au centre global
                         if (node.parent) {
-                            // Si le modèle a des sous-groupes SketchUp complexes, on convertit dans l'espace local
                             const localGlobalCenter = node.parent.worldToLocal(globalCenter.clone());
                             const localMeshCenter = node.parent.worldToLocal(meshCenter.clone());
                             node.userData.explodeDirection = new THREE.Vector3().subVectors(localMeshCenter, localGlobalCenter);
@@ -309,7 +368,6 @@
                     }
                 });
 
-                // Cadrage de la caméra
                 controls.target.copy(globalCenter);
                 const size = new THREE.Vector3();
                 globalBox.getSize(size);
@@ -320,7 +378,7 @@
                 
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('scan-btn').style.display = 'block';
-                document.getElementById('slider-container').style.display = 'flex';
+                document.getElementById('controls-container').style.display = 'flex';
                 document.getElementById('close-project-btn').style.display = 'block';
                 
                 URL.revokeObjectURL(url);
@@ -333,12 +391,14 @@
 
             let targetMeshes = [];
 
+            // Réinitialiser les surbrillances
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
-                    node.material = baseMaterial;
+                    node.userData.isHighlighted = false;
                 }
             });
 
+            // Chercher la pièce
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     let matchFound = false;
@@ -358,16 +418,18 @@
                         current = current.parent;
                     }
                     if (matchFound) {
-                        node.material = highlightMaterial;
+                        node.userData.isHighlighted = true;
                         targetMeshes.push(node);
                     }
                 }
             });
 
+            // Appliquer les matériaux corrects
+            updateMaterials();
+
             if (targetMeshes.length > 0) {
                 const box = new THREE.Box3();
                 targetMeshes.forEach(m => {
-                    // On englobe la position *actuelle* de la pièce (même si elle est explosée)
                     const childBox = new THREE.Box3().setFromObject(m);
                     box.union(childBox);
                 });
