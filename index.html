@@ -4,11 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>Viewer CAO - Lecteur Local</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+
     <style>
         body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
         
-        /* Menu de démarrage */
         #start-menu {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background-color: #e5e5e5; display: flex; flex-direction: column;
@@ -43,14 +50,29 @@
         }
 
         #scan-btn {
-            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
             background: #000000; color: #ffffff; border: 2px solid #ffffff;
             padding: 15px 30px; border-radius: 30px; font-size: 18px; font-weight: bold;
             box-shadow: 0 6px 12px rgba(0,0,0,0.3); z-index: 100; display: none;
         }
         #scan-btn:active { background: #333333; transform: translateX(-50%) scale(0.95); }
 
-        /* Bouton pour changer de projet sans recharger la page */
+        /* NOUVEAU : UI du Slider Rayon X */
+        #slider-container {
+            position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+            width: 85%; max-width: 350px; background: rgba(0, 0, 0, 0.7);
+            padding: 15px; border-radius: 15px; display: none; flex-direction: column;
+            align-items: center; z-index: 90; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        #slider-container label {
+            color: white; font-weight: bold; font-size: 14px; margin-bottom: 10px;
+        }
+        #opacity-slider { width: 100%; margin: 0; }
+        .slider-labels {
+            display: flex; justify-content: space-between; width: 100%;
+            color: white; font-size: 12px; font-weight: bold; margin-top: 5px;
+        }
+
         #close-project-btn {
             position: absolute; top: 20px; right: 20px;
             background: #666; color: white; border: none; padding: 10px; border-radius: 5px;
@@ -78,16 +100,10 @@
             }
         }
     </script>
-    <link rel="manifest" href="manifest.json">
-<script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js');
-    }
-</script>
 </head>
 <body>
     <div id="start-menu">
-        <div id="version-badge">VERSION 14.0<br>(Application Autonome)</div>
+        <div id="version-badge">VERSION 15.0<br>(Application Autonome + Rayon X)</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb" style="display: none;">
     </div>
@@ -101,6 +117,15 @@
     <div id="ui-panel">PIÈCE : ...</div>
     <div id="canvas-container"></div>
     
+    <!-- Nouveau Slider -->
+    <div id="slider-container">
+        <label>Visibilité Globale (Rayon X)</label>
+        <input type="range" id="opacity-slider" min="0" max="4" step="1" value="4">
+        <div class="slider-labels">
+            <span>10%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+        </div>
+    </div>
+
     <button id="scan-btn">📷 SCANNER</button>
 
     <div id="reader-container">
@@ -115,21 +140,36 @@
 
         let scene, camera, renderer, controls, globalModel;
 
-        const baseMaterial = new THREE.MeshLambertMaterial({ color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
-        const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
-        const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
+        // Base material is now transparent to allow X-Ray
+        const baseMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, 
+            transparent: true, opacity: 1.0 
+        });
+        
+        // Highlight material is solid (transparent: false) so it never fades
+        const highlightMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xff0000, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+            transparent: false, opacity: 1.0
+        });
+        
+        // Edges match the base transparency
+        const edgeMaterial = new THREE.LineBasicMaterial({ 
+            color: 0x000000, transparent: true, opacity: 1.0 
+        });
+
+        // Tableau des valeurs d'opacité correspondant aux 5 crans du slider
+        const opacityValues = [0.10, 0.25, 0.50, 0.75, 1.0];
 
         init();
         animate();
         setupScanner();
         setupFileUploader();
+        setupSlider();
 
         function init() {
             const container = document.getElementById('canvas-container');
-
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0xe5e5e5);
-
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.0001, 10000);
             
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -154,7 +194,15 @@
             window.addEventListener('resize', onWindowResize, false);
         }
 
-        // --- NOUVEAU : GESTION DU FICHIER LOCAL ---
+        function setupSlider() {
+            const slider = document.getElementById('opacity-slider');
+            slider.addEventListener('input', (e) => {
+                const selectedOpacity = opacityValues[e.target.value];
+                baseMaterial.opacity = selectedOpacity;
+                edgeMaterial.opacity = selectedOpacity;
+            });
+        }
+
         function setupFileUploader() {
             const fileBtn = document.getElementById('file-btn');
             const fileInput = document.getElementById('file-input');
@@ -177,9 +225,15 @@
                 }
                 document.getElementById('start-menu').style.display = 'flex';
                 document.getElementById('scan-btn').style.display = 'none';
+                document.getElementById('slider-container').style.display = 'none';
                 closeProjectBtn.style.display = 'none';
                 document.getElementById('ui-panel').style.display = 'none';
-                fileInput.value = ""; // Réinitialise l'input
+                fileInput.value = ""; 
+                
+                // Reset materials to 100%
+                document.getElementById('opacity-slider').value = 4;
+                baseMaterial.opacity = 1.0;
+                edgeMaterial.opacity = 1.0;
             });
         }
 
@@ -217,14 +271,13 @@
                 
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('scan-btn').style.display = 'block';
+                document.getElementById('slider-container').style.display = 'flex';
                 document.getElementById('close-project-btn').style.display = 'block';
                 
-                // Nettoyage de la mémoire du navigateur
                 URL.revokeObjectURL(url);
             });
         }
 
-        // --- MOTEUR DE RECHERCHE ---
         function highlightScannedPart(scannedText) {
             const rawScan = scannedText.toLowerCase();
             const cleanScan = rawScan.replace(/[^a-z0-9]/g, '');
@@ -288,7 +341,6 @@
             }
         }
 
-        // --- SCANNER ---
         function setupScanner() {
             const scanBtn = document.getElementById('scan-btn');
             const closeBtn = document.getElementById('close-scan-btn');
