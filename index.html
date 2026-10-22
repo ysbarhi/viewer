@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Viewer CAO - Lecteur Local</title>
+    <title>Viewer CAO - UI Pro</title>
     
     <link rel="manifest" href="manifest.json">
     <script>
@@ -38,59 +38,62 @@
             border-top: 4px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
         #version-badge { font-weight: bold; font-size: 18px; color: #333; text-align: center; }
+
+        /* UI MOCKUP ELEMENTS */
+        .ui-element {
+            display: none; position: absolute; z-index: 100;
+        }
         
+        /* Top Left - Close Button */
+        #close-project-btn {
+            top: 20px; left: 20px; width: 45px; height: 45px;
+            background: #666; border-radius: 50%; border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); cursor: pointer;
+            display: none; align-items: center; justify-content: center;
+        }
+        
+        /* Bottom Left - Vertical Explode Slider */
+        #explode-slider-container {
+            bottom: 40px; left: 20px; height: 180px; width: 40px;
+            display: none; flex-direction: column; align-items: center;
+        }
+        #explode-slider {
+            -webkit-appearance: slider-vertical;
+            width: 8px; height: 180px; margin: 0; background: transparent; cursor: pointer;
+        }
+
+        /* Bottom Center - Toggles */
+        .floating-btn {
+            width: 60px; height: 60px; border-radius: 50%; background: #ffffff;
+            border: none; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: background 0.2s;
+        }
+        .floating-btn.active { background: #dbeafe; border: 2px solid #2563eb; }
+        
+        #texture-btn { bottom: 40px; left: calc(50% - 75px); }
+        #xray-btn { bottom: 40px; left: calc(50% + 15px); }
+
+        /* Bottom Right - Scanner */
+        #scan-btn {
+            bottom: 40px; right: 20px; width: 70px; height: 70px;
+            background: #888; border: 2px solid #fff;
+        }
+        
+        /* Middle Right - Zoom Focus */
+        #zoom-btn {
+            bottom: 130px; right: 25px;
+        }
+
+        /* Top Center - Target UI */
         #ui-panel {
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            top: 20px; left: 50%; transform: translateX(-50%);
             background: #ffffff; border: 2px solid #ff0000; color: #000; 
             padding: 10px 20px; border-radius: 5px; font-weight: bold; font-size: 16px;
             pointer-events: none; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            z-index: 50; display: none;
         }
 
-        #scan-btn {
-            position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
-            background: #000000; color: #ffffff; border: 2px solid #ffffff;
-            padding: 12px 25px; border-radius: 30px; font-size: 16px; font-weight: bold;
-            box-shadow: 0 6px 12px rgba(0,0,0,0.3); z-index: 100; display: none;
-        }
-        #scan-btn:active { background: #333333; transform: translateX(-50%) scale(0.95); }
-
-        /* UI DES CONTRÔLES (Textures + Sliders) */
-        #controls-container {
-            position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%);
-            width: 85%; max-width: 350px; background: rgba(0, 0, 0, 0.75);
-            padding: 15px; border-radius: 15px; display: none; flex-direction: column;
-            z-index: 90; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-        .control-group {
-            width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 12px;
-        }
-        .control-group:last-child { margin-bottom: 0; }
-        
-        .control-group label { color: white; font-weight: bold; font-size: 13px; margin-bottom: 5px; }
-        .control-group input[type="range"] { width: 100%; margin: 0; }
-        
-        .slider-labels {
-            display: flex; justify-content: space-between; width: 100%;
-            color: #ddd; font-size: 11px; font-weight: bold; margin-top: 2px;
-        }
-
-        /* Bouton Texture */
-        #texture-btn {
-            width: 100%; padding: 8px; border-radius: 8px; border: none; font-weight: bold;
-            font-size: 14px; cursor: pointer; transition: background 0.2s;
-        }
-        #texture-btn.off { background: #555555; color: #cccccc; }
-        #texture-btn.on { background: #2563eb; color: #ffffff; }
-
-        #close-project-btn {
-            position: absolute; top: 20px; right: 20px;
-            background: #666; color: white; border: none; padding: 10px; border-radius: 5px;
-            font-weight: bold; z-index: 50; display: none;
-        }
-
+        /* Scanner Camera Layer */
         #reader-container {
             display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
             background: #000000; z-index: 1000;
@@ -103,7 +106,6 @@
     </style>
     
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    
     <script type="importmap">
         {
             "imports": {
@@ -115,7 +117,7 @@
 </head>
 <body>
     <div id="start-menu">
-        <div id="version-badge">VERSION 17.0<br>(Textures + Rayon X + Éclaté)</div>
+        <div id="version-badge">VERSION 18.0<br>(UI Maquette Pro)</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb" style="display: none;">
     </div>
@@ -125,34 +127,50 @@
         <div style="font-weight: bold; color: #333;">Préparation de la 3D...</div>
     </div>
     
-    <button id="close-project-btn">✕ Fermer le projet</button>
-    <div id="ui-panel">PIÈCE : ...</div>
-    <div id="canvas-container"></div>
+    <div id="ui-panel" class="ui-element">PIÈCE : ...</div>
     
-    <!-- Boîte de contrôles -->
-    <div id="controls-container">
-        <div class="control-group">
-            <label>Matières & Textures</label>
-            <button id="texture-btn" class="off">DÉSACTIVÉ (Gris uni)</button>
-        </div>
-        <div class="control-group">
-            <label>Visibilité Globale (Rayon X)</label>
-            <input type="range" id="opacity-slider" min="0" max="4" step="1" value="4">
-            <div class="slider-labels">
-                <span>10%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
-            </div>
-        </div>
-        <div class="control-group">
-            <label>Vue Éclatée (Explosion)</label>
-            <input type="range" id="explode-slider" min="0" max="100" step="1" value="0">
-            <div class="slider-labels">
-                <span>Assemblé</span><span>Éclaté</span>
-            </div>
-        </div>
+    <!-- Top Left Close -->
+    <button id="close-project-btn" class="ui-element">
+        <svg viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    
+    <!-- Bottom Left Vertical Slider -->
+    <div id="explode-slider-container" class="ui-element">
+        <input type="range" id="explode-slider" min="0" max="100" step="1" value="0" orient="vertical">
     </div>
 
-    <button id="scan-btn">📷 SCANNER</button>
+    <!-- Bottom Center Toggles -->
+    <button id="texture-btn" class="floating-btn ui-element">
+        <svg viewBox="0 0 24 24" width="35" height="35">
+            <path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z" fill="#555"/>
+            <path d="M12 22l9-4.5v-9L12 13l-9-4.5v9L12 22z" fill="#333"/>
+            <path d="M12 13L3 8.5l9-4.5 9 4.5L12 13z" fill="#777"/>
+        </svg>
+    </button>
+    <button id="xray-btn" class="floating-btn ui-element">
+        <svg viewBox="0 0 24 24" width="35" height="35" fill="none" stroke="#555" stroke-width="2.5">
+            <path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z"/><path d="M12 22L12 13"/><path d="M12 13L3 8.5"/><path d="M12 13L21 8.5"/>
+        </svg>
+    </button>
 
+    <!-- Bottom Right Scanner -->
+    <button id="scan-btn" class="floating-btn ui-element">
+        <svg viewBox="0 0 24 24" width="40" height="40" stroke="white" stroke-width="2" fill="none">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2M19 5a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M5 21a2 2 0 0 1-2-2v-2"/>
+            <circle cx="12" cy="12" r="2" fill="white"/>
+        </svg>
+    </button>
+    
+    <!-- Middle Right Zoom -->
+    <button id="zoom-btn" class="floating-btn ui-element">
+        <svg viewBox="0 0 24 24" width="30" height="30" stroke="#555" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+    </button>
+
+    <div id="canvas-container"></div>
+    
     <div id="reader-container">
         <button id="close-scan-btn">Annuler</button>
         <div id="reader"></div>
@@ -165,30 +183,27 @@
 
         let scene, camera, renderer, controls, globalModel;
 
-        // États globaux
+        // États UI
         let isTextureOn = false;
-        let currentOpacity = 1.0;
-        const opacityValues = [0.10, 0.25, 0.50, 0.75, 1.0];
+        let isXrayOn = false;
 
         const baseMaterial = new THREE.MeshLambertMaterial({ 
             color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, 
             transparent: true, opacity: 1.0 
         });
-        
         const highlightMaterial = new THREE.MeshBasicMaterial({ 
             color: 0xff0000, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
             transparent: false, opacity: 1.0
         });
-        
         const edgeMaterial = new THREE.LineBasicMaterial({ 
             color: 0x000000, transparent: true, opacity: 1.0 
         });
 
         init();
         animate();
+        setupUI();
         setupScanner();
         setupFileUploader();
-        setupControls();
 
         function init() {
             const container = document.getElementById('canvas-container');
@@ -218,23 +233,20 @@
             window.addEventListener('resize', onWindowResize, false);
         }
 
-        // Fonction centralisée pour appliquer les bons matériaux en fonction des 3 états (Texture, Opacité, Highlight)
         function updateMaterials() {
             if (!globalModel) return;
-            
-            baseMaterial.opacity = currentOpacity;
-            edgeMaterial.opacity = currentOpacity;
+            const targetOpacity = isXrayOn ? 0.25 : 1.0;
+            baseMaterial.opacity = targetOpacity;
+            edgeMaterial.opacity = targetOpacity;
 
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     if (node.userData.isHighlighted) {
-                        // Reste toujours rouge vif
                         node.material = highlightMaterial;
                     } else {
-                        // Alterne entre texture originale ou gris de base
                         if (isTextureOn && node.userData.originalMaterial) {
                             node.material = node.userData.originalMaterial;
-                            node.material.opacity = currentOpacity;
+                            node.material.opacity = targetOpacity;
                         } else {
                             node.material = baseMaterial;
                         }
@@ -243,31 +255,49 @@
             });
         }
 
-        function setupControls() {
-            // Bouton Texture
+        function focusCameraOnModel() {
+            if (!globalModel) return;
+            const globalBox = new THREE.Box3().setFromObject(globalModel);
+            const globalCenter = new THREE.Vector3();
+            globalBox.getCenter(globalCenter);
+            controls.target.copy(globalCenter);
+            
+            const size = new THREE.Vector3();
+            globalBox.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            camera.position.set(globalCenter.x + maxDim, globalCenter.y + maxDim, globalCenter.z + maxDim);
+            controls.update();
+        }
+
+        function showUIElements(show) {
+            const elements = document.querySelectorAll('.ui-element:not(#ui-panel)');
+            elements.forEach(el => el.style.display = show ? (el.id === 'explode-slider-container' ? 'flex' : 'flex') : 'none');
+            if(!show) document.getElementById('ui-panel').style.display = 'none';
+        }
+
+        function setupUI() {
+            // Bouton Focus Camera
+            document.getElementById('zoom-btn').addEventListener('click', () => {
+                focusCameraOnModel();
+            });
+
+            // Bouton Texture (Toggle)
             const textureBtn = document.getElementById('texture-btn');
             textureBtn.addEventListener('click', () => {
                 isTextureOn = !isTextureOn;
-                if (isTextureOn) {
-                    textureBtn.classList.remove('off');
-                    textureBtn.classList.add('on');
-                    textureBtn.innerText = 'ACTIVÉ (Textures du fichier)';
-                } else {
-                    textureBtn.classList.remove('on');
-                    textureBtn.classList.add('off');
-                    textureBtn.innerText = 'DÉSACTIVÉ (Gris uni)';
-                }
+                textureBtn.classList.toggle('active', isTextureOn);
                 updateMaterials();
             });
 
-            // Slider Opacité
-            const opacitySlider = document.getElementById('opacity-slider');
-            opacitySlider.addEventListener('input', (e) => {
-                currentOpacity = opacityValues[e.target.value];
+            // Bouton Rayon X (Toggle 25%)
+            const xrayBtn = document.getElementById('xray-btn');
+            xrayBtn.addEventListener('click', () => {
+                isXrayOn = !isXrayOn;
+                xrayBtn.classList.toggle('active', isXrayOn);
                 updateMaterials();
             });
 
-            // Slider Explosion
+            // Slider Éclatement (Vertical)
             const explodeSlider = document.getElementById('explode-slider');
             explodeSlider.addEventListener('input', (e) => {
                 if (!globalModel) return;
@@ -302,19 +332,15 @@
                     globalModel = null;
                 }
                 document.getElementById('start-menu').style.display = 'flex';
-                document.getElementById('scan-btn').style.display = 'none';
-                document.getElementById('controls-container').style.display = 'none';
-                closeProjectBtn.style.display = 'none';
-                document.getElementById('ui-panel').style.display = 'none';
+                showUIElements(false);
                 fileInput.value = ""; 
                 
-                // Réinitialiser les états
-                document.getElementById('opacity-slider').value = 4;
+                // Reset UI states
                 document.getElementById('explode-slider').value = 0;
-                document.getElementById('texture-btn').className = 'off';
-                document.getElementById('texture-btn').innerText = 'DÉSACTIVÉ (Gris uni)';
+                document.getElementById('texture-btn').classList.remove('active');
+                document.getElementById('xray-btn').classList.remove('active');
                 isTextureOn = false;
-                currentOpacity = 1.0;
+                isXrayOn = false;
                 baseMaterial.opacity = 1.0;
                 edgeMaterial.opacity = 1.0;
             });
@@ -339,20 +365,17 @@
                         node.userData.isOriginalMesh = true;
                         node.userData.isHighlighted = false;
                         
-                        // Sauvegarde du matériau original (texture) pour permettre la transparence
                         node.userData.originalMaterial = node.material.clone();
                         node.userData.originalMaterial.transparent = true;
                         node.userData.originalMaterial.polygonOffset = true;
                         node.userData.originalMaterial.polygonOffsetFactor = 1;
                         node.userData.originalMaterial.polygonOffsetUnits = 1;
 
-                        // Application du matériau gris par défaut
                         node.material = baseMaterial;
                         const edgesGeometry = new THREE.EdgesGeometry(node.geometry, 30);
                         const edges = new THREE.LineSegments(edgesGeometry, edgeMaterial);
                         node.add(edges);
 
-                        // Calculs pour l'explosion
                         node.userData.originalPosition = node.position.clone();
                         const meshBox = new THREE.Box3().setFromObject(node);
                         const meshCenter = new THREE.Vector3();
@@ -368,18 +391,10 @@
                     }
                 });
 
-                controls.target.copy(globalCenter);
-                const size = new THREE.Vector3();
-                globalBox.getSize(size);
-                const maxDim = Math.max(size.x, size.y, size.z);
-                camera.position.set(globalCenter.x + maxDim, globalCenter.y + maxDim, globalCenter.z + maxDim);
-
-                controls.update();
+                focusCameraOnModel();
                 
                 document.getElementById('loader').style.display = 'none';
-                document.getElementById('scan-btn').style.display = 'block';
-                document.getElementById('controls-container').style.display = 'flex';
-                document.getElementById('close-project-btn').style.display = 'block';
+                showUIElements(true);
                 
                 URL.revokeObjectURL(url);
             });
@@ -388,17 +403,14 @@
         function highlightScannedPart(scannedText) {
             const rawScan = scannedText.toLowerCase();
             const cleanScan = rawScan.replace(/[^a-z0-9]/g, '');
-
             let targetMeshes = [];
 
-            // Réinitialiser les surbrillances
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     node.userData.isHighlighted = false;
                 }
             });
 
-            // Chercher la pièce
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     let matchFound = false;
@@ -424,7 +436,6 @@
                 }
             });
 
-            // Appliquer les matériaux corrects
             updateMaterials();
 
             if (targetMeshes.length > 0) {
