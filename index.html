@@ -60,7 +60,7 @@
 <body>
     <div id="loader">
         <div class="spinner"></div>
-        <div id="version-badge">VERSION 11.0<br>(Recherche Intelligente)</div>
+        <div id="version-badge">VERSION 12.0<br>(Filtre Alphanumérique pur)</div>
     </div>
     
     <div id="ui-panel">PIÈCE : ...</div>
@@ -151,9 +151,8 @@
         }
 
         function highlightScannedPart(scannedText) {
-            const rawScan = scannedText.trim().toLowerCase();
-            // Traduit "1.1" en "1_1" car l'exportateur GLTF remplace souvent les points par des underscores
-            const normalizedScan = rawScan.replace(/\./g, '_');
+            // Nettoyage extrême : on ne garde que les lettres et les chiffres
+            const rawScan = scannedText.toLowerCase();
             const cleanScan = rawScan.replace(/[^a-z0-9]/g, '');
 
             let targetMeshes = [];
@@ -165,7 +164,7 @@
                 }
             });
 
-            // 2. Recherche intelligente dans toute l'arborescence (Groupes et Composants)
+            // 2. Recherche intelligente
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     let matchFound = false;
@@ -174,19 +173,25 @@
                     while (current && current !== globalModel) {
                         if (current.name) {
                             const rawName = current.name.toLowerCase();
-                            const normalizedName = rawName.replace(/\./g, '_');
+                            // Même nettoyage sur le nom SketchUp
                             const cleanName = rawName.replace(/[^a-z0-9]/g, '');
                             
-                            // Si le scan est "1.1", on matche avec "1.1", "1_1", ou si le nom le contient
-                            if (rawName === rawScan || normalizedName === normalizedScan || normalizedName.includes(normalizedScan)) {
-                                matchFound = true;
-                                break;
-                            }
-                            
-                            // Tolérance si le nom contient plus d'infos (ex: "1.1 Cote" contient "Cote")
-                            if (cleanName.length > 2 && cleanScan.includes(cleanName)) {
-                                matchFound = true;
-                                break;
+                            if (cleanName.length > 0) {
+                                // Correspondance exacte après nettoyage
+                                if (cleanName === cleanScan) {
+                                    matchFound = true;
+                                    break;
+                                }
+                                // Le scan contient le nom de la pièce (ex: scan = "11cotegauche", nom = "cotegauche")
+                                else if (cleanName.length > 3 && cleanScan.includes(cleanName)) {
+                                    matchFound = true;
+                                    break;
+                                }
+                                // Le nom de la pièce contient le scan (ex: nom = "11cotegauche", scan = "cotegauche")
+                                else if (cleanScan.length > 3 && cleanName.includes(cleanScan)) {
+                                    matchFound = true;
+                                    break;
+                                }
                             }
                         }
                         current = current.parent;
@@ -200,7 +205,6 @@
             });
 
             if (targetMeshes.length > 0) {
-                // Création d'une boîte englobante de toutes les parties de la pièce trouvée
                 const box = new THREE.Box3();
                 targetMeshes.forEach(m => {
                     const childBox = new THREE.Box3().setFromObject(m);
@@ -220,9 +224,9 @@
                 
                 const uiPanel = document.getElementById('ui-panel');
                 uiPanel.style.display = 'block';
-                uiPanel.innerText = `CIBLE : ${scannedText.toUpperCase()}`;
+                uiPanel.innerText = `CIBLE : ${scannedText.replace(/[^a-zA-Z0-9_-]/g, ' ').trim()}`;
             } else {
-                alert("Pièce introuvable dans la 3D.\nCode lu : " + scannedText + "\n\nVérifiez que ce nom existe bien dans le modèle assemblé de SketchUp.");
+                alert("Pièce introuvable dans la 3D.\nCode lu : " + scannedText);
             }
         }
 
