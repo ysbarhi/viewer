@@ -316,6 +316,19 @@
             const fileInput = document.getElementById('file-input');
             const closeProjectBtn = document.getElementById('close-project-btn');
 
+            // --- NOUVEAU : Interception de l'ouverture depuis l'explorateur Android ---
+            if ('launchQueue' in window) {
+                window.launchQueue.setConsumer(async (launchParams) => {
+                    if (launchParams.files && launchParams.files.length > 0) {
+                        const fileHandle = launchParams.files[0];
+                        const file = await fileHandle.getFile();
+                        const objectUrl = URL.createObjectURL(file);
+                        loadModelFromUrl(objectUrl);
+                    }
+                });
+            }
+
+            // Ouverture manuelle (Bouton standard)
             fileBtn.addEventListener('click', () => fileInput.click());
 
             fileInput.addEventListener('change', function(event) {
@@ -335,7 +348,6 @@
                 showUIElements(false);
                 fileInput.value = ""; 
                 
-                // Reset UI states
                 document.getElementById('explode-slider').value = 0;
                 document.getElementById('texture-btn').classList.remove('active');
                 document.getElementById('xray-btn').classList.remove('active');
