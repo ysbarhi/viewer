@@ -1,9 +1,297 @@
-function setupFileUploader() {
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Viewer CAO - UI Pro</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; }
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+        
+        #start-menu {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #e5e5e5; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 900;
+        }
+        #file-btn {
+            background: #2563eb; color: #ffffff; border: none;
+            padding: 15px 30px; border-radius: 10px; font-size: 18px; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 20px;
+        }
+        #file-btn:active { background: #1d4ed8; transform: scale(0.98); }
+        
+        #loader {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(229, 229, 229, 0.9); display: none; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 999;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 4px solid #bbb;
+            border-top: 4px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #version-badge { font-weight: bold; font-size: 18px; color: #333; text-align: center; }
+
+        /* UI MOCKUP ELEMENTS */
+        .ui-element { display: none; position: absolute; z-index: 100; }
+        
+        #close-project-btn {
+            top: 20px; left: 20px; width: 45px; height: 45px;
+            background: #666; border-radius: 50%; border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); cursor: pointer;
+            display: none; align-items: center; justify-content: center;
+        }
+        
+        #explode-slider-container {
+            bottom: 40px; left: 20px; height: 180px; width: 40px;
+            display: none; flex-direction: column; align-items: center;
+        }
+        #explode-slider {
+            -webkit-appearance: slider-vertical;
+            width: 8px; height: 180px; margin: 0; background: transparent; cursor: pointer;
+        }
+
+        .floating-btn {
+            width: 60px; height: 60px; border-radius: 50%; background: #ffffff;
+            border: none; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: background 0.2s;
+        }
+        .floating-btn.active { background: #dbeafe; border: 2px solid #2563eb; }
+        
+        #texture-btn { bottom: 40px; left: calc(50% - 75px); }
+        #xray-btn { bottom: 40px; left: calc(50% + 15px); }
+
+        #scan-btn {
+            bottom: 40px; right: 20px; width: 70px; height: 70px;
+            background: #888; border: 2px solid #fff;
+        }
+        
+        #zoom-btn { bottom: 130px; right: 25px; }
+
+        #ui-panel {
+            top: 20px; left: 50%; transform: translateX(-50%);
+            background: #ffffff; border: 2px solid #ff0000; color: #000; 
+            padding: 10px 20px; border-radius: 5px; font-weight: bold; font-size: 16px;
+            pointer-events: none; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        #reader-container {
+            display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000000; z-index: 1000;
+        }
+        #close-scan-btn {
+            position: absolute; top: 20px; right: 20px; background: #ff0000; color: white;
+            border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; z-index: 1001;
+        }
+        #reader { width: 100vw; height: 100vh; }
+    </style>
+    
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="start-menu">
+        <div id="version-badge">VERSION 20.0<br>(Partage Android Activé)</div>
+        <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
+        <input type="file" id="file-input" accept=".glb" style="display: none;">
+    </div>
+
+    <div id="loader">
+        <div class="spinner"></div>
+        <div style="font-weight: bold; color: #333;">Préparation de la 3D...</div>
+    </div>
+    
+    <div id="ui-panel" class="ui-element">PIÈCE : ...</div>
+    
+    <button id="close-project-btn" class="ui-element">
+        <svg viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    
+    <div id="explode-slider-container" class="ui-element">
+        <input type="range" id="explode-slider" min="0" max="100" step="1" value="0" orient="vertical">
+    </div>
+
+    <button id="texture-btn" class="floating-btn ui-element">
+        <svg viewBox="0 0 24 24" width="35" height="35">
+            <path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z" fill="#555"/>
+            <path d="M12 22l9-4.5v-9L12 13l-9-4.5v9L12 22z" fill="#333"/>
+            <path d="M12 13L3 8.5l9-4.5 9 4.5L12 13z" fill="#777"/>
+        </svg>
+    </button>
+    <button id="xray-btn" class="floating-btn ui-element">
+        <svg viewBox="0 0 24 24" width="35" height="35" fill="none" stroke="#555" stroke-width="2.5">
+            <path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z"/><path d="M12 22L12 13"/><path d="M12 13L3 8.5"/><path d="M12 13L21 8.5"/>
+        </svg>
+    </button>
+
+    <button id="scan-btn" class="floating-btn ui-element">
+        <svg viewBox="0 0 24 24" width="40" height="40" stroke="white" stroke-width="2" fill="none">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2M19 5a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M5 21a2 2 0 0 1-2-2v-2"/>
+            <circle cx="12" cy="12" r="2" fill="white"/>
+        </svg>
+    </button>
+    
+    <button id="zoom-btn" class="floating-btn ui-element">
+        <svg viewBox="0 0 24 24" width="30" height="30" stroke="#555" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+    </button>
+
+    <div id="canvas-container"></div>
+    
+    <div id="reader-container">
+        <button id="close-scan-btn">Annuler</button>
+        <div id="reader"></div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        let scene, camera, renderer, controls, globalModel;
+        let isTextureOn = false;
+        let isXrayOn = false;
+
+        const baseMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, 
+            transparent: true, opacity: 1.0 
+        });
+        const highlightMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xff0000, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+            transparent: false, opacity: 1.0
+        });
+        const edgeMaterial = new THREE.LineBasicMaterial({ 
+            color: 0x000000, transparent: true, opacity: 1.0 
+        });
+
+        init();
+        animate();
+        setupUI();
+        setupScanner();
+        setupFileUploader();
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xe5e5e5);
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.0001, 10000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.1;
+            controls.enablePan = true; 
+            controls.screenSpacePanning = true; 
+            controls.minDistance = 0.00001; 
+            controls.zoomSpeed = 2.5; 
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function updateMaterials() {
+            if (!globalModel) return;
+            const targetOpacity = isXrayOn ? 0.25 : 1.0;
+            baseMaterial.opacity = targetOpacity;
+            edgeMaterial.opacity = targetOpacity;
+
+            globalModel.traverse(function (node) {
+                if (node.isMesh && node.userData.isOriginalMesh) {
+                    if (node.userData.isHighlighted) {
+                        node.material = highlightMaterial;
+                    } else {
+                        if (isTextureOn && node.userData.originalMaterial) {
+                            node.material = node.userData.originalMaterial;
+                            node.material.opacity = targetOpacity;
+                        } else {
+                            node.material = baseMaterial;
+                        }
+                    }
+                }
+            });
+        }
+
+        function focusCameraOnModel() {
+            if (!globalModel) return;
+            const globalBox = new THREE.Box3().setFromObject(globalModel);
+            const globalCenter = new THREE.Vector3();
+            globalBox.getCenter(globalCenter);
+            controls.target.copy(globalCenter);
+            
+            const size = new THREE.Vector3();
+            globalBox.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            camera.position.set(globalCenter.x + maxDim, globalCenter.y + maxDim, globalCenter.z + maxDim);
+            controls.update();
+        }
+
+        function showUIElements(show) {
+            const elements = document.querySelectorAll('.ui-element:not(#ui-panel)');
+            elements.forEach(el => el.style.display = show ? (el.id === 'explode-slider-container' ? 'flex' : 'flex') : 'none');
+            if(!show) document.getElementById('ui-panel').style.display = 'none';
+        }
+
+        function setupUI() {
+            document.getElementById('zoom-btn').addEventListener('click', () => focusCameraOnModel());
+
+            const textureBtn = document.getElementById('texture-btn');
+            textureBtn.addEventListener('click', () => {
+                isTextureOn = !isTextureOn;
+                textureBtn.classList.toggle('active', isTextureOn);
+                updateMaterials();
+            });
+
+            const xrayBtn = document.getElementById('xray-btn');
+            xrayBtn.addEventListener('click', () => {
+                isXrayOn = !isXrayOn;
+                xrayBtn.classList.toggle('active', isXrayOn);
+                updateMaterials();
+            });
+
+            const explodeSlider = document.getElementById('explode-slider');
+            explodeSlider.addEventListener('input', (e) => {
+                if (!globalModel) return;
+                const factor = (e.target.value / 100) * 1.5;
+                globalModel.traverse(function (node) {
+                    if (node.isMesh && node.userData.isOriginalMesh) {
+                        node.position.copy(node.userData.originalPosition)
+                            .addScaledVector(node.userData.explodeDirection, factor);
+                    }
+                });
+            });
+        }
+
+        function setupFileUploader() {
             const fileBtn = document.getElementById('file-btn');
             const fileInput = document.getElementById('file-input');
             const closeProjectBtn = document.getElementById('close-project-btn');
 
-            // --- NOUVEAU : Récupération du fichier via le menu "Partager" d'Android ---
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('shared') === 'true') {
                 caches.open('shared-file-cache').then(cache => {
@@ -12,15 +300,14 @@ function setupFileUploader() {
                             response.blob().then(blob => {
                                 const objectUrl = URL.createObjectURL(blob);
                                 loadModelFromUrl(objectUrl);
-                                cache.delete('/shared-file.glb'); // Nettoyage de la mémoire
-                                window.history.replaceState({}, document.title, "./index.html"); // Nettoyage de l'URL
+                                cache.delete('/shared-file.glb'); 
+                                window.history.replaceState({}, document.title, "./index.html"); 
                             });
                         }
                     });
                 });
             }
 
-            // Ouverture PC (File Handlers)
             if ('launchQueue' in window) {
                 window.launchQueue.setConsumer(async (launchParams) => {
                     if (launchParams.files && launchParams.files.length > 0) {
@@ -32,7 +319,6 @@ function setupFileUploader() {
                 });
             }
 
-            // Ouverture manuelle via le bouton
             fileBtn.addEventListener('click', () => fileInput.click());
 
             fileInput.addEventListener('change', function(event) {
@@ -61,3 +347,169 @@ function setupFileUploader() {
                 edgeMaterial.opacity = 1.0;
             });
         }
+
+        function loadModelFromUrl(url) {
+            document.getElementById('start-menu').style.display = 'none';
+            document.getElementById('loader').style.display = 'flex';
+
+            const loader = new GLTFLoader();
+            loader.load(url, function (gltf) {
+                globalModel = gltf.scene;
+                scene.add(globalModel);
+                scene.updateMatrixWorld(true);
+
+                const globalBox = new THREE.Box3().setFromObject(globalModel);
+                const globalCenter = new THREE.Vector3();
+                globalBox.getCenter(globalCenter);
+
+                globalModel.traverse(function (node) {
+                    if (node.isMesh) {
+                        node.userData.isOriginalMesh = true;
+                        node.userData.isHighlighted = false;
+                        
+                        node.userData.originalMaterial = node.material.clone();
+                        node.userData.originalMaterial.transparent = true;
+                        node.userData.originalMaterial.polygonOffset = true;
+                        node.userData.originalMaterial.polygonOffsetFactor = 1;
+                        node.userData.originalMaterial.polygonOffsetUnits = 1;
+
+                        node.material = baseMaterial;
+                        const edgesGeometry = new THREE.EdgesGeometry(node.geometry, 30);
+                        const edges = new THREE.LineSegments(edgesGeometry, edgeMaterial);
+                        node.add(edges);
+
+                        node.userData.originalPosition = node.position.clone();
+                        const meshBox = new THREE.Box3().setFromObject(node);
+                        const meshCenter = new THREE.Vector3();
+                        meshBox.getCenter(meshCenter);
+                        
+                        if (node.parent) {
+                            const localGlobalCenter = node.parent.worldToLocal(globalCenter.clone());
+                            const localMeshCenter = node.parent.worldToLocal(meshCenter.clone());
+                            node.userData.explodeDirection = new THREE.Vector3().subVectors(localMeshCenter, localGlobalCenter);
+                        } else {
+                            node.userData.explodeDirection = new THREE.Vector3().subVectors(meshCenter, globalCenter);
+                        }
+                    }
+                });
+
+                focusCameraOnModel();
+                
+                document.getElementById('loader').style.display = 'none';
+                showUIElements(true);
+                
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        function highlightScannedPart(scannedText) {
+            const rawScan = scannedText.toLowerCase();
+            const cleanScan = rawScan.replace(/[^a-z0-9]/g, '');
+            let targetMeshes = [];
+
+            globalModel.traverse(function (node) {
+                if (node.isMesh && node.userData.isOriginalMesh) {
+                    node.userData.isHighlighted = false;
+                }
+            });
+
+            globalModel.traverse(function (node) {
+                if (node.isMesh && node.userData.isOriginalMesh) {
+                    let matchFound = false;
+                    let current = node;
+                    
+                    while (current && current !== globalModel) {
+                        if (current.name) {
+                            const rawName = current.name.toLowerCase();
+                            const cleanName = rawName.replace(/[^a-z0-9]/g, '');
+                            
+                            if (cleanName.length > 0) {
+                                if (cleanName === cleanScan) { matchFound = true; break; }
+                                else if (cleanName.length > 3 && cleanScan.includes(cleanName)) { matchFound = true; break; }
+                                else if (cleanScan.length > 3 && cleanName.includes(cleanScan)) { matchFound = true; break; }
+                            }
+                        }
+                        current = current.parent;
+                    }
+                    if (matchFound) {
+                        node.userData.isHighlighted = true;
+                        targetMeshes.push(node);
+                    }
+                }
+            });
+
+            updateMaterials();
+
+            if (targetMeshes.length > 0) {
+                const box = new THREE.Box3();
+                targetMeshes.forEach(m => {
+                    const childBox = new THREE.Box3().setFromObject(m);
+                    box.union(childBox);
+                });
+
+                const center = new THREE.Vector3();
+                box.getCenter(center);
+                const size = new THREE.Vector3();
+                box.getSize(size);
+
+                controls.target.copy(center);
+
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const cameraDistance = maxDim * 1.5; 
+                camera.position.set(center.x + cameraDistance, center.y + cameraDistance, center.z + cameraDistance);
+                
+                const uiPanel = document.getElementById('ui-panel');
+                uiPanel.style.display = 'block';
+                uiPanel.innerText = `CIBLE : ${scannedText.replace(/[^a-zA-Z0-9_-]/g, ' ').trim()}`;
+            } else {
+                alert("Pièce introuvable dans ce meuble.\nCode lu : " + scannedText);
+            }
+        }
+
+        function setupScanner() {
+            const scanBtn = document.getElementById('scan-btn');
+            const closeBtn = document.getElementById('close-scan-btn');
+            const container = document.getElementById('reader-container');
+            let html5QrCode = null;
+
+            scanBtn.addEventListener('click', () => {
+                container.style.display = 'block';
+                html5QrCode = new Html5Qrcode("reader");
+                
+                html5QrCode.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (decodedText) => {
+                        html5QrCode.stop().then(() => {
+                            container.style.display = 'none';
+                            highlightScannedPart(decodedText);
+                        });
+                    },
+                    (errorMessage) => {}
+                ).catch(err => {
+                    alert("Impossible d'accéder à la caméra.");
+                    container.style.display = 'none';
+                });
+            });
+
+            closeBtn.addEventListener('click', () => {
+                if(html5QrCode) {
+                    html5QrCode.stop().then(() => { container.style.display = 'none'; });
+                }
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
