@@ -12,6 +12,19 @@
       "type": "image/png"
     }
   ],
+  "share_target": {
+    "action": "./index.html",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "shared_file",
+          "accept": [".glb", "model/gltf-binary"]
+        }
+      ]
+    }
+  },
   "file_handlers": [
     {
       "action": "./index.html",
