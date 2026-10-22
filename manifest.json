@@ -20,7 +20,7 @@
       "files": [
         {
           "name": "shared_file",
-          "accept": [".glb", "model/gltf-binary"]
+          "accept": ["*/*", ".glb", "model/gltf-binary", "application/octet-stream"]
         }
       ]
     }
@@ -34,4 +34,3 @@
     }
   ]
 }
- 
