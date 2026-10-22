@@ -3,13 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Viewer CAO - Scanner Intelligent</title>
+    <title>Viewer CAO - Lecteur Local</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
-        #loader {
+        
+        /* Menu de démarrage */
+        #start-menu {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background-color: #e5e5e5; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 900;
+        }
+        #file-btn {
+            background: #2563eb; color: #ffffff; border: none;
+            padding: 15px 30px; border-radius: 10px; font-size: 18px; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 20px;
+        }
+        #file-btn:active { background: #1d4ed8; transform: scale(0.98); }
+        
+        #loader {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(229, 229, 229, 0.9); display: none; flex-direction: column;
             justify-content: center; align-items: center; z-index: 999;
         }
         .spinner {
@@ -17,6 +31,7 @@
             border-top: 4px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
         #version-badge { font-weight: bold; font-size: 18px; color: #333; text-align: center; }
         
         #ui-panel {
@@ -31,9 +46,16 @@
             position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
             background: #000000; color: #ffffff; border: 2px solid #ffffff;
             padding: 15px 30px; border-radius: 30px; font-size: 18px; font-weight: bold;
-            box-shadow: 0 6px 12px rgba(0,0,0,0.3); z-index: 100;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3); z-index: 100; display: none;
         }
         #scan-btn:active { background: #333333; transform: translateX(-50%) scale(0.95); }
+
+        /* Bouton pour changer de projet sans recharger la page */
+        #close-project-btn {
+            position: absolute; top: 20px; right: 20px;
+            background: #666; color: white; border: none; padding: 10px; border-radius: 5px;
+            font-weight: bold; z-index: 50; display: none;
+        }
 
         #reader-container {
             display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -58,11 +80,18 @@
     </script>
 </head>
 <body>
+    <div id="start-menu">
+        <div id="version-badge">VERSION 14.0<br>(Application Autonome)</div>
+        <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
+        <input type="file" id="file-input" accept=".glb" style="display: none;">
+    </div>
+
     <div id="loader">
         <div class="spinner"></div>
-        <div id="version-badge">VERSION 12.0<br>(Filtre Alphanumérique pur)</div>
+        <div style="font-weight: bold; color: #333;">Préparation de la 3D...</div>
     </div>
     
+    <button id="close-project-btn">✕ Fermer le projet</button>
     <div id="ui-panel">PIÈCE : ...</div>
     <div id="canvas-container"></div>
     
@@ -87,6 +116,7 @@
         init();
         animate();
         setupScanner();
+        setupFileUploader();
 
         function init() {
             const container = document.getElementById('canvas-container');
@@ -115,10 +145,44 @@
             dirLight.position.set(10, 20, 10);
             scene.add(dirLight);
 
-            const loader = new GLTFLoader();
-            const modelUrl = 'scene.glb?v=' + new Date().getTime(); 
+            window.addEventListener('resize', onWindowResize, false);
+        }
 
-            loader.load(modelUrl, function (gltf) {
+        // --- NOUVEAU : GESTION DU FICHIER LOCAL ---
+        function setupFileUploader() {
+            const fileBtn = document.getElementById('file-btn');
+            const fileInput = document.getElementById('file-input');
+            const closeProjectBtn = document.getElementById('close-project-btn');
+
+            fileBtn.addEventListener('click', () => fileInput.click());
+
+            fileInput.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const objectUrl = URL.createObjectURL(file);
+                    loadModelFromUrl(objectUrl);
+                }
+            });
+
+            closeProjectBtn.addEventListener('click', () => {
+                if (globalModel) {
+                    scene.remove(globalModel);
+                    globalModel = null;
+                }
+                document.getElementById('start-menu').style.display = 'flex';
+                document.getElementById('scan-btn').style.display = 'none';
+                closeProjectBtn.style.display = 'none';
+                document.getElementById('ui-panel').style.display = 'none';
+                fileInput.value = ""; // Réinitialise l'input
+            });
+        }
+
+        function loadModelFromUrl(url) {
+            document.getElementById('start-menu').style.display = 'none';
+            document.getElementById('loader').style.display = 'flex';
+
+            const loader = new GLTFLoader();
+            loader.load(url, function (gltf) {
                 globalModel = gltf.scene;
                 scene.add(globalModel);
                 scene.updateMatrixWorld(true);
@@ -144,27 +208,29 @@
                 camera.position.set(center.x + maxDim, center.y + maxDim, center.z + maxDim);
 
                 controls.update();
+                
                 document.getElementById('loader').style.display = 'none';
+                document.getElementById('scan-btn').style.display = 'block';
+                document.getElementById('close-project-btn').style.display = 'block';
+                
+                // Nettoyage de la mémoire du navigateur
+                URL.revokeObjectURL(url);
             });
-
-            window.addEventListener('resize', onWindowResize, false);
         }
 
+        // --- MOTEUR DE RECHERCHE ---
         function highlightScannedPart(scannedText) {
-            // Nettoyage extrême : on ne garde que les lettres et les chiffres
             const rawScan = scannedText.toLowerCase();
             const cleanScan = rawScan.replace(/[^a-z0-9]/g, '');
 
             let targetMeshes = [];
 
-            // 1. Remettre tout le meuble en gris
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     node.material = baseMaterial;
                 }
             });
 
-            // 2. Recherche intelligente
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     let matchFound = false;
@@ -173,30 +239,16 @@
                     while (current && current !== globalModel) {
                         if (current.name) {
                             const rawName = current.name.toLowerCase();
-                            // Même nettoyage sur le nom SketchUp
                             const cleanName = rawName.replace(/[^a-z0-9]/g, '');
                             
                             if (cleanName.length > 0) {
-                                // Correspondance exacte après nettoyage
-                                if (cleanName === cleanScan) {
-                                    matchFound = true;
-                                    break;
-                                }
-                                // Le scan contient le nom de la pièce (ex: scan = "11cotegauche", nom = "cotegauche")
-                                else if (cleanName.length > 3 && cleanScan.includes(cleanName)) {
-                                    matchFound = true;
-                                    break;
-                                }
-                                // Le nom de la pièce contient le scan (ex: nom = "11cotegauche", scan = "cotegauche")
-                                else if (cleanScan.length > 3 && cleanName.includes(cleanScan)) {
-                                    matchFound = true;
-                                    break;
-                                }
+                                if (cleanName === cleanScan) { matchFound = true; break; }
+                                else if (cleanName.length > 3 && cleanScan.includes(cleanName)) { matchFound = true; break; }
+                                else if (cleanScan.length > 3 && cleanName.includes(cleanScan)) { matchFound = true; break; }
                             }
                         }
                         current = current.parent;
                     }
-
                     if (matchFound) {
                         node.material = highlightMaterial;
                         targetMeshes.push(node);
@@ -226,10 +278,11 @@
                 uiPanel.style.display = 'block';
                 uiPanel.innerText = `CIBLE : ${scannedText.replace(/[^a-zA-Z0-9_-]/g, ' ').trim()}`;
             } else {
-                alert("Pièce introuvable dans la 3D.\nCode lu : " + scannedText);
+                alert("Pièce introuvable dans ce meuble.\nCode lu : " + scannedText);
             }
         }
 
+        // --- SCANNER ---
         function setupScanner() {
             const scanBtn = document.getElementById('scan-btn');
             const closeBtn = document.getElementById('close-scan-btn');
@@ -251,16 +304,14 @@
                     },
                     (errorMessage) => {}
                 ).catch(err => {
-                    alert("Impossible d'accéder à la caméra. Vérifiez les permissions.");
+                    alert("Impossible d'accéder à la caméra.");
                     container.style.display = 'none';
                 });
             });
 
             closeBtn.addEventListener('click', () => {
                 if(html5QrCode) {
-                    html5QrCode.stop().then(() => {
-                        container.style.display = 'none';
-                    });
+                    html5QrCode.stop().then(() => { container.style.display = 'none'; });
                 }
             });
         }
