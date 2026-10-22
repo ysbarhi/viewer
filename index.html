@@ -50,27 +50,30 @@
         }
 
         #scan-btn {
-            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
             background: #000000; color: #ffffff; border: 2px solid #ffffff;
-            padding: 15px 30px; border-radius: 30px; font-size: 18px; font-weight: bold;
+            padding: 12px 25px; border-radius: 30px; font-size: 16px; font-weight: bold;
             box-shadow: 0 6px 12px rgba(0,0,0,0.3); z-index: 100; display: none;
         }
         #scan-btn:active { background: #333333; transform: translateX(-50%) scale(0.95); }
 
-        /* NOUVEAU : UI du Slider Rayon X */
+        /* DOUBLE SLIDER UI */
         #slider-container {
-            position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 75px; left: 50%; transform: translateX(-50%);
             width: 85%; max-width: 350px; background: rgba(0, 0, 0, 0.7);
             padding: 15px; border-radius: 15px; display: none; flex-direction: column;
-            align-items: center; z-index: 90; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 90; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
-        #slider-container label {
-            color: white; font-weight: bold; font-size: 14px; margin-bottom: 10px;
+        .slider-group {
+            width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 10px;
         }
-        #opacity-slider { width: 100%; margin: 0; }
+        .slider-group:last-child { margin-bottom: 0; }
+        
+        .slider-group label { color: white; font-weight: bold; font-size: 13px; margin-bottom: 5px; }
+        .slider-group input { width: 100%; margin: 0; }
         .slider-labels {
             display: flex; justify-content: space-between; width: 100%;
-            color: white; font-size: 12px; font-weight: bold; margin-top: 5px;
+            color: #ddd; font-size: 11px; font-weight: bold; margin-top: 2px;
         }
 
         #close-project-btn {
@@ -103,7 +106,7 @@
 </head>
 <body>
     <div id="start-menu">
-        <div id="version-badge">VERSION 15.0<br>(Application Autonome + Rayon X)</div>
+        <div id="version-badge">VERSION 16.0<br>(Rayon X + Vue Éclatée)</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb" style="display: none;">
     </div>
@@ -117,12 +120,21 @@
     <div id="ui-panel">PIÈCE : ...</div>
     <div id="canvas-container"></div>
     
-    <!-- Nouveau Slider -->
+    <!-- Boîte contenant les deux sliders -->
     <div id="slider-container">
-        <label>Visibilité Globale (Rayon X)</label>
-        <input type="range" id="opacity-slider" min="0" max="4" step="1" value="4">
-        <div class="slider-labels">
-            <span>10%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+        <div class="slider-group">
+            <label>Visibilité Globale (Rayon X)</label>
+            <input type="range" id="opacity-slider" min="0" max="4" step="1" value="4">
+            <div class="slider-labels">
+                <span>10%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+            </div>
+        </div>
+        <div class="slider-group">
+            <label>Vue Éclatée (Explosion)</label>
+            <input type="range" id="explode-slider" min="0" max="100" step="1" value="0">
+            <div class="slider-labels">
+                <span>Assemblé</span><span>Éclaté</span>
+            </div>
         </div>
     </div>
 
@@ -140,31 +152,27 @@
 
         let scene, camera, renderer, controls, globalModel;
 
-        // Base material is now transparent to allow X-Ray
         const baseMaterial = new THREE.MeshLambertMaterial({ 
             color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, 
             transparent: true, opacity: 1.0 
         });
         
-        // Highlight material is solid (transparent: false) so it never fades
         const highlightMaterial = new THREE.MeshBasicMaterial({ 
             color: 0xff0000, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
             transparent: false, opacity: 1.0
         });
         
-        // Edges match the base transparency
         const edgeMaterial = new THREE.LineBasicMaterial({ 
             color: 0x000000, transparent: true, opacity: 1.0 
         });
 
-        // Tableau des valeurs d'opacité correspondant aux 5 crans du slider
         const opacityValues = [0.10, 0.25, 0.50, 0.75, 1.0];
 
         init();
         animate();
         setupScanner();
         setupFileUploader();
-        setupSlider();
+        setupSliders();
 
         function init() {
             const container = document.getElementById('canvas-container');
@@ -194,12 +202,30 @@
             window.addEventListener('resize', onWindowResize, false);
         }
 
-        function setupSlider() {
-            const slider = document.getElementById('opacity-slider');
-            slider.addEventListener('input', (e) => {
+        function setupSliders() {
+            // Slider Opacité
+            const opacitySlider = document.getElementById('opacity-slider');
+            opacitySlider.addEventListener('input', (e) => {
                 const selectedOpacity = opacityValues[e.target.value];
                 baseMaterial.opacity = selectedOpacity;
                 edgeMaterial.opacity = selectedOpacity;
+            });
+
+            // Slider Explosion
+            const explodeSlider = document.getElementById('explode-slider');
+            explodeSlider.addEventListener('input', (e) => {
+                if (!globalModel) return;
+                
+                // Calcul de la force d'écartement (le facteur 1.5 permet un bel espacement)
+                const factor = (e.target.value / 100) * 1.5;
+
+                globalModel.traverse(function (node) {
+                    if (node.isMesh && node.userData.isOriginalMesh) {
+                        // On remet la pièce à sa place d'origine, puis on l'écarte selon son vecteur d'explosion
+                        node.position.copy(node.userData.originalPosition)
+                            .addScaledVector(node.userData.explodeDirection, factor);
+                    }
+                });
             });
         }
 
@@ -230,8 +256,9 @@
                 document.getElementById('ui-panel').style.display = 'none';
                 fileInput.value = ""; 
                 
-                // Reset materials to 100%
+                // Réinitialiser les sliders
                 document.getElementById('opacity-slider').value = 4;
+                document.getElementById('explode-slider').value = 0;
                 baseMaterial.opacity = 1.0;
                 edgeMaterial.opacity = 1.0;
             });
@@ -247,6 +274,12 @@
                 scene.add(globalModel);
                 scene.updateMatrixWorld(true);
 
+                // 1. Trouver le centre géométrique de tout le meuble
+                const globalBox = new THREE.Box3().setFromObject(globalModel);
+                const globalCenter = new THREE.Vector3();
+                globalBox.getCenter(globalCenter);
+
+                // 2. Préparer chaque pièce (matériaux et vecteurs d'explosion)
                 globalModel.traverse(function (node) {
                     if (node.isMesh) {
                         node.userData.isOriginalMesh = true;
@@ -254,18 +287,34 @@
                         const edgesGeometry = new THREE.EdgesGeometry(node.geometry, 30);
                         const edges = new THREE.LineSegments(edgesGeometry, edgeMaterial);
                         node.add(edges);
+
+                        // --- LOGIQUE D'EXPLOSION ---
+                        // Sauvegarder la position de base
+                        node.userData.originalPosition = node.position.clone();
+                        
+                        // Calculer le centre de cette pièce spécifique
+                        const meshBox = new THREE.Box3().setFromObject(node);
+                        const meshCenter = new THREE.Vector3();
+                        meshBox.getCenter(meshCenter);
+                        
+                        // Créer un vecteur d'écartement (direction + distance) par rapport au centre global
+                        if (node.parent) {
+                            // Si le modèle a des sous-groupes SketchUp complexes, on convertit dans l'espace local
+                            const localGlobalCenter = node.parent.worldToLocal(globalCenter.clone());
+                            const localMeshCenter = node.parent.worldToLocal(meshCenter.clone());
+                            node.userData.explodeDirection = new THREE.Vector3().subVectors(localMeshCenter, localGlobalCenter);
+                        } else {
+                            node.userData.explodeDirection = new THREE.Vector3().subVectors(meshCenter, globalCenter);
+                        }
                     }
                 });
 
-                const box = new THREE.Box3().setFromObject(globalModel);
-                const center = new THREE.Vector3();
-                box.getCenter(center);
-                controls.target.copy(center);
-                
+                // Cadrage de la caméra
+                controls.target.copy(globalCenter);
                 const size = new THREE.Vector3();
-                box.getSize(size);
+                globalBox.getSize(size);
                 const maxDim = Math.max(size.x, size.y, size.z);
-                camera.position.set(center.x + maxDim, center.y + maxDim, center.z + maxDim);
+                camera.position.set(globalCenter.x + maxDim, globalCenter.y + maxDim, globalCenter.z + maxDim);
 
                 controls.update();
                 
@@ -318,6 +367,7 @@
             if (targetMeshes.length > 0) {
                 const box = new THREE.Box3();
                 targetMeshes.forEach(m => {
+                    // On englobe la position *actuelle* de la pièce (même si elle est explosée)
                     const childBox = new THREE.Box3().setFromObject(m);
                     box.union(childBox);
                 });
