@@ -3,19 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <meta name="theme-color" content="#000000">
     <title>Viewer CAO - UI Pro</title>
-    
+
     <link rel="manifest" href="manifest.json">
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
+            navigator.serviceWorker.register('sw.js').catch(console.error);
         }
     </script>
 
     <style>
         body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
-        
+
         #start-menu {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background-color: #e5e5e5; display: flex; flex-direction: column;
@@ -27,7 +28,7 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 20px;
         }
         #file-btn:active { background: #1d4ed8; transform: scale(0.98); }
-        
+
         #loader {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background-color: rgba(229, 229, 229, 0.9); display: none; flex-direction: column;
@@ -40,16 +41,15 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #version-badge { font-weight: bold; font-size: 18px; color: #333; text-align: center; }
 
-        /* UI MOCKUP ELEMENTS */
         .ui-element { display: none; position: absolute; z-index: 100; }
-        
+
         #close-project-btn {
             top: 20px; left: 20px; width: 45px; height: 45px;
             background: #666; border-radius: 50%; border: none;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2); cursor: pointer;
             display: none; align-items: center; justify-content: center;
         }
-        
+
         #explode-slider-container {
             bottom: 40px; left: 20px; height: 180px; width: 40px;
             display: none; flex-direction: column; align-items: center;
@@ -65,7 +65,7 @@
             display: flex; align-items: center; justify-content: center; transition: background 0.2s;
         }
         .floating-btn.active { background: #dbeafe; border: 2px solid #2563eb; }
-        
+
         #texture-btn { bottom: 40px; left: calc(50% - 75px); }
         #xray-btn { bottom: 40px; left: calc(50% + 15px); }
 
@@ -73,12 +73,12 @@
             bottom: 40px; right: 20px; width: 70px; height: 70px;
             background: #888; border: 2px solid #fff;
         }
-        
+
         #zoom-btn { bottom: 130px; right: 25px; }
 
         #ui-panel {
             top: 20px; left: 50%; transform: translateX(-50%);
-            background: #ffffff; border: 2px solid #ff0000; color: #000; 
+            background: #ffffff; border: 2px solid #ff0000; color: #000;
             padding: 10px 20px; border-radius: 5px; font-weight: bold; font-size: 16px;
             pointer-events: none; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
@@ -93,8 +93,9 @@
         }
         #reader { width: 100vw; height: 100vh; }
     </style>
-    
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <!-- Version épinglée : une URL sans version redirige et ne se met pas en cache hors-ligne -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script type="importmap">
         {
             "imports": {
@@ -106,22 +107,22 @@
 </head>
 <body>
     <div id="start-menu">
-        <div id="version-badge">VERSION 20.0<br>(Partage Android Activé)</div>
+        <div id="version-badge">VERSION 21.0<br>(Partage Android Activé)</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
-        <input type="file" id="file-input" accept=".glb" style="display: none;">
+        <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
     </div>
 
     <div id="loader">
         <div class="spinner"></div>
         <div style="font-weight: bold; color: #333;">Préparation de la 3D...</div>
     </div>
-    
+
     <div id="ui-panel" class="ui-element">PIÈCE : ...</div>
-    
+
     <button id="close-project-btn" class="ui-element">
         <svg viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
     </button>
-    
+
     <div id="explode-slider-container" class="ui-element">
         <input type="range" id="explode-slider" min="0" max="100" step="1" value="0" orient="vertical">
     </div>
@@ -145,7 +146,7 @@
             <circle cx="12" cy="12" r="2" fill="white"/>
         </svg>
     </button>
-    
+
     <button id="zoom-btn" class="floating-btn ui-element">
         <svg viewBox="0 0 24 24" width="30" height="30" stroke="#555" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
@@ -154,7 +155,7 @@
     </button>
 
     <div id="canvas-container"></div>
-    
+
     <div id="reader-container">
         <button id="close-scan-btn">Annuler</button>
         <div id="reader"></div>
@@ -169,16 +170,16 @@
         let isTextureOn = false;
         let isXrayOn = false;
 
-        const baseMaterial = new THREE.MeshLambertMaterial({ 
-            color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, 
-            transparent: true, opacity: 1.0 
+        const baseMaterial = new THREE.MeshLambertMaterial({
+            color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+            transparent: true, opacity: 1.0
         });
-        const highlightMaterial = new THREE.MeshBasicMaterial({ 
+        const highlightMaterial = new THREE.MeshBasicMaterial({
             color: 0xff0000, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
             transparent: false, opacity: 1.0
         });
-        const edgeMaterial = new THREE.LineBasicMaterial({ 
-            color: 0x000000, transparent: true, opacity: 1.0 
+        const edgeMaterial = new THREE.LineBasicMaterial({
+            color: 0x000000, transparent: true, opacity: 1.0
         });
 
         init();
@@ -192,7 +193,7 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0xe5e5e5);
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.0001, 10000);
-            
+
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
@@ -201,13 +202,12 @@
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.1;
-            controls.enablePan = true; 
-            controls.screenSpacePanning = true; 
-            controls.minDistance = 0.00001; 
-            controls.zoomSpeed = 2.5; 
+            controls.enablePan = true;
+            controls.screenSpacePanning = true;
+            controls.minDistance = 0.00001;
+            controls.zoomSpeed = 2.5;
 
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
-            scene.add(ambientLight);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.9));
             const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
             dirLight.position.set(10, 20, 10);
             scene.add(dirLight);
@@ -243,7 +243,7 @@
             const globalCenter = new THREE.Vector3();
             globalBox.getCenter(globalCenter);
             controls.target.copy(globalCenter);
-            
+
             const size = new THREE.Vector3();
             globalBox.getSize(size);
             const maxDim = Math.max(size.x, size.y, size.z);
@@ -252,9 +252,20 @@
         }
 
         function showUIElements(show) {
-            const elements = document.querySelectorAll('.ui-element:not(#ui-panel)');
-            elements.forEach(el => el.style.display = show ? (el.id === 'explode-slider-container' ? 'flex' : 'flex') : 'none');
-            if(!show) document.getElementById('ui-panel').style.display = 'none';
+            document.querySelectorAll('.ui-element:not(#ui-panel)')
+                .forEach(el => el.style.display = show ? 'flex' : 'none');
+            if (!show) document.getElementById('ui-panel').style.display = 'none';
+        }
+
+        function resetViewState() {
+            document.getElementById('explode-slider').value = 0;
+            document.getElementById('texture-btn').classList.remove('active');
+            document.getElementById('xray-btn').classList.remove('active');
+            isTextureOn = false;
+            isXrayOn = false;
+            baseMaterial.opacity = 1.0;
+            edgeMaterial.opacity = 1.0;
+            document.getElementById('ui-panel').style.display = 'none';
         }
 
         function setupUI() {
@@ -274,8 +285,7 @@
                 updateMaterials();
             });
 
-            const explodeSlider = document.getElementById('explode-slider');
-            explodeSlider.addEventListener('input', (e) => {
+            document.getElementById('explode-slider').addEventListener('input', (e) => {
                 if (!globalModel) return;
                 const factor = (e.target.value / 100) * 1.5;
                 globalModel.traverse(function (node) {
@@ -287,68 +297,72 @@
             });
         }
 
+        // Charge un File/Blob (input, partage Android, launchQueue)
+        function loadFile(file) {
+            loadModelFromUrl(URL.createObjectURL(file));
+        }
+
+        async function loadSharedFile() {
+            try {
+                const cache = await caches.open('shared-file-cache');
+                // Même clé que dans sw.js : URL absolue basée sur le dossier de l'app
+                const key = new URL('./shared-file.glb', document.baseURI).href;
+                const response = await cache.match(key);
+                if (!response) return;
+                const blob = await response.blob();
+                await cache.delete(key);
+                loadFile(blob);
+            } catch (e) {
+                console.error('Lecture du fichier partagé impossible :', e);
+            } finally {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+
         function setupFileUploader() {
             const fileBtn = document.getElementById('file-btn');
             const fileInput = document.getElementById('file-input');
             const closeProjectBtn = document.getElementById('close-project-btn');
 
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('shared') === 'true') {
-                caches.open('shared-file-cache').then(cache => {
-                    cache.match('/shared-file.glb').then(response => {
-                        if (response) {
-                            response.blob().then(blob => {
-                                const objectUrl = URL.createObjectURL(blob);
-                                loadModelFromUrl(objectUrl);
-                                cache.delete('/shared-file.glb'); 
-                                window.history.replaceState({}, document.title, "./index.html"); 
-                            });
-                        }
-                    });
-                });
+            if (new URLSearchParams(window.location.search).has('shared')) {
+                loadSharedFile();
             }
 
             if ('launchQueue' in window) {
                 window.launchQueue.setConsumer(async (launchParams) => {
                     if (launchParams.files && launchParams.files.length > 0) {
-                        const fileHandle = launchParams.files[0];
-                        const file = await fileHandle.getFile();
-                        const objectUrl = URL.createObjectURL(file);
-                        loadModelFromUrl(objectUrl);
+                        loadFile(await launchParams.files[0].getFile());
                     }
                 });
             }
 
             fileBtn.addEventListener('click', () => fileInput.click());
 
-            fileInput.addEventListener('change', function(event) {
+            fileInput.addEventListener('change', function (event) {
                 const file = event.target.files[0];
-                if (file) {
-                    const objectUrl = URL.createObjectURL(file);
-                    loadModelFromUrl(objectUrl);
-                }
+                if (file) loadFile(file);
             });
 
             closeProjectBtn.addEventListener('click', () => {
-                if (globalModel) {
-                    scene.remove(globalModel);
-                    globalModel = null;
-                }
+                removeCurrentModel();
                 document.getElementById('start-menu').style.display = 'flex';
                 showUIElements(false);
-                fileInput.value = ""; 
-                
-                document.getElementById('explode-slider').value = 0;
-                document.getElementById('texture-btn').classList.remove('active');
-                document.getElementById('xray-btn').classList.remove('active');
-                isTextureOn = false;
-                isXrayOn = false;
-                baseMaterial.opacity = 1.0;
-                edgeMaterial.opacity = 1.0;
+                fileInput.value = "";
+                resetViewState();
             });
         }
 
+        function removeCurrentModel() {
+            if (globalModel) {
+                scene.remove(globalModel);
+                globalModel = null;
+            }
+        }
+
         function loadModelFromUrl(url) {
+            // Remplace proprement un éventuel modèle déjà ouvert
+            removeCurrentModel();
+            resetViewState();
             document.getElementById('start-menu').style.display = 'none';
             document.getElementById('loader').style.display = 'flex';
 
@@ -366,7 +380,7 @@
                     if (node.isMesh) {
                         node.userData.isOriginalMesh = true;
                         node.userData.isHighlighted = false;
-                        
+
                         node.userData.originalMaterial = node.material.clone();
                         node.userData.originalMaterial.transparent = true;
                         node.userData.originalMaterial.polygonOffset = true;
@@ -375,14 +389,13 @@
 
                         node.material = baseMaterial;
                         const edgesGeometry = new THREE.EdgesGeometry(node.geometry, 30);
-                        const edges = new THREE.LineSegments(edgesGeometry, edgeMaterial);
-                        node.add(edges);
+                        node.add(new THREE.LineSegments(edgesGeometry, edgeMaterial));
 
                         node.userData.originalPosition = node.position.clone();
                         const meshBox = new THREE.Box3().setFromObject(node);
                         const meshCenter = new THREE.Vector3();
                         meshBox.getCenter(meshCenter);
-                        
+
                         if (node.parent) {
                             const localGlobalCenter = node.parent.worldToLocal(globalCenter.clone());
                             const localMeshCenter = node.parent.worldToLocal(meshCenter.clone());
@@ -394,11 +407,18 @@
                 });
 
                 focusCameraOnModel();
-                
+
                 document.getElementById('loader').style.display = 'none';
                 showUIElements(true);
-                
+
                 URL.revokeObjectURL(url);
+            }, undefined, function (err) {
+                // Fichier invalide : on ne reste pas bloqué sur le loader
+                console.error(err);
+                URL.revokeObjectURL(url);
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('start-menu').style.display = 'flex';
+                alert("Impossible de lire ce fichier .glb.");
             });
         }
 
@@ -417,12 +437,11 @@
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     let matchFound = false;
                     let current = node;
-                    
+
                     while (current && current !== globalModel) {
                         if (current.name) {
-                            const rawName = current.name.toLowerCase();
-                            const cleanName = rawName.replace(/[^a-z0-9]/g, '');
-                            
+                            const cleanName = current.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
                             if (cleanName.length > 0) {
                                 if (cleanName === cleanScan) { matchFound = true; break; }
                                 else if (cleanName.length > 3 && cleanScan.includes(cleanName)) { matchFound = true; break; }
@@ -442,10 +461,7 @@
 
             if (targetMeshes.length > 0) {
                 const box = new THREE.Box3();
-                targetMeshes.forEach(m => {
-                    const childBox = new THREE.Box3().setFromObject(m);
-                    box.union(childBox);
-                });
+                targetMeshes.forEach(m => box.union(new THREE.Box3().setFromObject(m)));
 
                 const center = new THREE.Vector3();
                 box.getCenter(center);
@@ -455,9 +471,9 @@
                 controls.target.copy(center);
 
                 const maxDim = Math.max(size.x, size.y, size.z);
-                const cameraDistance = maxDim * 1.5; 
+                const cameraDistance = maxDim * 1.5;
                 camera.position.set(center.x + cameraDistance, center.y + cameraDistance, center.z + cameraDistance);
-                
+
                 const uiPanel = document.getElementById('ui-panel');
                 uiPanel.style.display = 'block';
                 uiPanel.innerText = `CIBLE : ${scannedText.replace(/[^a-zA-Z0-9_-]/g, ' ').trim()}`;
@@ -475,7 +491,7 @@
             scanBtn.addEventListener('click', () => {
                 container.style.display = 'block';
                 html5QrCode = new Html5Qrcode("reader");
-                
+
                 html5QrCode.start(
                     { facingMode: "environment" },
                     { fps: 10, qrbox: { width: 250, height: 250 } },
@@ -485,16 +501,19 @@
                             highlightScannedPart(decodedText);
                         });
                     },
-                    (errorMessage) => {}
-                ).catch(err => {
+                    () => {}
+                ).catch(() => {
                     alert("Impossible d'accéder à la caméra.");
                     container.style.display = 'none';
                 });
             });
 
             closeBtn.addEventListener('click', () => {
-                if(html5QrCode) {
-                    html5QrCode.stop().then(() => { container.style.display = 'none'; });
+                if (html5QrCode) {
+                    html5QrCode.stop().then(() => { container.style.display = 'none'; })
+                        .catch(() => { container.style.display = 'none'; });
+                } else {
+                    container.style.display = 'none';
                 }
             });
         }
