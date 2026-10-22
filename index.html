@@ -316,7 +316,24 @@
             const fileInput = document.getElementById('file-input');
             const closeProjectBtn = document.getElementById('close-project-btn');
 
-            // --- NOUVEAU : Interception de l'ouverture depuis l'explorateur Android ---
+            // --- NOUVEAU : Récupération du fichier via le menu "Partager" d'Android ---
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('shared') === 'true') {
+                caches.open('shared-file-cache').then(cache => {
+                    cache.match('/shared-file.glb').then(response => {
+                        if (response) {
+                            response.blob().then(blob => {
+                                const objectUrl = URL.createObjectURL(blob);
+                                loadModelFromUrl(objectUrl);
+                                cache.delete('/shared-file.glb'); // Nettoyage de la mémoire
+                                window.history.replaceState({}, document.title, "./index.html"); // Nettoyage de l'URL
+                            });
+                        }
+                    });
+                });
+            }
+
+            // Ouverture PC (File Handlers)
             if ('launchQueue' in window) {
                 window.launchQueue.setConsumer(async (launchParams) => {
                     if (launchParams.files && launchParams.files.length > 0) {
@@ -328,7 +345,7 @@
                 });
             }
 
-            // Ouverture manuelle (Bouton standard)
+            // Ouverture manuelle via le bouton
             fileBtn.addEventListener('click', () => fileInput.click());
 
             fileInput.addEventListener('change', function(event) {
