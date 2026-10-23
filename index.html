@@ -4,7 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <meta name="theme-color" content="#000000">
-    <title>Viewer CAO - UI Pro</title>
+    
+    <!-- Métadonnées et Droits d'auteur -->
+    <meta name="author" content="Yassine Sbarhi">
+    <meta name="publisher" content="YassineSbarhiApps">
+    <meta name="copyright" content="All rights reserved to Yassine Sbarhi 2026">
+    <meta name="geo.region" content="MA">
+    
+    <title>FinTji 3D Viewer</title>
 
     <link rel="manifest" href="manifest.json">
     <script>
@@ -16,6 +23,17 @@
     <style>
         body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
+
+        /* SPLASH SCREEN VIDEO */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #000000; z-index: 9999;
+            display: flex; justify-content: center; align-items: center;
+            transition: opacity 0.5s ease-out;
+        }
+        #splash-video {
+            width: 100%; height: 100%; object-fit: cover;
+        }
 
         #start-menu {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
@@ -39,7 +57,8 @@
             border-top: 4px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #version-badge { font-weight: bold; font-size: 18px; color: #333; text-align: center; }
+        #version-badge { font-weight: bold; font-size: 22px; color: #333; text-align: center; }
+        .author-badge { font-size: 12px; color: #666; margin-top: 5px; }
 
         .ui-element { display: none; position: absolute; z-index: 100; }
 
@@ -94,7 +113,6 @@
         #reader { width: 100vw; height: 100vh; }
     </style>
 
-    <!-- Version épinglée : une URL sans version redirige et ne se met pas en cache hors-ligne -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script type="importmap">
         {
@@ -106,8 +124,14 @@
     </script>
 </head>
 <body>
+    <!-- SPLASH SCREEN -->
+    <div id="splash-screen">
+        <video id="splash-video" src="splash-cgi.mp4" autoplay muted playsinline disablePictureInPicture></video>
+    </div>
+
     <div id="start-menu">
-        <div id="version-badge">VERSION 21.0<br>(Partage Android Activé)</div>
+        <div id="version-badge">FinTji 3D Viewer</div>
+        <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
     </div>
@@ -187,6 +211,25 @@
         setupUI();
         setupScanner();
         setupFileUploader();
+        setupSplashScreen();
+
+        function setupSplashScreen() {
+            const splash = document.getElementById('splash-screen');
+            const splashVideo = document.getElementById('splash-video');
+            
+            if (splashVideo) {
+                // Dissimuler l'écran de chargement à la fin de la vidéo
+                splashVideo.addEventListener('ended', () => {
+                    splash.style.opacity = '0';
+                    setTimeout(() => { splash.style.display = 'none'; }, 500);
+                });
+                
+                // Sécurité : si la vidéo échoue à charger, on affiche l'appli directement
+                splashVideo.addEventListener('error', () => {
+                    splash.style.display = 'none';
+                });
+            }
+        }
 
         function init() {
             const container = document.getElementById('canvas-container');
@@ -297,7 +340,6 @@
             });
         }
 
-        // Charge un File/Blob (input, partage Android, launchQueue)
         function loadFile(file) {
             loadModelFromUrl(URL.createObjectURL(file));
         }
@@ -305,7 +347,6 @@
         async function loadSharedFile() {
             try {
                 const cache = await caches.open('shared-file-cache');
-                // Même clé que dans sw.js : URL absolue basée sur le dossier de l'app
                 const key = new URL('./shared-file.glb', document.baseURI).href;
                 const response = await cache.match(key);
                 if (!response) return;
@@ -360,7 +401,6 @@
         }
 
         function loadModelFromUrl(url) {
-            // Remplace proprement un éventuel modèle déjà ouvert
             removeCurrentModel();
             resetViewState();
             document.getElementById('start-menu').style.display = 'none';
@@ -407,13 +447,10 @@
                 });
 
                 focusCameraOnModel();
-
                 document.getElementById('loader').style.display = 'none';
                 showUIElements(true);
-
                 URL.revokeObjectURL(url);
             }, undefined, function (err) {
-                // Fichier invalide : on ne reste pas bloqué sur le loader
                 console.error(err);
                 URL.revokeObjectURL(url);
                 document.getElementById('loader').style.display = 'none';
