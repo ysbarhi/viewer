@@ -877,7 +877,22 @@
             const fileInput = document.getElementById('file-input');
             const closeProjectBtn = document.getElementById('close-project-btn');
 
-            if (new URLSearchParams(window.location.search).has('shared')) {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // 1. Detect if the link comes from our SketchUp extension
+            if (urlParams.has('model')) {
+                const cloudModelUrl = urlParams.get('model');
+                
+                // Hide the menu and load the Supabase URL directly
+                document.getElementById('start-menu').style.display = 'none';
+                
+                // Show UI elements if you have a function for it (optional, uncomment if needed)
+                // showUIElements(true); 
+                
+                loadModelFromUrl(cloudModelUrl);
+            } 
+            // 2. Keep your existing shared logic
+            else if (urlParams.has('shared')) {
                 loadSharedFile();
             }
 
