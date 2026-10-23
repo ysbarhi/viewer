@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Viewer CAO",
-  "short_name": "Viewer CAO",
+  "name": "FinTji 3D Viewer",
+  "short_name": "FinTji 3D",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
