@@ -282,17 +282,22 @@
             });
         }
 
-        // Fonctions de Caméra Intelligentes (conservation de la rotation)
-        function focusCameraOnBox(box, distanceMultiplier = 1.5) {
+        // Fonctions de Caméra Intelligentes
+        function focusCameraOnBox(box, distanceMultiplier = 1.5, forceDefaultAngle = false) {
             const center = new THREE.Vector3();
             box.getCenter(center);
             const size = new THREE.Vector3();
             box.getSize(size);
             const maxDim = Math.max(size.x, size.y, size.z) || 1;
 
-            const direction = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
-            if (direction.lengthSq() === 0) direction.set(1, 1, 1).normalize();
-
+            let direction = new THREE.Vector3().subVectors(camera.position, controls.target);
+            
+            // Si on force l'angle (au chargement) ou si la caméra n'a pas encore bougé
+            if (forceDefaultAngle || direction.lengthSq() < 0.001) {
+                direction.set(1, 1, 1); // Angle 3/4 classique
+            }
+            
+            direction.normalize();
             const distance = maxDim * distanceMultiplier;
 
             controls.target.copy(center);
@@ -300,10 +305,10 @@
             controls.update();
         }
 
-        function focusOnGlobalModel() {
+        function focusOnGlobalModel(forceDefaultAngle = false) {
             if (!globalModel) return;
             const globalBox = new THREE.Box3().setFromObject(globalModel);
-            focusCameraOnBox(globalBox, 1.7);
+            focusCameraOnBox(globalBox, 1.7, forceDefaultAngle);
         }
 
         function focusOnHighlightedPart() {
