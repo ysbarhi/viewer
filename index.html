@@ -377,10 +377,9 @@
         <div id="recent-gallery-container">
             <div class="gallery-header">
                 <h3>Historique</h3>
+                <!-- NOUVEAU BOUTON AVEC L'ICÔNE SVG VIDE (remplie par JS) -->
                 <button id="view-toggle-btn" aria-label="Changer l'affichage">
-                    <svg id="view-icon" viewBox="0 0 24 24" width="24" height="24" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                        <!-- Le contenu du SVG est mis à jour par JavaScript -->
-                    </svg>
+                    <svg id="view-icon" viewBox="0 0 24 24" width="24" height="24" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></svg>
                 </button>
             </div>
             <div id="recent-gallery" class="layout-list"></div>
@@ -772,7 +771,7 @@
             renderRecentGallery();
         }
 
-        function setupGalleryViewToggle() {
+        ffunction setupGalleryViewToggle() {
             const gallery = document.getElementById('recent-gallery');
             const btn = document.getElementById('view-toggle-btn');
             const icon = document.getElementById('view-icon');
@@ -781,12 +780,12 @@
             const layouts = [
                 { 
                     class: 'layout-list', 
-                    // Icône de type Grille (pour inviter à passer en grille)
+                    // Icône de type Grille (indique l'action de passer en grille)
                     svg: '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>'
                 },
                 { 
                     class: 'layout-grid', 
-                    // Icône de type Liste (pour inviter à revenir en liste)
+                    // Icône de type Liste (indique l'action de revenir en liste)
                     svg: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>' 
                 }
             ];
