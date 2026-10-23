@@ -11,7 +11,7 @@
     <meta name="copyright" content="All rights reserved to Yassine Sbarhi 2026">
     <meta name="geo.region" content="MA">
     
-    <title>FinTji 3D Viewer</title>
+    <title>Finjat 3D Viewer</title>
 
     <link rel="manifest" href="manifest.json">
     <script>
@@ -87,12 +87,6 @@
 
         #texture-btn { bottom: 40px; left: calc(50% - 75px); }
         #xray-btn { bottom: 40px; left: calc(50% + 15px); }
-
-        #scan-btn {
-            bottom: 40px; right: 20px; width: 70px; height: 70px;
-            background: #888; border: 2px solid #fff;
-        }
-
         #zoom-btn { bottom: 130px; right: 25px; }
 
         #ui-panel {
@@ -111,6 +105,107 @@
             border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; z-index: 1001;
         }
         #reader { width: 100vw; height: 100vh; }
+
+        /* ========================================= */
+        /* BOUTON SCANNER HOLOGRAPHIQUE (De face)    */
+        /* ========================================= */
+        #scan-btn {
+            bottom: 40px; right: 20px; width: 80px; height: 80px;
+            background: rgba(0, 191, 255, 0.1);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(0, 191, 255, 0.5);
+            border-radius: 15px;
+            box-shadow: 0 0 15px rgba(0, 191, 255, 0.4), inset 0 0 20px rgba(0, 191, 255, 0.2);
+            cursor: pointer;
+            overflow: visible; 
+            transition: all 0.2s ease;
+            padding: 0;
+            display: flex; justify-content: center; align-items: center;
+            z-index: 100;
+            position: absolute;
+        }
+
+        #scan-btn:hover {
+            box-shadow: 0 0 25px rgba(0, 191, 255, 0.7), inset 0 0 30px rgba(0, 191, 255, 0.4);
+            transform: scale(1.05);
+        }
+
+        .holo-bg {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 15px;
+            overflow: hidden;
+            background-image: 
+                linear-gradient(rgba(0, 191, 255, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 191, 255, 0.3) 1px, transparent 1px);
+            background-size: 12px 12px;
+            opacity: 0.5;
+        }
+
+        .holo-scanline {
+            position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 10px 3px #00bfff;
+            animation: holoScan 2s infinite linear;
+        }
+
+        @keyframes holoScan {
+            0% { transform: translateY(-5px); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(85px); opacity: 0; }
+        }
+
+        .holo-content { position: relative; z-index: 5; }
+
+        .holo-circle {
+            width: 50px; height: 50px;
+            border: 2px solid #00bfff; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 0 10px #00bfff, inset 0 0 10px #00bfff;
+            animation: pulseHolo 2s infinite alternate;
+        }
+
+        @keyframes pulseHolo {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            100% { transform: scale(1.05); opacity: 1; }
+        }
+
+        /* EFFET BURST (Éclair + Particules au clic) */
+        .burst-flash {
+            position: absolute; top: 50%; left: 50%;
+            width: 0; height: 0; background: #ffffff; border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 30px 20px #00bfff;
+            opacity: 0; pointer-events: none; z-index: 20;
+        }
+
+        .burst-active .burst-flash { animation: flashAnim 0.5s ease-out forwards; }
+        @keyframes flashAnim {
+            0% { width: 0; height: 0; opacity: 1; }
+            50% { width: 120px; height: 120px; opacity: 0.8; }
+            100% { width: 180px; height: 180px; opacity: 0; }
+        }
+
+        .burst-particle {
+            position: absolute; top: 50%; left: 50%;
+            width: 6px; height: 6px; background: #00bfff; border-radius: 50%;
+            box-shadow: 0 0 10px 2px #00bfff;
+            opacity: 0; pointer-events: none; z-index: 15;
+        }
+
+        .burst-active .bp1 { animation: shoot1 0.6s ease-out forwards; }
+        .burst-active .bp2 { animation: shoot2 0.6s ease-out forwards; }
+        .burst-active .bp3 { animation: shoot3 0.6s ease-out forwards; }
+        .burst-active .bp4 { animation: shoot4 0.6s ease-out forwards; }
+        .burst-active .bp5 { animation: shoot5 0.6s ease-out forwards; }
+        .burst-active .bp6 { animation: shoot6 0.6s ease-out forwards; }
+
+        @keyframes shoot1 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-80px, -80px) scale(0); opacity: 0; } }
+        @keyframes shoot2 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(80px, -80px) scale(0); opacity: 0; } }
+        @keyframes shoot3 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-80px, 80px) scale(0); opacity: 0; } }
+        @keyframes shoot4 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(80px, 80px) scale(0); opacity: 0; } }
+        @keyframes shoot5 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(0px, -100px) scale(0); opacity: 0; } }
+        @keyframes shoot6 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(0px, 100px) scale(0); opacity: 0; } }
     </style>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -124,13 +219,12 @@
     </script>
 </head>
 <body>
-    <!-- SPLASH SCREEN -->
     <div id="splash-screen">
         <video id="splash-video" src="splash-cgi.mp4" autoplay muted playsinline disablePictureInPicture></video>
     </div>
 
     <div id="start-menu">
-        <div id="version-badge">FinTji 3D Viewer</div>
+        <div id="version-badge">Finjat 3D Viewer</div>
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
@@ -164,11 +258,25 @@
         </svg>
     </button>
 
-    <button id="scan-btn" class="floating-btn ui-element">
-        <svg viewBox="0 0 24 24" width="40" height="40" stroke="white" stroke-width="2" fill="none">
-            <path d="M3 7V5a2 2 0 0 1 2-2h2M19 5a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M5 21a2 2 0 0 1-2-2v-2"/>
-            <circle cx="12" cy="12" r="2" fill="white"/>
-        </svg>
+    <button id="scan-btn" class="ui-element">
+        <div class="holo-bg">
+            <div class="holo-scanline"></div>
+        </div>
+        <div class="holo-content">
+            <div class="holo-circle">
+                <svg viewBox="0 0 24 24" width="28" height="28" stroke="#00bfff" stroke-width="2" fill="none">
+                    <path d="M3 7V5a2 2 0 0 1 2-2h2M19 5a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M5 21a2 2 0 0 1-2-2v-2"/>
+                    <circle cx="12" cy="12" r="2" fill="#00bfff"/>
+                </svg>
+            </div>
+        </div>
+        <div class="burst-flash"></div>
+        <div class="burst-particle bp1"></div>
+        <div class="burst-particle bp2"></div>
+        <div class="burst-particle bp3"></div>
+        <div class="burst-particle bp4"></div>
+        <div class="burst-particle bp5"></div>
+        <div class="burst-particle bp6"></div>
     </button>
 
     <button id="zoom-btn" class="floating-btn ui-element">
@@ -194,7 +302,6 @@
         let isTextureOn = false;
         let isXrayOn = false;
         
-        // Mémoire pour le bouton Zoom
         let highlightedMeshes = []; 
         let isZoomedOnPart = false;
 
@@ -220,13 +327,11 @@
         function setupSplashScreen() {
             const splash = document.getElementById('splash-screen');
             const splashVideo = document.getElementById('splash-video');
-            
             if (splashVideo) {
                 splashVideo.addEventListener('ended', () => {
                     splash.style.opacity = '0';
                     setTimeout(() => { splash.style.display = 'none'; }, 500);
                 });
-                
                 splashVideo.addEventListener('error', () => {
                     splash.style.display = 'none';
                 });
@@ -282,7 +387,6 @@
             });
         }
 
-        // Fonctions de Caméra Intelligentes
         function focusCameraOnBox(box, distanceMultiplier = 1.5, forceDefaultAngle = false) {
             const center = new THREE.Vector3();
             box.getCenter(center);
@@ -291,15 +395,12 @@
             const maxDim = Math.max(size.x, size.y, size.z) || 1;
 
             let direction = new THREE.Vector3().subVectors(camera.position, controls.target);
-            
-            // Si on force l'angle (au chargement) ou si la caméra n'a pas encore bougé
             if (forceDefaultAngle || direction.lengthSq() < 0.001) {
-                direction.set(1, 1, 1); // Angle 3/4 classique
+                direction.set(1, 1, 1);
             }
-            
             direction.normalize();
+            
             const distance = maxDim * distanceMultiplier;
-
             controls.target.copy(center);
             camera.position.copy(center).addScaledVector(direction, distance);
             controls.update();
@@ -333,16 +434,13 @@
             baseMaterial.opacity = 1.0;
             edgeMaterial.opacity = 1.0;
             document.getElementById('ui-panel').style.display = 'none';
-            
             highlightedMeshes = [];
             isZoomedOnPart = false;
         }
 
         function setupUI() {
-            // Logique de bascule (Toggle) pour le bouton Zoom
             document.getElementById('zoom-btn').addEventListener('click', () => {
                 if (!globalModel) return;
-                
                 if (highlightedMeshes.length > 0) {
                     if (isZoomedOnPart) {
                         focusOnGlobalModel();
@@ -557,9 +655,8 @@
             const closeBtn = document.getElementById('close-scan-btn');
             const container = document.getElementById('reader-container');
             let html5QrCode = null;
-            let isScannerOpen = false; // Mémorise l'état du scanner
+            let isScannerOpen = false;
 
-            // Fonction centrale pour couper la caméra et cacher l'interface
             function stopAndHideScanner() {
                 if (!isScannerOpen) return;
                 isScannerOpen = false;
@@ -576,42 +673,40 @@
                 }
             }
 
-            // Intercepte le bouton Retour physique (<) d'Android
             window.addEventListener('popstate', (event) => {
-                if (isScannerOpen) {
-                    stopAndHideScanner();
-                }
+                if (isScannerOpen) stopAndHideScanner();
             });
 
             scanBtn.addEventListener('click', () => {
+                scanBtn.classList.remove('burst-active');
+                void scanBtn.offsetWidth; 
+                scanBtn.classList.add('burst-active');
+
                 isScannerOpen = true;
                 container.style.display = 'block';
                 
-                // Injecte une page fantôme dans l'historique du téléphone
                 window.history.pushState({ scannerOpen: true }, "");
 
                 html5QrCode = new Html5Qrcode("reader");
-
                 html5QrCode.start(
                     { facingMode: "environment" },
                     { fps: 10, qrbox: { width: 250, height: 250 } },
                     (decodedText) => {
-                        // Scan réussi : on déclenche virtuellement le bouton Retour pour nettoyer l'historique et fermer
                         window.history.back();
                         highlightScannedPart(decodedText);
                     },
-                    () => {} // Ignore les erreurs de scan continues
+                    () => {}
                 ).catch(() => {
                     alert("Impossible d'accéder à la caméra.");
-                    window.history.back(); // Nettoyage de l'historique en cas d'erreur
+                    window.history.back();
                 });
             });
 
             closeBtn.addEventListener('click', () => {
-                // Le bouton Annuler simule un appui sur le bouton Retour d'Android
                 window.history.back();
             });
         }
+
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
