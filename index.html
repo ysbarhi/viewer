@@ -62,21 +62,21 @@
             margin-bottom: 10px; padding: 0 5px;
         }
         .gallery-header h3 { margin: 0; font-size: 18px; color: #333; }
+        /* Bouton icône transparent */
         #view-toggle-btn {
-            background: #fff; border: 1px solid #ccc; border-radius: 6px; padding: 6px 12px;
-            font-size: 14px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            background: transparent; border: none; padding: 5px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
         }
+        #view-toggle-btn:active { transform: scale(0.9); }
 
         #recent-gallery {
             overflow-y: auto; padding: 5px; display: grid; gap: 12px; flex-grow: 1;
             align-content: flex-start;
         }
-        
+
         /* Options d'affichage (Toggles) */
         .layout-list { grid-template-columns: 1fr; }
-        .layout-grid-sm { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
-        .layout-grid-md { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-        .layout-grid-lg { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+        .layout-grid { grid-template-columns: repeat(2, 1fr); } /* Force 2 colonnes */
 
         .recent-item {
             background: #ffffff; border-radius: 10px; padding: 10px;
@@ -86,29 +86,31 @@
         }
         .recent-item:active { transform: scale(0.98); }
 
-        /* Comportement quand on passe en mode Grille (Icônes) */
-        #recent-gallery:not(.layout-list) .recent-item {
-            flex-direction: column; padding: 8px; justify-content: flex-start;
+        /* Mode Grille (2 colonnes avec grandes miniatures) */
+        #recent-gallery.layout-grid .recent-item {
+            flex-direction: column; padding: 10px; justify-content: flex-start;
+            aspect-ratio: 4 / 5;
         }
 
         .recent-thumb {
             width: 50px; height: 50px; border-radius: 6px; object-fit: cover;
             background: #f0f0f0; margin-right: 15px; flex-shrink: 0; border: 1px solid #eee;
         }
-        #recent-gallery:not(.layout-list) .recent-thumb {
-            width: 100%; height: auto; aspect-ratio: 1; margin-right: 0; margin-bottom: 8px;
+        #recent-gallery.layout-grid .recent-thumb {
+            width: 100%; height: 75%; aspect-ratio: auto; margin-right: 0; margin-bottom: 10px;
+            border-radius: 8px;
         }
 
         .recent-info {
             display: flex; align-items: center; flex-grow: 1; overflow: hidden; width: 100%; cursor: pointer;
         }
-        #recent-gallery:not(.layout-list) .recent-info { flex-direction: column; }
+        #recent-gallery.layout-grid .recent-info { flex-direction: column; justify-content: center; }
 
         .recent-item span { 
             font-weight: bold; color: #333; font-size: 14px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
         }
-        #recent-gallery:not(.layout-list) .recent-item span { text-align: center; font-size: 12px; }
+        #recent-gallery.layout-grid .recent-item span { text-align: center; font-size: 13px; margin-top: 5px; }
 
         .recent-delete {
             background: #ff4444; color: white; border: none; border-radius: 6px;
@@ -116,8 +118,8 @@
             display: flex; justify-content: center; align-items: center; 
             box-shadow: 0 2px 4px rgba(255,0,0,0.2); flex-shrink: 0; z-index: 2;
         }
-        #recent-gallery:not(.layout-list) .recent-delete {
-            position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; font-size: 12px;
+        #recent-gallery.layout-grid .recent-delete {
+            position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; font-size: 12px;
         }
         .recent-item {
             background: #ffffff; border-radius: 8px; padding: 12px 15px;
@@ -375,7 +377,11 @@
         <div id="recent-gallery-container">
             <div class="gallery-header">
                 <h3>Historique</h3>
-                <button id="view-toggle-btn">👁️ Liste</button>
+                <button id="view-toggle-btn" aria-label="Changer l'affichage">
+                    <svg id="view-icon" viewBox="0 0 24 24" width="24" height="24" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <!-- Le contenu du SVG est mis à jour par JavaScript -->
+                    </svg>
+                </button>
             </div>
             <div id="recent-gallery" class="layout-list"></div>
         </div>
@@ -769,19 +775,27 @@
         function setupGalleryViewToggle() {
             const gallery = document.getElementById('recent-gallery');
             const btn = document.getElementById('view-toggle-btn');
+            const icon = document.getElementById('view-icon');
+            
+            // Les deux états : Liste classique et Grille à 2 colonnes
             const layouts = [
-                { class: 'layout-list', icon: '👁️ Liste' },
-                { class: 'layout-grid-sm', icon: '👁️ Petites' },
-                { class: 'layout-grid-md', icon: '👁️ Moyennes' },
-                { class: 'layout-grid-lg', icon: '👁️ Grandes' }
+                { 
+                    class: 'layout-list', 
+                    // Icône de type Grille (pour inviter à passer en grille)
+                    svg: '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>'
+                },
+                { 
+                    class: 'layout-grid', 
+                    // Icône de type Liste (pour inviter à revenir en liste)
+                    svg: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>' 
+                }
             ];
             
-            // Mémorise la préférence dans le téléphone
             let currentLayoutIndex = parseInt(localStorage.getItem('galleryLayout')) || 0;
             
             function applyLayout() {
                 gallery.className = layouts[currentLayoutIndex].class;
-                btn.innerText = layouts[currentLayoutIndex].icon;
+                icon.innerHTML = layouts[currentLayoutIndex].svg;
             }
             applyLayout();
 
