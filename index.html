@@ -488,7 +488,7 @@
                     }
                 });
 
-                focusOnGlobalModel();
+                focusOnGlobalModel(true);
                 
                 document.getElementById('loader').style.display = 'none';
                 showUIElements(true);
@@ -557,37 +557,61 @@
             const closeBtn = document.getElementById('close-scan-btn');
             const container = document.getElementById('reader-container');
             let html5QrCode = null;
+            let isScannerOpen = false; // Mémorise l'état du scanner
+
+            // Fonction centrale pour couper la caméra et cacher l'interface
+            function stopAndHideScanner() {
+                if (!isScannerOpen) return;
+                isScannerOpen = false;
+                if (html5QrCode) {
+                    html5QrCode.stop().then(() => { 
+                        container.style.display = 'none'; 
+                        html5QrCode = null;
+                    }).catch(() => { 
+                        container.style.display = 'none'; 
+                        html5QrCode = null;
+                    });
+                } else {
+                    container.style.display = 'none';
+                }
+            }
+
+            // Intercepte le bouton Retour physique (<) d'Android
+            window.addEventListener('popstate', (event) => {
+                if (isScannerOpen) {
+                    stopAndHideScanner();
+                }
+            });
 
             scanBtn.addEventListener('click', () => {
+                isScannerOpen = true;
                 container.style.display = 'block';
+                
+                // Injecte une page fantôme dans l'historique du téléphone
+                window.history.pushState({ scannerOpen: true }, "");
+
                 html5QrCode = new Html5Qrcode("reader");
 
                 html5QrCode.start(
                     { facingMode: "environment" },
                     { fps: 10, qrbox: { width: 250, height: 250 } },
                     (decodedText) => {
-                        html5QrCode.stop().then(() => {
-                            container.style.display = 'none';
-                            highlightScannedPart(decodedText);
-                        });
+                        // Scan réussi : on déclenche virtuellement le bouton Retour pour nettoyer l'historique et fermer
+                        window.history.back();
+                        highlightScannedPart(decodedText);
                     },
-                    () => {}
+                    () => {} // Ignore les erreurs de scan continues
                 ).catch(() => {
                     alert("Impossible d'accéder à la caméra.");
-                    container.style.display = 'none';
+                    window.history.back(); // Nettoyage de l'historique en cas d'erreur
                 });
             });
 
             closeBtn.addEventListener('click', () => {
-                if (html5QrCode) {
-                    html5QrCode.stop().then(() => { container.style.display = 'none'; })
-                        .catch(() => { container.style.display = 'none'; });
-                } else {
-                    container.style.display = 'none';
-                }
+                // Le bouton Annuler simule un appui sur le bouton Retour d'Android
+                window.history.back();
             });
         }
-
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
