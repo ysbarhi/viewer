@@ -193,6 +193,10 @@
         let scene, camera, renderer, controls, globalModel;
         let isTextureOn = false;
         let isXrayOn = false;
+        
+        // Mémoire pour le bouton Zoom
+        let highlightedMeshes = []; 
+        let isZoomedOnPart = false;
 
         const baseMaterial = new THREE.MeshLambertMaterial({
             color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
@@ -218,13 +222,11 @@
             const splashVideo = document.getElementById('splash-video');
             
             if (splashVideo) {
-                // Dissimuler l'écran de chargement à la fin de la vidéo
                 splashVideo.addEventListener('ended', () => {
                     splash.style.opacity = '0';
                     setTimeout(() => { splash.style.display = 'none'; }, 500);
                 });
                 
-                // Sécurité : si la vidéo échoue à charger, on affiche l'appli directement
                 splashVideo.addEventListener('error', () => {
                     splash.style.display = 'none';
                 });
@@ -280,18 +282,35 @@
             });
         }
 
-        function focusCameraOnModel() {
+        // Fonctions de Caméra Intelligentes (conservation de la rotation)
+        function focusCameraOnBox(box, distanceMultiplier = 1.5) {
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z) || 1;
+
+            const direction = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+            if (direction.lengthSq() === 0) direction.set(1, 1, 1).normalize();
+
+            const distance = maxDim * distanceMultiplier;
+
+            controls.target.copy(center);
+            camera.position.copy(center).addScaledVector(direction, distance);
+            controls.update();
+        }
+
+        function focusOnGlobalModel() {
             if (!globalModel) return;
             const globalBox = new THREE.Box3().setFromObject(globalModel);
-            const globalCenter = new THREE.Vector3();
-            globalBox.getCenter(globalCenter);
-            controls.target.copy(globalCenter);
+            focusCameraOnBox(globalBox, 1.7);
+        }
 
-            const size = new THREE.Vector3();
-            globalBox.getSize(size);
-            const maxDim = Math.max(size.x, size.y, size.z);
-            camera.position.set(globalCenter.x + maxDim, globalCenter.y + maxDim, globalCenter.z + maxDim);
-            controls.update();
+        function focusOnHighlightedPart() {
+            if (highlightedMeshes.length === 0) return;
+            const box = new THREE.Box3();
+            highlightedMeshes.forEach(m => box.union(new THREE.Box3().setFromObject(m)));
+            focusCameraOnBox(box, 1.5);
         }
 
         function showUIElements(show) {
@@ -309,10 +328,28 @@
             baseMaterial.opacity = 1.0;
             edgeMaterial.opacity = 1.0;
             document.getElementById('ui-panel').style.display = 'none';
+            
+            highlightedMeshes = [];
+            isZoomedOnPart = false;
         }
 
         function setupUI() {
-            document.getElementById('zoom-btn').addEventListener('click', () => focusCameraOnModel());
+            // Logique de bascule (Toggle) pour le bouton Zoom
+            document.getElementById('zoom-btn').addEventListener('click', () => {
+                if (!globalModel) return;
+                
+                if (highlightedMeshes.length > 0) {
+                    if (isZoomedOnPart) {
+                        focusOnGlobalModel();
+                        isZoomedOnPart = false;
+                    } else {
+                        focusOnHighlightedPart();
+                        isZoomedOnPart = true;
+                    }
+                } else {
+                    focusOnGlobalModel();
+                }
+            });
 
             const textureBtn = document.getElementById('texture-btn');
             textureBtn.addEventListener('click', () => {
@@ -446,7 +483,8 @@
                     }
                 });
 
-                focusCameraOnModel();
+                focusOnGlobalModel();
+                
                 document.getElementById('loader').style.display = 'none';
                 showUIElements(true);
                 URL.revokeObjectURL(url);
@@ -494,22 +532,12 @@
                 }
             });
 
+            highlightedMeshes = targetMeshes;
             updateMaterials();
 
-            if (targetMeshes.length > 0) {
-                const box = new THREE.Box3();
-                targetMeshes.forEach(m => box.union(new THREE.Box3().setFromObject(m)));
-
-                const center = new THREE.Vector3();
-                box.getCenter(center);
-                const size = new THREE.Vector3();
-                box.getSize(size);
-
-                controls.target.copy(center);
-
-                const maxDim = Math.max(size.x, size.y, size.z);
-                const cameraDistance = maxDim * 1.5;
-                camera.position.set(center.x + cameraDistance, center.y + cameraDistance, center.z + cameraDistance);
+            if (highlightedMeshes.length > 0) {
+                isZoomedOnPart = true;
+                focusOnHighlightedPart();
 
                 const uiPanel = document.getElementById('ui-panel');
                 uiPanel.style.display = 'block';
