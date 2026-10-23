@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "FinTji 3D Viewer",
-  "short_name": "FinTji 3D",
+  "name": "Finjat 3D Viewer",
+  "short_name": "Finjat 3D",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
