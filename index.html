@@ -108,8 +108,23 @@
         #reader { width: 100vw; height: 100vh; }
 
         /* ========================================= */
-        /* PANNEAU LATÉRAL (SIDEBAR) & SWIPE         */
+        /* PANNEAU LATÉRAL & INDICATEUR VISUEL       */
         /* ========================================= */
+        
+        /* La fine ligne sur le bord gauche */
+        #sidebar-hint {
+            position: fixed; top: 50%; left: 0; transform: translateY(-50%);
+            width: 4px; height: 60px; background: rgba(37, 99, 235, 0.8);
+            border-radius: 0 4px 4px 0; z-index: 1500; pointer-events: none;
+            box-shadow: 2px 0 8px rgba(37, 99, 235, 0.6);
+            transition: opacity 0.3s ease;
+            animation: pulseHint 2s infinite alternate ease-in-out;
+        }
+        @keyframes pulseHint {
+            0% { opacity: 0.3; transform: translateY(-50%) scaleX(1); }
+            100% { opacity: 1; transform: translateY(-50%) scaleX(1.5); }
+        }
+
         #sidebar-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(0,0,0,0.5); z-index: 1999;
@@ -164,6 +179,7 @@
             position: absolute;
         }
         #scan-btn:hover { box-shadow: 0 0 25px rgba(0, 191, 255, 0.7), inset 0 0 30px rgba(0, 191, 255, 0.4); transform: scale(1.05); }
+        
         .holo-bg {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 15px; overflow: hidden;
             background-image: linear-gradient(rgba(0, 191, 255, 0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 191, 255, 0.3) 1px, transparent 1px);
@@ -174,6 +190,7 @@
             box-shadow: 0 0 10px 3px #00bfff; animation: holoScan 2s infinite linear;
         }
         @keyframes holoScan { 0% { transform: translateY(-5px); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(85px); opacity: 0; } }
+        
         .holo-content { position: relative; z-index: 5; }
         .holo-circle {
             width: 50px; height: 50px; border: 2px solid #00bfff; border-radius: 50%;
@@ -221,6 +238,9 @@
     <div id="splash-screen">
         <video id="splash-video" src="splash-cgi.mp4" autoplay muted playsinline disablePictureInPicture></video>
     </div>
+
+    <!-- NOUVEAU : La poignée d'ouverture discrète -->
+    <div id="sidebar-hint"></div>
 
     <!-- PANNEAU LATÉRAL (SIDEBAR) -->
     <div id="sidebar-overlay"></div>
@@ -358,25 +378,27 @@
             }
         }
 
-        // --- GESTION DU PANNEAU LATÉRAL (SIDEBAR) & SWIPE ---
+        // GESTION DU PANNEAU LATÉRAL & INDICATEUR VISUEL
         function setupSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
             const colorPicker = document.getElementById('custom-color-picker');
+            const hint = document.getElementById('sidebar-hint'); // NOUVEAU
             
             function openSidebar() {
                 sidebar.classList.add('active');
                 overlay.classList.add('active');
+                if (hint) hint.style.opacity = '0'; // Cache la poignée quand le menu s'ouvre
             }
             
             function closeSidebar() {
                 sidebar.classList.remove('active');
                 overlay.classList.remove('active');
+                if (hint) hint.style.opacity = '1'; // Réaffiche la poignée quand le menu se ferme
             }
 
             overlay.addEventListener('click', closeSidebar);
 
-            // Logique de changement de couleur
             function changeBackgroundColor(hex) {
                 document.body.style.backgroundColor = hex;
                 document.getElementById('start-menu').style.backgroundColor = hex;
@@ -395,7 +417,6 @@
                 changeBackgroundColor(e.target.value);
             });
 
-            // Détection du Swipe (Glissement de doigt)
             let touchStartX = 0;
             let touchEndX = 0;
 
@@ -406,19 +427,15 @@
             document.addEventListener('touchend', e => {
                 touchEndX = e.changedTouches[0].screenX;
                 
-                // Si l'utilisateur commence son swipe sur les 40 premiers pixels à gauche de l'écran
-                // et glisse vers la droite de plus de 50 pixels -> Ouvre le panneau
                 if (touchStartX <= 40 && touchEndX > touchStartX + 50) {
                     openSidebar();
                 }
                 
-                // Si le panneau est ouvert et qu'on glisse vers la gauche -> Ferme le panneau
                 if (sidebar.classList.contains('active') && touchStartX > touchEndX + 50) {
                     closeSidebar();
                 }
             }, { passive: true });
         }
-        // ----------------------------------------------------
 
         function init() {
             const container = document.getElementById('canvas-container');
