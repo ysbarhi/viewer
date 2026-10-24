@@ -77,7 +77,7 @@
             background-color: #e5e5e5; display: flex; flex-direction: column;
             align-items: center; z-index: 900;
             transition: background-color 0.3s ease;
-            padding-top: 8vh; /* Remonte le contenu pour libérer de l'espace */
+            padding-top: 8vh; 
         }
         #file-btn {
             background: #2563eb; color: #ffffff; border: none;
@@ -90,7 +90,7 @@
         /* GALERIE DES MEUBLES (ADAPTATIVE & GRILLE) */
         /* ========================================= */
         #recent-gallery-container {
-            width: 90%; max-width: 800px; flex-grow: 1; /* Prend tout l'espace libre jusqu'en bas */
+            width: 90%; max-width: 800px; flex-grow: 1; 
             margin-top: 25px; margin-bottom: 20px;
             display: flex; flex-direction: column; overflow: hidden;
         }
@@ -99,7 +99,7 @@
             margin-bottom: 10px; padding: 0 5px;
         }
         .gallery-header h3 { margin: 0; font-size: 18px; color: #333; }
-        /* Bouton icône transparent */
+        
         #view-toggle-btn {
             background: transparent; border: none; padding: 5px;
             cursor: pointer; display: flex; align-items: center; justify-content: center;
@@ -111,9 +111,8 @@
             align-content: flex-start;
         }
 
-        /* Options d'affichage (Toggles) */
         .layout-list { grid-template-columns: 1fr; }
-        .layout-grid { grid-template-columns: repeat(2, 1fr); } /* Force 2 colonnes */
+        .layout-grid { grid-template-columns: repeat(2, 1fr); } 
 
         .recent-item {
             background: #ffffff; border-radius: 10px; padding: 10px;
@@ -123,7 +122,6 @@
         }
         .recent-item:active { transform: scale(0.98); }
 
-        /* Mode Grille (2 colonnes avec grandes miniatures) */
         #recent-gallery.layout-grid .recent-item {
             flex-direction: column; padding: 10px; justify-content: flex-start;
             aspect-ratio: 4 / 5;
@@ -158,31 +156,7 @@
         #recent-gallery.layout-grid .recent-delete {
             position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; font-size: 12px;
         }
-        .recent-item {
-            background: #ffffff; border-radius: 8px; padding: 12px 15px;
-            display: flex; justify-content: space-between; align-items: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #ddd;
-        }
-        .recent-item span { 
-            font-weight: bold; color: #333; font-size: 14px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
-            max-width: 75%; cursor: pointer; flex-grow: 1;
-        }
-        .recent-item span:hover { color: #2563eb; }
-        .recent-delete {
-            background: #ff4444; color: white; border: none; border-radius: 6px;
-            width: 30px; height: 30px; font-weight: bold; cursor: pointer;
-            display: flex; justify-content: center; align-items: center; 
-            box-shadow: 0 2px 4px rgba(255,0,0,0.2); transition: transform 0.1s;
-        }
-        .recent-delete:active { transform: scale(0.9); }
-        #file-btn {
-            background: #2563eb; color: #ffffff; border: none;
-            padding: 15px 30px; border-radius: 10px; font-size: 18px; font-weight: bold;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 20px;
-        }
-        #file-btn:active { background: #1d4ed8; transform: scale(0.98); }
-
+        
         #loader {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background-color: rgba(229, 229, 229, 0.9); display: none; flex-direction: column;
@@ -245,8 +219,6 @@
         /* ========================================= */
         /* PANNEAU LATÉRAL & INDICATEUR VISUEL       */
         /* ========================================= */
-        
-        /* La fine ligne sur le bord gauche et sa zone de clic invisible */
         #sidebar-hint {
             position: fixed; top: 50%; left: 0; transform: translateY(-50%);
             width: 4px; height: 60px; background: rgba(37, 99, 235, 0.8);
@@ -256,7 +228,6 @@
             animation: pulseHint 2s infinite alternate ease-in-out;
         }
         
-        /* NOUVEAU : Zone invisible étendue autour de la ligne (40px de large, 160px de haut) pour faciliter le toucher */
         #sidebar-hint::after {
             content: ''; position: absolute;
             top: -50px; bottom: -50px; left: 0; width: 40px;
@@ -303,22 +274,16 @@
         #custom-color-picker { border: none; width: 40px; height: 40px; border-radius: 5px; cursor: pointer; background: none; }
 
         /* ========================================= */
-        /* BOUTON SCANNER HOLOGRAPHIQUE (De face)    */
+        /* BOUTON SCANNER HOLOGRAPHIQUE              */
         /* ========================================= */
         #scan-btn {
             bottom: 40px; right: 20px; width: 80px; height: 80px;
-            background: rgba(0, 191, 255, 0.1);
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(0, 191, 255, 0.5);
-            border-radius: 15px;
+            background: rgba(0, 191, 255, 0.1); backdrop-filter: blur(5px);
+            border: 1px solid rgba(0, 191, 255, 0.5); border-radius: 15px;
             box-shadow: 0 0 15px rgba(0, 191, 255, 0.4), inset 0 0 20px rgba(0, 191, 255, 0.2);
-            cursor: pointer;
-            overflow: visible; 
-            transition: all 0.2s ease;
-            padding: 0;
-            display: flex; justify-content: center; align-items: center;
-            z-index: 100;
-            position: absolute;
+            cursor: pointer; overflow: visible; transition: all 0.2s ease;
+            padding: 0; display: flex; justify-content: center; align-items: center;
+            z-index: 100; position: absolute;
         }
         #scan-btn:hover { box-shadow: 0 0 25px rgba(0, 191, 255, 0.7), inset 0 0 30px rgba(0, 191, 255, 0.4); transform: scale(1.05); }
         
@@ -341,7 +306,6 @@
         }
         @keyframes pulseHolo { 0% { transform: scale(0.95); opacity: 0.8; } 100% { transform: scale(1.05); opacity: 1; } }
 
-        /* EFFET BURST */
         .burst-flash {
             position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: #ffffff; border-radius: 50%;
             transform: translate(-50%, -50%); box-shadow: 0 0 30px 20px #00bfff; opacity: 0; pointer-events: none; z-index: 20;
@@ -381,10 +345,8 @@
         <video id="splash-video" src="splash-cgi.mp4" autoplay muted playsinline disablePictureInPicture></video>
     </div>
 
-    <!-- NOUVEAU : La poignée d'ouverture discrète -->
     <div id="sidebar-hint"></div>
 
-    <!-- PANNEAU LATÉRAL (SIDEBAR) -->
     <div id="sidebar-overlay"></div>
     <div id="sidebar">
         <h2>Apparence</h2>
@@ -426,11 +388,9 @@
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
         
-        <!-- Conteneur Adaptatif de la Galerie -->
         <div id="recent-gallery-container">
             <div class="gallery-header">
                 <h3>Historique</h3>
-                <!-- NOUVEAU BOUTON AVEC L'ICÔNE SVG VIDE (remplie par JS) -->
                 <button id="view-toggle-btn" aria-label="Changer l'affichage">
                     <svg id="view-icon" viewBox="0 0 24 24" width="24" height="24" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></svg>
                 </button>
@@ -468,9 +428,7 @@
     </button>
 
     <button id="scan-btn" class="ui-element">
-        <div class="holo-bg">
-            <div class="holo-scanline"></div>
-        </div>
+        <div class="holo-bg"><div class="holo-scanline"></div></div>
         <div class="holo-content">
             <div class="holo-circle">
                 <svg viewBox="0 0 24 24" width="28" height="28" stroke="#00bfff" stroke-width="2" fill="none">
@@ -480,12 +438,8 @@
             </div>
         </div>
         <div class="burst-flash"></div>
-        <div class="burst-particle bp1"></div>
-        <div class="burst-particle bp2"></div>
-        <div class="burst-particle bp3"></div>
-        <div class="burst-particle bp4"></div>
-        <div class="burst-particle bp5"></div>
-        <div class="burst-particle bp6"></div>
+        <div class="burst-particle bp1"></div><div class="burst-particle bp2"></div><div class="burst-particle bp3"></div>
+        <div class="burst-particle bp4"></div><div class="burst-particle bp5"></div><div class="burst-particle bp6"></div>
     </button>
 
     <button id="zoom-btn" class="floating-btn ui-element">
@@ -520,6 +474,10 @@
         let highlightedMeshes = []; 
         let isZoomedOnPart = false;
 
+        // Optimisation DOM (Evite le recalcul 60x par seconde)
+        let labelsCached = false;
+        let domLabels = {};
+
         const baseMaterial = new THREE.MeshLambertMaterial({
             color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
             transparent: true, opacity: 1.0
@@ -532,22 +490,57 @@
             color: 0x000000, transparent: true, opacity: 1.0
         });
 
-        // Calcule et formate les dimensions (basé sur l'échelle 1 unité = 1 mètre = 1000 mm)
+        // ---------------------------------------------
+        // LOGIQUE DES MESURES DYNAMIQUES 
+        // ---------------------------------------------
         function getFormattedDims(box) {
             const size = new THREE.Vector3();
             box.getSize(size);
             const mult = currentUnit === 'mm' ? 1000 : 100;
-            // Utilise toFixed(1) puis remplace ".0" pour éviter les décimales inutiles
             const l = (size.x * mult).toFixed(1).replace('.0', '');
             const h = (size.y * mult).toFixed(1).replace('.0', '');
             const p = (size.z * mult).toFixed(1).replace('.0', '');
             return `L: ${l} | H: ${h} | P: ${p}`;
         }
 
-        // Dans la fonction updateLabelPos, mettez à jour la partie de l'affichage du texte
-        function updateLabelPos(id, pos3D, sizeMeters) {
-            const el = document.getElementById(id);
-            if (sizeMeters < 0.001) { el.style.display = 'none'; return; } 
+        function updateTopInfo(title, box) {
+            document.getElementById('top-info-panel').style.display = 'block';
+            document.getElementById('info-title').innerText = title;
+            document.getElementById('info-dims').innerText = getFormattedDims(box);
+        }
+
+        function updateMeasurementLabels() {
+            if (!labelsCached) {
+                domLabels.x = document.getElementById('label-x');
+                domLabels.y = document.getElementById('label-y');
+                domLabels.z = document.getElementById('label-z');
+                labelsCached = true;
+            }
+
+            if (!activeBox || !showMeasurements) {
+                // Cache les labels sans forcer le navigateur à recalculer si c'est déjà caché
+                ['x', 'y', 'z'].forEach(axis => {
+                    if (domLabels[axis] && domLabels[axis].style.display !== 'none') {
+                        domLabels[axis].style.display = 'none';
+                    }
+                });
+                return;
+            }
+
+            const min = activeBox.min;
+            const max = activeBox.max;
+
+            updateLabelPos(domLabels.x, new THREE.Vector3((min.x + max.x)/2, min.y, max.z), (max.x - min.x));
+            updateLabelPos(domLabels.y, new THREE.Vector3(min.x, (min.y + max.y)/2, max.z), (max.y - min.y));
+            updateLabelPos(domLabels.z, new THREE.Vector3(min.x, min.y, (min.z + max.z)/2), (max.z - min.z));
+        }
+
+        function updateLabelPos(el, pos3D, sizeMeters) {
+            if (!el) return;
+            if (sizeMeters < 0.001) { 
+                if (el.style.display !== 'none') el.style.display = 'none'; 
+                return; 
+            } 
 
             const vector = pos3D.clone();
             vector.project(camera);
@@ -555,54 +548,23 @@
             if (vector.z < 1) { 
                 const x = (vector.x * .5 + .5) * window.innerWidth;
                 const y = (vector.y * -.5 + .5) * window.innerHeight;
-                el.style.display = 'block';
+                
+                if (el.style.display !== 'block') el.style.display = 'block';
                 el.style.left = `${x}px`;
                 el.style.top = `${y}px`;
                 
                 const mult = currentUnit === 'mm' ? 1000 : 100;
-                el.innerText = `${(sizeMeters * mult).toFixed(1).replace('.0', '')}`;
+                const newText = `${(sizeMeters * mult).toFixed(1).replace('.0', '')}`;
+                
+                // NOUVEAUTÉ: Met à jour le texte uniquement s'il a changé (Performance x100)
+                if (el.innerText !== newText) {
+                    el.innerText = newText;
+                }
             } else {
-                el.style.display = 'none';
+                if (el.style.display !== 'none') el.style.display = 'none';
             }
         }
-
-        // Projette les coordonnées 3D vers l'écran 2D pour les étiquettes
-        function updateMeasurementLabels() {
-            if (!activeBox || !showMeasurements) {
-                document.querySelectorAll('.floating-label').forEach(el => el.style.display = 'none');
-                return;
-            }
-
-            const min = activeBox.min;
-            const max = activeBox.max;
-
-            // X (Largeur) - Placé en bas devant
-            updateLabelPos('label-x', new THREE.Vector3((min.x + max.x)/2, min.y, max.z), (max.x - min.x));
-            // Y (Hauteur) - Placé à gauche devant
-            updateLabelPos('label-y', new THREE.Vector3(min.x, (min.y + max.y)/2, max.z), (max.y - min.y));
-            // Z (Profondeur) - Placé en bas à gauche
-            updateLabelPos('label-z', new THREE.Vector3(min.x, min.y, (min.z + max.z)/2), (max.z - min.z));
-        }
-
-        function updateLabelPos(id, pos3D, sizeMeters) {
-            const el = document.getElementById(id);
-            // Ignore les dimensions nulles
-            if (sizeMeters < 0.001) { el.style.display = 'none'; return; } 
-
-            const vector = pos3D.clone();
-            vector.project(camera);
-
-            if (vector.z < 1) { // Si l'étiquette est devant la caméra
-                const x = (vector.x * .5 + .5) * window.innerWidth;
-                const y = (vector.y * -.5 + .5) * window.innerHeight;
-                el.style.display = 'block';
-                el.style.left = `${x}px`;
-                el.style.top = `${y}px`;
-                el.innerText = `${(sizeMeters * 1000).toFixed(0)} mm`;
-            } else {
-                el.style.display = 'none';
-            }
-        }
+        // ---------------------------------------------
 
         init();
         animate();
@@ -612,26 +574,34 @@
         setupSplashScreen();
         setupSidebar();
 
+        // NOUVEAUTÉ: Sécurité d'exécution de la vidéo Splash
         function setupSplashScreen() {
             const splash = document.getElementById('splash-screen');
             const splashVideo = document.getElementById('splash-video');
-            if (splashVideo) {
-                splashVideo.addEventListener('ended', () => {
+            let isHidden = false;
+            
+            function hideSplash() {
+                if (!isHidden && splash.style.display !== 'none') {
+                    isHidden = true;
                     splash.style.opacity = '0';
                     setTimeout(() => { splash.style.display = 'none'; }, 500);
-                });
-                splashVideo.addEventListener('error', () => {
-                    splash.style.display = 'none';
-                });
+                }
             }
+
+            if (splashVideo) {
+                splashVideo.addEventListener('ended', hideSplash);
+                splashVideo.addEventListener('error', hideSplash);
+            }
+            
+            // Forcer l'ouverture après 3.5 secondes (Empêche l'appli de geler si le navigateur bloque l'autoplay)
+            setTimeout(hideSplash, 3500);
         }
 
-        // GESTION DU PANNEAU LATÉRAL & INDICATEUR VISUEL
         function setupSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
             const colorPicker = document.getElementById('custom-color-picker');
-            const hint = document.getElementById('sidebar-hint'); // NOUVEAU
+            const hint = document.getElementById('sidebar-hint'); 
 
             if (hint) {
                 hint.addEventListener('click', openSidebar);
@@ -640,13 +610,13 @@
             function openSidebar() {
                 sidebar.classList.add('active');
                 overlay.classList.add('active');
-                if (hint) hint.style.opacity = '0'; // Cache la poignée quand le menu s'ouvre
+                if (hint) hint.style.opacity = '0'; 
             }
             
             function closeSidebar() {
                 sidebar.classList.remove('active');
                 overlay.classList.remove('active');
-                if (hint) hint.style.opacity = '1'; // Réaffiche la poignée quand le menu se ferme
+                if (hint) hint.style.opacity = '1'; 
             }
 
             overlay.addEventListener('click', closeSidebar);
@@ -788,10 +758,11 @@
             highlightedMeshes = [];
             isZoomedOnPart = false;
 
-            // --- NOUVEAUTÉ : Cacher les interfaces de mesure à la fermeture ---
             document.getElementById('top-info-panel').style.display = 'none';
             document.getElementById('action-buttons').style.display = 'none';
-            document.querySelectorAll('.floating-label').forEach(el => el.style.display = 'none');
+            ['x', 'y', 'z'].forEach(axis => {
+                if (domLabels[axis]) domLabels[axis].style.display = 'none';
+            });
             activeBox = null;
         }
         
@@ -799,12 +770,11 @@
             document.getElementById('unit-toggle-btn').addEventListener('click', (e) => {
                 currentUnit = currentUnit === 'mm' ? 'cm' : 'mm';
                 e.target.innerText = currentUnit;
-                
-                // Met à jour les textes immédiatement
                 if (activeBox) {
                     document.getElementById('info-dims').innerText = getFormattedDims(activeBox);
                 }
             });
+
             document.getElementById('zoom-btn').addEventListener('click', () => {
                 if (!globalModel) return;
                 if (highlightedMeshes.length > 0) {
@@ -827,24 +797,20 @@
                 updateMaterials();
             });
 
-            // Bouton pour masquer/afficher les mesures flottantes
             document.getElementById('toggle-measure-btn').addEventListener('click', () => {
-            showMeasurements = !showMeasurements;
-            updateMeasurementLabels(); 
+                showMeasurements = !showMeasurements;
+                updateMeasurementLabels(); 
             });
 
-            // Bouton pour désélectionner la pièce rouge
-           document.getElementById('deselect-btn').addEventListener('click', () => {
+            document.getElementById('deselect-btn').addEventListener('click', () => {
                 if (highlightedMeshes && highlightedMeshes.length > 0) {
                     highlightedMeshes.forEach(mesh => {
                         mesh.userData.isHighlighted = false;
                     });
                     highlightedMeshes = [];
-                    // Rétablit le style actuel (texture ou rayon X)
                     updateMaterials();
                 }
             
-                // Recalcule la boîte globale (au cas où elle aurait été modifiée)
                 activeBox = new THREE.Box3().setFromObject(globalModel);
                 updateTopInfo(currentModelName, activeBox);
             
@@ -870,13 +836,11 @@
                     }
                 });
 
-                // --- NOUVEAUTÉ : Recalcule dynamiquement la boîte pour suivre les pièces ---
                 if (highlightedMeshes && highlightedMeshes.length > 0) {
                     activeBox = new THREE.Box3().setFromObject(highlightedMeshes[0]);
                 } else {
                     activeBox = new THREE.Box3().setFromObject(globalModel);
                 }
-                // Met à jour la valeur dans le panneau supérieur
                 document.getElementById('info-dims').innerText = getFormattedDims(activeBox);
             });
         }
@@ -887,11 +851,11 @@
         const DB_NAME = 'Finjat3D_DB';
         const STORE_NAME = 'models';
         let db;
-        let currentLoadedFileName = null; // Mémoire du fichier pour la capture auto
+        let currentLoadedFileName = null; 
 
         function initDB() {
             return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, 2); // Version 2
+                const request = indexedDB.open(DB_NAME, 2); 
                 request.onupgradeneeded = (e) => {
                     db = e.target.result;
                     if (!db.objectStoreNames.contains(STORE_NAME)) {
@@ -909,7 +873,6 @@
             const tx = db.transaction(STORE_NAME, 'readwrite');
             const store = tx.objectStore(STORE_NAME);
             
-            // On vérifie s'il existe déjà pour ne pas écraser sa miniature
             const request = store.get(file.name);
             request.onsuccess = (e) => {
                 const existing = e.target.result;
@@ -922,7 +885,6 @@
             };
         }
 
-        // Sauvegarde discrète de la capture d'écran
         async function updateModelThumbnailInDB(name, dataUrl) {
             if (!db) await initDB();
             const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -957,16 +919,13 @@
             const btn = document.getElementById('view-toggle-btn');
             const icon = document.getElementById('view-icon');
             
-            // Les deux états : Liste classique et Grille à 2 colonnes
             const layouts = [
                 { 
                     class: 'layout-list', 
-                    // Icône de type Grille (indique l'action de passer en grille)
                     svg: '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>'
                 },
                 { 
                     class: 'layout-grid', 
-                    // Icône de type Liste (indique l'action de revenir en liste)
                     svg: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>' 
                 }
             ];
@@ -1001,10 +960,8 @@
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'recent-info';
 
-                // Image Miniature 3D
                 const thumb = document.createElement('img');
                 thumb.className = 'recent-thumb';
-                // Si pas de miniature (premier lancement), affiche une icône par défaut
                 thumb.src = model.thumbnail || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23ddd"/><text x="50" y="55" font-family="Arial" font-size="20" font-weight="bold" fill="%23888" text-anchor="middle">3D</text></svg>';
                 
                 const title = document.createElement('span');
@@ -1037,6 +994,7 @@
             saveModelToDB(file).then(renderRecentGallery);
             loadModelFromUrl(URL.createObjectURL(file));
         }
+        
         async function loadSharedFile() {
             try {
                 const cache = await caches.open('shared-file-cache');
@@ -1060,19 +1018,11 @@
 
             const urlParams = new URLSearchParams(window.location.search);
             
-            // 1. Detect if the link comes from our SketchUp extension
             if (urlParams.has('model')) {
                 const cloudModelUrl = urlParams.get('model');
-                
-                // Hide the menu and load the Supabase URL directly
                 document.getElementById('start-menu').style.display = 'none';
-                
-                // Show UI elements if you have a function for it (optional, uncomment if needed)
-                // showUIElements(true); 
-                
                 loadModelFromUrl(cloudModelUrl);
             } 
-            // 2. Keep your existing shared logic
             else if (urlParams.has('shared')) {
                 loadSharedFile();
             }
@@ -1100,7 +1050,6 @@
                 resetViewState();
             });
 
-            // Initialisation de la galerie et des miniatures (bien placé en dehors du IF)
             initDB().then(() => {
                 setupGalleryViewToggle();
                 renderRecentGallery();
@@ -1126,7 +1075,6 @@
                 scene.add(globalModel);
                 scene.updateMatrixWorld(true);
 
-                // On enlève "const" pour utiliser la variable globale
                 globalBox = new THREE.Box3().setFromObject(globalModel);
                 activeBox = globalBox;
                 currentModelName = currentLoadedFileName ? currentLoadedFileName.replace('.glb', '') : "Meuble Global";
@@ -1135,7 +1083,6 @@
                 document.getElementById('action-buttons').style.display = 'flex';
                 document.getElementById('deselect-btn').style.display = 'none';
 
-                // Vos anciennes lignes adaptées :
                 const globalCenter = new THREE.Vector3();
                 globalBox.getCenter(globalCenter);
 
@@ -1170,17 +1117,16 @@
                 });
 
                 focusOnGlobalModel(true);
-                // ---> AJOUTEZ CE BLOC ICI <---
+                
                 if (currentLoadedFileName) {
                     setTimeout(() => {
-                        renderer.render(scene, camera); // Force un rendu
+                        renderer.render(scene, camera); 
                         const dataUrl = renderer.domElement.toDataURL('image/jpeg', 0.6);
                         updateModelThumbnailInDB(currentLoadedFileName, dataUrl).then(() => {
-                            renderRecentGallery(); // Met à jour l'image en arrière-plan
+                            renderRecentGallery(); 
                         });
-                    }, 800); // 800ms de délai pour s'assurer que la 3D est bien affichée
+                    }, 800); 
                 }
-                // -----------------------------
                 
                 document.getElementById('loader').style.display = 'none';
                 showUIElements(true);
@@ -1236,19 +1182,12 @@
                 isZoomedOnPart = true;
                 focusOnHighlightedPart();
 
-                // On nettoie le nom de la pièce scannée (sans le mot "CIBLE")
                 const cleanPartName = scannedText.replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
         
-                // On crée la boîte de délimitation autour de la pièce scannée
                 activeBox = new THREE.Box3().setFromObject(highlightedMeshes[0]);
-        
-                // On met à jour le nouveau panneau d'information en haut
                 updateTopInfo(cleanPartName, activeBox);
         
-                // On affiche le bouton pour désélectionner la pièce
                 document.getElementById('deselect-btn').style.display = 'flex';
-        
-                // On s'assure que l'ancien panneau "CIBLE" reste caché
                 document.getElementById('ui-panel').style.display = 'none';
             } else {
                 alert("Pièce introuvable dans ce meuble.\nCode lu : " + scannedText);
