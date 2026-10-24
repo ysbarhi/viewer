@@ -21,6 +21,36 @@
     </script>
 
     <style>
+        /* ========================================= */
+        /* UI DES MESURES ET INFORMATIONS            */
+        /* ========================================= */
+        #top-info-panel {
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9); padding: 8px 20px; border-radius: 12px;
+            text-align: center; z-index: 800; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            pointer-events: none; display: none; min-width: 200px;
+        }
+        #info-title { font-weight: bold; font-size: 16px; color: #111; }
+        #info-dims { font-size: 13px; color: #555; margin-top: 4px; }
+
+        #action-buttons {
+            position: absolute; bottom: 25px; right: 20px;
+            display: flex; flex-direction: column; gap: 12px; z-index: 800; display: none;
+        }
+        #action-buttons button {
+            background: #ffffff; border: none; border-radius: 50%;
+            width: 45px; height: 45px; font-size: 20px; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center;
+        }
+        #action-buttons button:active { transform: scale(0.9); }
+        #deselect-btn { display: none; color: #ff4444; }
+
+        .floating-label {
+            position: absolute; background: rgba(0, 0, 0, 0.7); color: #fff;
+            padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold;
+            pointer-events: none; transform: translate(-50%, -50%);
+            z-index: 500; display: none; border: 1px solid rgba(255,255,255,0.2);
+        }
         body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; transition: background-color 0.3s ease; }
         #canvas-container { width: 100vw; height: 100vh; display: block; }
 
@@ -367,6 +397,21 @@
         </div>
     </div>
 
+    <!-- NOUVELLES INTERFACES DE MESURE -->
+    <div id="top-info-panel">
+        <div id="info-title"></div>
+        <div id="info-dims"></div>
+    </div>
+
+    <div id="action-buttons">
+        <button id="toggle-measure-btn" title="Afficher/Masquer les dimensions">📏</button>
+        <button id="deselect-btn" title="Désélectionner la pièce">✖️</button>
+    </div>
+
+    <div id="label-x" class="floating-label"></div>
+    <div id="label-y" class="floating-label"></div>
+    <div id="label-z" class="floating-label"></div>
+
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
         <div class="author-badge">© Yassine Sbarhi 2026</div>
@@ -457,6 +502,11 @@
         let scene, camera, renderer, controls, globalModel;
         let isTextureOn = false;
         let isXrayOn = false;
+
+        let showMeasurements = true;
+        let globalBox = null;
+        let activeBox = null;
+        let currentModelName = "";
         
         let highlightedMeshes = []; 
         let isZoomedOnPart = false;
@@ -472,6 +522,61 @@
         const edgeMaterial = new THREE.LineBasicMaterial({
             color: 0x000000, transparent: true, opacity: 1.0
         });
+
+        // Calcule et formate les dimensions (basé sur l'échelle 1 unité = 1 mètre = 1000 mm)
+        function getFormattedDims(box) {
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            const l = (size.x * 1000).toFixed(0);
+            const h = (size.y * 1000).toFixed(0);
+            const p = (size.z * 1000).toFixed(0);
+            return `L: ${l}mm | H: ${h}mm | P: ${p}mm`;
+        }
+
+        // Met à jour le panneau supérieur
+        function updateTopInfo(title, box) {
+            document.getElementById('top-info-panel').style.display = 'block';
+            document.getElementById('info-title').innerText = title;
+            document.getElementById('info-dims').innerText = getFormattedDims(box);
+        }
+
+        // Projette les coordonnées 3D vers l'écran 2D pour les étiquettes
+        function updateMeasurementLabels() {
+            if (!activeBox || !showMeasurements) {
+                document.querySelectorAll('.floating-label').forEach(el => el.style.display = 'none');
+                return;
+            }
+
+            const min = activeBox.min;
+            const max = activeBox.max;
+
+            // X (Largeur) - Placé en bas devant
+            updateLabelPos('label-x', new THREE.Vector3((min.x + max.x)/2, min.y, max.z), (max.x - min.x));
+            // Y (Hauteur) - Placé à gauche devant
+            updateLabelPos('label-y', new THREE.Vector3(min.x, (min.y + max.y)/2, max.z), (max.y - min.y));
+            // Z (Profondeur) - Placé en bas à gauche
+            updateLabelPos('label-z', new THREE.Vector3(min.x, min.y, (min.z + max.z)/2), (max.z - min.z));
+        }
+
+        function updateLabelPos(id, pos3D, sizeMeters) {
+            const el = document.getElementById(id);
+            // Ignore les dimensions nulles
+            if (sizeMeters < 0.001) { el.style.display = 'none'; return; } 
+
+            const vector = pos3D.clone();
+            vector.project(camera);
+
+            if (vector.z < 1) { // Si l'étiquette est devant la caméra
+                const x = (vector.x * .5 + .5) * window.innerWidth;
+                const y = (vector.y * -.5 + .5) * window.innerHeight;
+                el.style.display = 'block';
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
+                el.innerText = `${(sizeMeters * 1000).toFixed(0)} mm`;
+            } else {
+                el.style.display = 'none';
+            }
+        }
 
         init();
         animate();
@@ -656,8 +761,14 @@
             document.getElementById('ui-panel').style.display = 'none';
             highlightedMeshes = [];
             isZoomedOnPart = false;
-        }
 
+            // --- NOUVEAUTÉ : Cacher les interfaces de mesure à la fermeture ---
+            document.getElementById('top-info-panel').style.display = 'none';
+            document.getElementById('action-buttons').style.display = 'none';
+            document.querySelectorAll('.floating-label').forEach(el => el.style.display = 'none');
+            activeBox = null;
+        }
+        
         function setupUI() {
             document.getElementById('zoom-btn').addEventListener('click', () => {
                 if (!globalModel) return;
@@ -679,6 +790,35 @@
                 isTextureOn = !isTextureOn;
                 textureBtn.classList.toggle('active', isTextureOn);
                 updateMaterials();
+            });
+
+            // Bouton pour masquer/afficher les mesures flottantes
+            document.getElementById('toggle-measure-btn').addEventListener('click', () => {
+            showMeasurements = !showMeasurements;
+            updateMeasurementLabels(); 
+            });
+
+            // Bouton pour désélectionner la pièce rouge
+            document.getElementById('deselect-btn').addEventListener('click', () => {
+                // Remettre le matériau original de la/les pièce(s) rouge(s)
+                if (highlightedMeshes && highlightedMeshes.length > 0) {
+                    highlightedMeshes.forEach(mesh => {
+                        if (mesh.userData.originalMaterial) {
+                            mesh.material = mesh.userData.originalMaterial;
+                        }
+                        mesh.userData.isHighlighted = false;
+                    });
+                    highlightedMeshes = [];
+                }
+            
+                // Retour aux dimensions globales
+                activeBox = globalBox;
+                updateTopInfo(currentModelName, globalBox);
+            
+                // Cacher le panneau cible s'il est affiché et cacher le bouton de désélection
+                document.getElementById('ui-panel').style.display = 'none';
+                document.getElementById('deselect-btn').style.display = 'none';
+                isZoomedOnPart = false;
             });
 
             const xrayBtn = document.getElementById('xray-btn');
@@ -945,7 +1085,16 @@
                 scene.add(globalModel);
                 scene.updateMatrixWorld(true);
 
-                const globalBox = new THREE.Box3().setFromObject(globalModel);
+                // On enlève "const" pour utiliser la variable globale
+                globalBox = new THREE.Box3().setFromObject(globalModel);
+                activeBox = globalBox;
+                currentModelName = currentLoadedFileName ? currentLoadedFileName.replace('.glb', '') : "Meuble Global";
+                updateTopInfo(currentModelName, globalBox);
+        
+                document.getElementById('action-buttons').style.display = 'flex';
+                document.getElementById('deselect-btn').style.display = 'none';
+
+                // Vos anciennes lignes adaptées :
                 const globalCenter = new THREE.Vector3();
                 globalBox.getCenter(globalCenter);
 
@@ -1046,9 +1195,20 @@
                 isZoomedOnPart = true;
                 focusOnHighlightedPart();
 
-                const uiPanel = document.getElementById('ui-panel');
-                uiPanel.style.display = 'block';
-                uiPanel.innerText = `CIBLE : ${scannedText.replace(/[^a-zA-Z0-9_-]/g, ' ').trim()}`;
+                // On nettoie le nom de la pièce scannée (sans le mot "CIBLE")
+                const cleanPartName = scannedText.replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
+        
+                // On crée la boîte de délimitation autour de la pièce scannée
+                activeBox = new THREE.Box3().setFromObject(highlightedMeshes[0]);
+        
+                // On met à jour le nouveau panneau d'information en haut
+                updateTopInfo(cleanPartName, activeBox);
+        
+                // On affiche le bouton pour désélectionner la pièce
+                document.getElementById('deselect-btn').style.display = 'flex';
+        
+                // On s'assure que l'ancien panneau "CIBLE" reste caché
+                document.getElementById('ui-panel').style.display = 'none';
             } else {
                 alert("Pièce introuvable dans ce meuble.\nCode lu : " + scannedText);
             }
@@ -1120,6 +1280,7 @@
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
+            updateMeasurementLabels();
             renderer.render(scene, camera);
         }
     </script>
