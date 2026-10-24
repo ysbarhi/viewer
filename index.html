@@ -30,6 +30,13 @@
             text-align: center; z-index: 800; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             pointer-events: none; display: none; min-width: 200px;
         }
+        #unit-toggle-btn {
+            position: absolute; top: 15px; right: 20px;
+            background: #2563eb; color: white; border: none;
+            border-radius: 8px; padding: 6px 14px; font-size: 16px; font-weight: bold;
+            cursor: pointer; z-index: 800; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        #unit-toggle-btn:active { transform: scale(0.95); }
         #info-title { font-weight: bold; font-size: 16px; color: #111; }
         #info-dims { font-size: 13px; color: #555; margin-top: 4px; }
 
@@ -407,6 +414,7 @@
         <button id="toggle-measure-btn" title="Afficher/Masquer les dimensions">📏</button>
         <button id="deselect-btn" title="Désélectionner la pièce">✖️</button>
     </div>
+    <button id="unit-toggle-btn" class="ui-element">mm</button>
 
     <div id="label-x" class="floating-label"></div>
     <div id="label-y" class="floating-label"></div>
@@ -504,6 +512,7 @@
         let isXrayOn = false;
 
         let showMeasurements = true;
+        let currentUnit = 'mm';
         let globalBox = null;
         let activeBox = null;
         let currentModelName = "";
@@ -527,17 +536,34 @@
         function getFormattedDims(box) {
             const size = new THREE.Vector3();
             box.getSize(size);
-            const l = (size.x * 1000).toFixed(0);
-            const h = (size.y * 1000).toFixed(0);
-            const p = (size.z * 1000).toFixed(0);
-            return `L: ${l}mm | H: ${h}mm | P: ${p}mm`;
+            const mult = currentUnit === 'mm' ? 1000 : 100;
+            // Utilise toFixed(1) puis remplace ".0" pour éviter les décimales inutiles
+            const l = (size.x * mult).toFixed(1).replace('.0', '');
+            const h = (size.y * mult).toFixed(1).replace('.0', '');
+            const p = (size.z * mult).toFixed(1).replace('.0', '');
+            return `L: ${l} | H: ${h} | P: ${p}`;
         }
 
-        // Met à jour le panneau supérieur
-        function updateTopInfo(title, box) {
-            document.getElementById('top-info-panel').style.display = 'block';
-            document.getElementById('info-title').innerText = title;
-            document.getElementById('info-dims').innerText = getFormattedDims(box);
+        // Dans la fonction updateLabelPos, mettez à jour la partie de l'affichage du texte
+        function updateLabelPos(id, pos3D, sizeMeters) {
+            const el = document.getElementById(id);
+            if (sizeMeters < 0.001) { el.style.display = 'none'; return; } 
+
+            const vector = pos3D.clone();
+            vector.project(camera);
+
+            if (vector.z < 1) { 
+                const x = (vector.x * .5 + .5) * window.innerWidth;
+                const y = (vector.y * -.5 + .5) * window.innerHeight;
+                el.style.display = 'block';
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
+                
+                const mult = currentUnit === 'mm' ? 1000 : 100;
+                el.innerText = `${(sizeMeters * mult).toFixed(1).replace('.0', '')}`;
+            } else {
+                el.style.display = 'none';
+            }
         }
 
         // Projette les coordonnées 3D vers l'écran 2D pour les étiquettes
@@ -770,6 +796,15 @@
         }
         
         function setupUI() {
+            document.getElementById('unit-toggle-btn').addEventListener('click', (e) => {
+                currentUnit = currentUnit === 'mm' ? 'cm' : 'mm';
+                e.target.innerText = currentUnit;
+                
+                // Met à jour les textes immédiatement
+                if (activeBox) {
+                    document.getElementById('info-dims').innerText = getFormattedDims(activeBox);
+                }
+            });
             document.getElementById('zoom-btn').addEventListener('click', () => {
                 if (!globalModel) return;
                 if (highlightedMeshes.length > 0) {
@@ -799,23 +834,20 @@
             });
 
             // Bouton pour désélectionner la pièce rouge
-            document.getElementById('deselect-btn').addEventListener('click', () => {
-                // Remettre le matériau original de la/les pièce(s) rouge(s)
+           document.getElementById('deselect-btn').addEventListener('click', () => {
                 if (highlightedMeshes && highlightedMeshes.length > 0) {
                     highlightedMeshes.forEach(mesh => {
-                        if (mesh.userData.originalMaterial) {
-                            mesh.material = mesh.userData.originalMaterial;
-                        }
                         mesh.userData.isHighlighted = false;
                     });
                     highlightedMeshes = [];
+                    // Rétablit le style actuel (texture ou rayon X)
+                    updateMaterials();
                 }
             
-                // Retour aux dimensions globales
-                activeBox = globalBox;
-                updateTopInfo(currentModelName, globalBox);
+                // Recalcule la boîte globale (au cas où elle aurait été modifiée)
+                activeBox = new THREE.Box3().setFromObject(globalModel);
+                updateTopInfo(currentModelName, activeBox);
             
-                // Cacher le panneau cible s'il est affiché et cacher le bouton de désélection
                 document.getElementById('ui-panel').style.display = 'none';
                 document.getElementById('deselect-btn').style.display = 'none';
                 isZoomedOnPart = false;
@@ -837,6 +869,15 @@
                             .addScaledVector(node.userData.explodeDirection, factor);
                     }
                 });
+
+                // --- NOUVEAUTÉ : Recalcule dynamiquement la boîte pour suivre les pièces ---
+                if (highlightedMeshes && highlightedMeshes.length > 0) {
+                    activeBox = new THREE.Box3().setFromObject(highlightedMeshes[0]);
+                } else {
+                    activeBox = new THREE.Box3().setFromObject(globalModel);
+                }
+                // Met à jour la valeur dans le panneau supérieur
+                document.getElementById('info-dims').innerText = getFormattedDims(activeBox);
             });
         }
 
