@@ -1264,12 +1264,14 @@
         function highlightScannedPart(scannedText) {
             let targetMeshes = [];
 
+            // 1. On réinitialise la surbrillance de tout le modèle
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     node.userData.isHighlighted = false;
                 }
             });
 
+            // 2. Recherche intelligente
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     let matchFound = false;
@@ -1277,34 +1279,41 @@
 
                     while (current && current !== globalModel) {
                         if (current.name) {
-                            // Nettoyage intelligent : on enlève les mots "Cible" ou "Pièce" si présents dans le QR code
-                            let sText = scannedText.toLowerCase().trim();
-                            let sClean = sText.replace(/^(cible|pi[eè]ce)\s*[:\-]?\s*/i, '').trim();
                             let pName = current.name.toLowerCase().trim();
+                            let sText = scannedText.toLowerCase().trim();
+                            
+                            // Nettoyage : on enlève "Cible" ou "Pièce" du code scanné
+                            let sClean = sText.replace(/^(cible|pi[eè]ce)\s*[:\-]?\s*/i, '').trim();
 
-                            // 1. Match exact
+                            // Étape A : Match exact (ex: "tiroir" === "tiroir")
                             if (pName === sClean || pName === sText) {
                                 matchFound = true; break;
                             }
-                            
-                            // 2. Match alphanumérique (ignore tirets/espaces pour compenser les erreurs de frappe)
-                            let pAlpha = pName.replace(/[^a-z0-9]/g, '');
-                            let sAlpha = sClean.replace(/[^a-z0-9]/g, '');
-                            
-                            if (pAlpha.length > 0 && pAlpha === sAlpha) {
+
+                            // Étape B : Transformation de la ponctuation (. , - _ @) en espaces
+                            // "19.19" devient "19 19", "Tiroir_Haut" devient "tiroir haut"
+                            let pSpaced = pName.replace(/[^a-z0-9]/g, ' ').trim();
+                            let sSpaced = sClean.replace(/[^a-z0-9]/g, ' ').trim();
+
+                            if (pSpaced === sSpaced && pSpaced !== '') {
                                 matchFound = true; break;
                             }
-                            
-                            // 3. Inclusion (seulement si le texte est long pour éviter de sélectionner la pièce "1" avec le code "19")
-                            if (sAlpha.length > 2 && pAlpha.includes(sAlpha)) {
-                                matchFound = true; break;
-                            }
-                            if (pAlpha.length > 2 && sAlpha.includes(pAlpha)) {
-                                matchFound = true; break;
+
+                            // Étape C : Recherche par "mot entier" pour les numéros et symboles
+                            // Si la pièce est "19", ça trouvera "19" dans "19 19", mais ça ignorera "119"
+                            if (pSpaced.length > 0 && sSpaced.length > 0) {
+                                let regexP = new RegExp('\\b' + pSpaced + '\\b');
+                                let regexS = new RegExp('\\b' + sSpaced + '\\b');
+
+                                // On regarde si l'un des deux noms est contenu comme un mot entier dans l'autre
+                                if (regexP.test(sSpaced) || regexS.test(pSpaced)) {
+                                    matchFound = true; break;
+                                }
                             }
                         }
-                        current = current.parent;
+                        current = current.parent; // On remonte l'arborescence
                     }
+                    
                     if (matchFound) {
                         node.userData.isHighlighted = true;
                         targetMeshes.push(node);
@@ -1315,6 +1324,7 @@
             highlightedMeshes = targetMeshes;
             updateMaterials();
 
+            // 3. Mise à jour de l'interface
             if (highlightedMeshes.length > 0) {
                 isZoomedOnPart = true;
                 focusOnHighlightedPart();
