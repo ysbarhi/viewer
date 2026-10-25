@@ -470,6 +470,8 @@
         let globalBox = null;
         let activeBox = null;
         let currentModelName = "";
+        let originalGlobalSize = new THREE.Vector3();
+        let activeOriginalSize = new THREE.Vector3();
         
         let highlightedMeshes = []; 
         let isZoomedOnPart = false;
@@ -493,20 +495,19 @@
         // ---------------------------------------------
         // LOGIQUE DES MESURES DYNAMIQUES 
         // ---------------------------------------------
-        function getFormattedDims(box) {
-            const size = new THREE.Vector3();
-            box.getSize(size);
+        // Reçoit un Vector3 (taille d'origine) au lieu de la box dynamique
+        function getFormattedDims(sizeVector) {
             const mult = currentUnit === 'mm' ? 1000 : 100;
-            const l = (size.x * mult).toFixed(1).replace('.0', '');
-            const h = (size.y * mult).toFixed(1).replace('.0', '');
-            const p = (size.z * mult).toFixed(1).replace('.0', '');
+            const l = (sizeVector.x * mult).toFixed(1).replace('.0', '');
+            const h = (sizeVector.y * mult).toFixed(1).replace('.0', '');
+            const p = (sizeVector.z * mult).toFixed(1).replace('.0', '');
             return `L: ${l} | H: ${h} | P: ${p}`;
         }
 
-        function updateTopInfo(title, box) {
+        function updateTopInfo(title, sizeVector) {
             document.getElementById('top-info-panel').style.display = 'block';
             document.getElementById('info-title').innerText = title;
-            document.getElementById('info-dims').innerText = getFormattedDims(box);
+            document.getElementById('info-dims').innerText = getFormattedDims(sizeVector);
         }
 
         function updateMeasurementLabels() {
@@ -518,7 +519,6 @@
             }
 
             if (!activeBox || !showMeasurements) {
-                // Cache les labels sans forcer le navigateur à recalculer si c'est déjà caché
                 ['x', 'y', 'z'].forEach(axis => {
                     if (domLabels[axis] && domLabels[axis].style.display !== 'none') {
                         domLabels[axis].style.display = 'none';
@@ -526,6 +526,16 @@
                 });
                 return;
             }
+
+            // On utilise la boîte dynamique pour POSITIONNER les étiquettes sur les bords
+            const min = activeBox.min;
+            const max = activeBox.max;
+
+            // Mais on utilise "activeOriginalSize" (fixe) pour AFFICHER le texte
+            updateLabelPos(domLabels.x, new THREE.Vector3((min.x + max.x)/2, min.y, max.z), activeOriginalSize.x);
+            updateLabelPos(domLabels.y, new THREE.Vector3(min.x, (min.y + max.y)/2, max.z), activeOriginalSize.y);
+            updateLabelPos(domLabels.z, new THREE.Vector3(min.x, min.y, (min.z + max.z)/2), activeOriginalSize.z);
+        }
 
             const min = activeBox.min;
             const max = activeBox.max;
@@ -771,7 +781,7 @@
                 currentUnit = currentUnit === 'mm' ? 'cm' : 'mm';
                 e.target.innerText = currentUnit;
                 if (activeBox) {
-                    document.getElementById('info-dims').innerText = getFormattedDims(activeBox);
+                    document.getElementById('info-dims').innerText = getFormattedDims(activeOriginalSize);
                 }
             });
 
@@ -812,7 +822,8 @@
                 }
             
                 activeBox = new THREE.Box3().setFromObject(globalModel);
-                updateTopInfo(currentModelName, activeBox);
+                activeOriginalSize.copy(originalGlobalSize); // Restaure les mesures du meuble entier
+                updateTopInfo(currentModelName, activeOriginalSize);
             
                 document.getElementById('ui-panel').style.display = 'none';
                 document.getElementById('deselect-btn').style.display = 'none';
@@ -841,7 +852,6 @@
                 } else {
                     activeBox = new THREE.Box3().setFromObject(globalModel);
                 }
-                document.getElementById('info-dims').innerText = getFormattedDims(activeBox);
             });
         }
 
@@ -1076,9 +1086,13 @@
                 scene.updateMatrixWorld(true);
 
                 globalBox = new THREE.Box3().setFromObject(globalModel);
-                activeBox = globalBox;
+                globalBox.getSize(originalGlobalSize); // Mémorise la taille d'origine du meuble
+                
+                activeBox = globalBox.clone();
+                activeOriginalSize.copy(originalGlobalSize);
+                
                 currentModelName = currentLoadedFileName ? currentLoadedFileName.replace('.glb', '') : "Meuble Global";
-                updateTopInfo(currentModelName, globalBox);
+                updateTopInfo(currentModelName, activeOriginalSize);
         
                 document.getElementById('action-buttons').style.display = 'flex';
                 document.getElementById('deselect-btn').style.display = 'none';
@@ -1185,7 +1199,9 @@
                 const cleanPartName = scannedText.replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
         
                 activeBox = new THREE.Box3().setFromObject(highlightedMeshes[0]);
-                updateTopInfo(cleanPartName, activeBox);
+                activeBox.getSize(activeOriginalSize); // NOUVELLE LIGNE : Mémorise la taille fixe de la pièce
+        
+                updateTopInfo(cleanPartName, activeOriginalSize); // MODIFIÉ : On utilise activeOriginalSize au lieu de activeBox
         
                 document.getElementById('deselect-btn').style.display = 'flex';
                 document.getElementById('ui-panel').style.display = 'none';
