@@ -42,7 +42,7 @@
         #info-material { font-size: 13px; color: #2563eb; margin-top: 4px; font-weight: bold; display: none; }
 
         /* ========================================= */
-        /* NOUVEAU : BOUTON TACTILE (SÉLECTION 3D)   */
+        /* BOUTON TACTILE (SÉLECTION 3D)             */
         /* ========================================= */
         #touch-select-container {
             position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
@@ -218,8 +218,10 @@
         }
         .floating-btn.active { background: #dbeafe; border: 2px solid #2563eb; }
 
-        #texture-btn { bottom: 40px; left: calc(50% - 75px); }
-        #xray-btn { bottom: 40px; left: calc(50% + 15px); }
+        /* NOUVEAU PLACEMENT DES BOUTONS FLOTTANTS */
+        #texture-btn { bottom: 40px; left: calc(50% - 105px); }
+        #xray-btn { bottom: 40px; left: calc(50% - 30px); }
+        #edge-btn { bottom: 40px; left: calc(50% + 45px); }
         #zoom-btn { bottom: 130px; right: 25px; }
 
         #ui-panel {
@@ -393,7 +395,7 @@
     <div id="top-info-panel">
         <div id="info-title"></div>
         <div id="info-dims"></div>
-        <div id="info-material"></div> <!-- AJOUT DU MATERIAU -->
+        <div id="info-material"></div> 
     </div>
 
     <div id="action-buttons">
@@ -407,7 +409,6 @@
         <div id="touch-toggle">
             <div class="toggle-knob"></div>
         </div>
-        <!-- Icône main avec index tendu -->
         <svg class="touch-icon" viewBox="0 0 24 24" width="28" height="28" stroke="#555" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <path d="M9 11V4a2 2 0 0 1 4 0v6M13 11a2 2 0 0 1 4 0v4a6 6 0 0 1-6 6H7a8 8 0 0 1-8-8v-2a2 2 0 0 1 4 0v2"></path>
         </svg>
@@ -419,7 +420,7 @@
 
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">v1.25.8</div> <!-- NOUVELLE VERSION -->
+        <div class="author-badge">v1.25.8</div> 
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
@@ -450,6 +451,7 @@
         <input type="range" id="explode-slider" min="0" max="100" step="1" value="0" orient="vertical">
     </div>
 
+    <!-- BOUTONS FLOTTANTS -->
     <button id="texture-btn" class="floating-btn ui-element">
         <svg viewBox="0 0 24 24" width="35" height="35">
             <path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z" fill="#555"/>
@@ -460,6 +462,13 @@
     <button id="xray-btn" class="floating-btn ui-element">
         <svg viewBox="0 0 24 24" width="35" height="35" fill="none" stroke="#555" stroke-width="2.5">
             <path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z"/><path d="M12 22L12 13"/><path d="M12 13L3 8.5"/><path d="M12 13L21 8.5"/>
+        </svg>
+    </button>
+    <!-- NOUVEAU BOUTON CHANTS (EDGE BANDING) -->
+    <button id="edge-btn" class="floating-btn ui-element" title="Voir les chants">
+        <svg viewBox="0 0 24 24" width="30" height="30" stroke="#555" stroke-width="2" fill="none">
+            <rect x="5" y="4" width="14" height="16" rx="1"></rect>
+            <path d="M19 4v16" stroke="#ff8c00" stroke-width="4"></path>
         </svg>
     </button>
 
@@ -500,8 +509,8 @@
         let scene, camera, renderer, controls, globalModel;
         let isTextureOn = false;
         let isXrayOn = false;
+        let isEdgeBandingOn = false; // NOUVEAU
         
-        // Système tactile (Raycaster)
         let raycaster = new THREE.Raycaster();
         let mouse = new THREE.Vector2();
         let touchPointerDown = { x: 0, y: 0 };
@@ -529,6 +538,11 @@
             color: 0xff0000, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
             transparent: false, opacity: 1.0
         });
+        // NOUVEAU MATERIAU POUR LES CHANTS
+        const edgeHighlightMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffaa00, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+            transparent: false, opacity: 1.0
+        });
         const edgeMaterial = new THREE.LineBasicMaterial({
             color: 0x000000, transparent: true, opacity: 1.0
         });
@@ -541,14 +555,13 @@
             return `L: ${l} | H: ${h} | P: ${p}`;
         }
 
-        // MODIFIÉ : Ajout du paramètre materialName
         function updateTopInfo(title, sizeVector, materialName = null) {
             document.getElementById('top-info-panel').style.display = 'block';
             document.getElementById('info-title').innerText = title;
             document.getElementById('info-dims').innerText = getFormattedDims(sizeVector);
             
             const matEl = document.getElementById('info-material');
-            if (materialName) {
+            if (materialName && materialName.toLowerCase() !== "default") {
                 matEl.style.display = 'block';
                 matEl.innerText = "Matériau : " + materialName;
             } else {
@@ -736,6 +749,7 @@
             window.addEventListener('resize', onWindowResize, false);
         }
 
+        // MODIFIÉ : Gestion de la vue Chants
         function updateMaterials() {
             if (!globalModel) return;
             const targetOpacity = isXrayOn ? 0.25 : 1.0;
@@ -744,7 +758,14 @@
 
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
-                    if (node.userData.isHighlighted) {
+                    if (isEdgeBandingOn) {
+                        if (node.userData.isEdgeBand) {
+                            node.material = edgeHighlightMaterial;
+                        } else {
+                            node.material = baseMaterial;
+                            node.material.opacity = 0.15; // Rend le reste du meuble presque transparent
+                        }
+                    } else if (node.userData.isHighlighted) {
                         node.material = highlightMaterial;
                     } else {
                         if (isTextureOn && node.userData.originalMaterial) {
@@ -800,8 +821,10 @@
             document.getElementById('explode-slider').value = 0;
             document.getElementById('texture-btn').classList.remove('active');
             document.getElementById('xray-btn').classList.remove('active');
+            document.getElementById('edge-btn').classList.remove('active'); // NOUVEAU
             isTextureOn = false;
             isXrayOn = false;
+            isEdgeBandingOn = false; // NOUVEAU
             baseMaterial.opacity = 1.0;
             edgeMaterial.opacity = 1.0;
             document.getElementById('ui-panel').style.display = 'none';
@@ -844,7 +867,6 @@
             activeBox = box;
             activeBox.getSize(activeOriginalSize);
 
-            // NOUVEAU : Récupération du nom du matériau pour l'affichage
             let matName = "Par défaut";
             if (highlightedMeshes[0] && highlightedMeshes[0].userData.originalMaterial && highlightedMeshes[0].userData.originalMaterial.name) {
                 matName = highlightedMeshes[0].userData.originalMaterial.name;
@@ -923,6 +945,21 @@
                 updateMaterials();
             });
 
+            const xrayBtn = document.getElementById('xray-btn');
+            xrayBtn.addEventListener('click', () => {
+                isXrayOn = !isXrayOn;
+                xrayBtn.classList.toggle('active', isXrayOn);
+                updateMaterials();
+            });
+
+            // NOUVEAU BOUTON : CHANTS
+            const edgeBtn = document.getElementById('edge-btn');
+            edgeBtn.addEventListener('click', () => {
+                isEdgeBandingOn = !isEdgeBandingOn;
+                edgeBtn.classList.toggle('active', isEdgeBandingOn);
+                updateMaterials();
+            });
+
             document.getElementById('toggle-measure-btn').addEventListener('click', () => {
                 showMeasurements = !showMeasurements;
                 updateMeasurementLabels(); 
@@ -939,18 +976,11 @@
             
                 activeBox = new THREE.Box3().setFromObject(globalModel);
                 activeOriginalSize.copy(originalGlobalSize); 
-                updateTopInfo(currentModelName, activeOriginalSize, null); // Pas de matériau en vue globale
+                updateTopInfo(currentModelName, activeOriginalSize, null); 
             
                 document.getElementById('ui-panel').style.display = 'none';
                 document.getElementById('deselect-btn').style.display = 'none';
                 isZoomedOnPart = false;
-            });
-
-            const xrayBtn = document.getElementById('xray-btn');
-            xrayBtn.addEventListener('click', () => {
-                isXrayOn = !isXrayOn;
-                xrayBtn.classList.toggle('active', isXrayOn);
-                updateMaterials();
             });
 
             document.getElementById('explode-slider').addEventListener('input', (e) => {
@@ -1217,6 +1247,15 @@
                         node.userData.isOriginalMesh = true;
                         node.userData.isHighlighted = false;
 
+                        // NOUVEAU : Identification des chants lors du chargement
+                        let matName = "";
+                        if (Array.isArray(node.material) && node.material.length > 0) {
+                            matName = (node.material[0].name || "").toLowerCase();
+                        } else if (node.material) {
+                            matName = (node.material.name || "").toLowerCase();
+                        }
+                        node.userData.isEdgeBand = matName.includes("chant") || matName.includes("edge") || matName.includes("abf");
+
                         node.userData.originalMaterial = node.material.clone();
                         node.userData.originalMaterial.transparent = true;
                         node.userData.originalMaterial.polygonOffset = true;
@@ -1329,7 +1368,6 @@
                 activeBox = new THREE.Box3().setFromObject(highlightedMeshes[0]);
                 activeBox.getSize(activeOriginalSize); 
 
-                // NOUVEAU : Récupération du matériau pour le scanner
                 let matName = "Par défaut";
                 if (highlightedMeshes[0] && highlightedMeshes[0].userData.originalMaterial && highlightedMeshes[0].userData.originalMaterial.name) {
                     matName = highlightedMeshes[0].userData.originalMaterial.name;
