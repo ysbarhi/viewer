@@ -803,14 +803,15 @@
                 highlightedMeshes.forEach(m => m.userData.isHighlighted = false);
             }
 
-            // Remonte pour trouver le composant principal (groupe) de SketchUp
-            let topGroup = mesh;
-            while (topGroup.parent && topGroup.parent.uuid !== globalModel.uuid && topGroup.parent.type !== 'Scene') {
-                topGroup = topGroup.parent;
+            // On cible uniquement le parent immédiat (la pièce) ou le mesh lui-même, 
+            // pour ne pas sélectionner tout le meuble.
+            let partGroup = mesh;
+            if (mesh.parent && mesh.parent.uuid !== globalModel.uuid && mesh.parent.type !== 'Scene') {
+                partGroup = mesh.parent;
             }
 
             let targetMeshes = [];
-            topGroup.traverse((node) => {
+            partGroup.traverse((node) => {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     node.userData.isHighlighted = true;
                     targetMeshes.push(node);
@@ -820,10 +821,9 @@
             highlightedMeshes = targetMeshes;
             updateMaterials();
 
-            isZoomedOnPart = true;
-            focusOnHighlightedPart();
+            // Le zoom automatique a été retiré ici comme demandé.
 
-            const cleanPartName = (topGroup.name || mesh.name || "Pièce").replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
+            const cleanPartName = (partGroup.name || mesh.name || "Pièce").replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
 
             const box = new THREE.Box3();
             highlightedMeshes.forEach(m => box.union(new THREE.Box3().setFromObject(m)));
