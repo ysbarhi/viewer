@@ -39,6 +39,7 @@
         #unit-toggle-btn:active { transform: scale(0.95); }
         #info-title { font-weight: bold; font-size: 16px; color: #111; }
         #info-dims { font-size: 13px; color: #555; margin-top: 4px; }
+        #info-material { font-size: 13px; color: #2563eb; margin-top: 4px; font-weight: bold; display: none; }
 
         /* ========================================= */
         /* NOUVEAU : BOUTON TACTILE (SÉLECTION 3D)   */
@@ -392,6 +393,7 @@
     <div id="top-info-panel">
         <div id="info-title"></div>
         <div id="info-dims"></div>
+        <div id="info-material"></div> <!-- AJOUT DU MATERIAU -->
     </div>
 
     <div id="action-buttons">
@@ -417,6 +419,7 @@
 
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
+        <div class="author-badge">v1.25.8</div> <!-- NOUVELLE VERSION -->
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
@@ -538,10 +541,19 @@
             return `L: ${l} | H: ${h} | P: ${p}`;
         }
 
-        function updateTopInfo(title, sizeVector) {
+        // MODIFIÉ : Ajout du paramètre materialName
+        function updateTopInfo(title, sizeVector, materialName = null) {
             document.getElementById('top-info-panel').style.display = 'block';
             document.getElementById('info-title').innerText = title;
             document.getElementById('info-dims').innerText = getFormattedDims(sizeVector);
+            
+            const matEl = document.getElementById('info-material');
+            if (materialName) {
+                matEl.style.display = 'block';
+                matEl.innerText = "Matériau : " + materialName;
+            } else {
+                matEl.style.display = 'none';
+            }
         }
 
         function updateMeasurementLabels() {
@@ -606,7 +618,6 @@
         setupSplashScreen();
         setupSidebar();
         
-        // Initialiser la DB de manière indépendante pour que la galerie charge instantanément
         initDB().then(() => {
             setupGalleryViewToggle();
             renderRecentGallery();
@@ -630,7 +641,6 @@
                 splashVideo.addEventListener('error', hideSplash);
             }
             
-            // Permet de passer l'intro en touchant l'écran
             splash.addEventListener('click', hideSplash);
             splash.addEventListener('touchstart', hideSplash, { passive: true });
             
@@ -806,15 +816,11 @@
             activeBox = null;
         }
 
-        // =========================================
-        // FONCTION DE SÉLECTION PAR CLIC MODIFIÉE
-        // =========================================
         function selectPartByMesh(mesh) {
             if (highlightedMeshes && highlightedMeshes.length > 0) {
                 highlightedMeshes.forEach(m => m.userData.isHighlighted = false);
             }
 
-            // On cible uniquement le parent immédiat (la pièce) ou le mesh lui-même
             let partGroup = mesh;
             if (mesh.parent && mesh.parent.uuid !== globalModel.uuid && mesh.parent.type !== 'Scene') {
                 partGroup = mesh.parent;
@@ -831,8 +837,6 @@
             highlightedMeshes = targetMeshes;
             updateMaterials();
 
-            // Aucun zoom automatique comme demandé
-
             const cleanPartName = (partGroup.name || mesh.name || "Pièce").replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
 
             const box = new THREE.Box3();
@@ -840,14 +844,19 @@
             activeBox = box;
             activeBox.getSize(activeOriginalSize);
 
-            updateTopInfo(cleanPartName, activeOriginalSize);
+            // NOUVEAU : Récupération du nom du matériau pour l'affichage
+            let matName = "Par défaut";
+            if (highlightedMeshes[0] && highlightedMeshes[0].userData.originalMaterial && highlightedMeshes[0].userData.originalMaterial.name) {
+                matName = highlightedMeshes[0].userData.originalMaterial.name;
+            }
+
+            updateTopInfo(cleanPartName, activeOriginalSize, matName);
 
             document.getElementById('deselect-btn').style.display = 'flex';
             document.getElementById('ui-panel').style.display = 'none';
         }
         
         function setupUI() {
-            // Logique du bouton Toggle Tactile
             const touchSelectToggle = document.getElementById('touch-toggle');
             touchSelectToggle.addEventListener('click', () => {
                 isTouchSelectOn = !isTouchSelectOn;
@@ -858,7 +867,6 @@
                 }
             });
 
-            // Écouteur tactile sur le Canvas 3D
             const canvasEl = renderer.domElement;
             canvasEl.addEventListener('pointerdown', (e) => {
                 touchPointerDown.x = e.clientX;
@@ -931,7 +939,7 @@
             
                 activeBox = new THREE.Box3().setFromObject(globalModel);
                 activeOriginalSize.copy(originalGlobalSize); 
-                updateTopInfo(currentModelName, activeOriginalSize);
+                updateTopInfo(currentModelName, activeOriginalSize, null); // Pas de matériau en vue globale
             
                 document.getElementById('ui-panel').style.display = 'none';
                 document.getElementById('deselect-btn').style.display = 'none';
@@ -1166,7 +1174,7 @@
                 showUIElements(false);
                 fileInput.value = "";
                 resetViewState();
-                renderRecentGallery(); // FORCE REFRESH de l'historique quand on ferme un projet
+                renderRecentGallery(); 
             });
         }
 
@@ -1258,20 +1266,15 @@
             });
         }
 
-        // ==========================================
-        // SCANNER AMÉLIORÉ : RECHERCHE INTELLIGENTE
-        // ==========================================
         function highlightScannedPart(scannedText) {
             let targetMeshes = [];
 
-            // 1. On réinitialise la surbrillance de tout le modèle
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     node.userData.isHighlighted = false;
                 }
             });
 
-            // 2. Recherche intelligente
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     let matchFound = false;
@@ -1282,16 +1285,12 @@
                             let pName = current.name.toLowerCase().trim();
                             let sText = scannedText.toLowerCase().trim();
                             
-                            // Nettoyage : on enlève "Cible" ou "Pièce" du code scanné
                             let sClean = sText.replace(/^(cible|pi[eè]ce)\s*[:\-]?\s*/i, '').trim();
 
-                            // Étape A : Match exact (ex: "tiroir" === "tiroir")
                             if (pName === sClean || pName === sText) {
                                 matchFound = true; break;
                             }
 
-                            // Étape B : Transformation de la ponctuation (. , - _ @) en espaces
-                            // "19.19" devient "19 19", "Tiroir_Haut" devient "tiroir haut"
                             let pSpaced = pName.replace(/[^a-z0-9]/g, ' ').trim();
                             let sSpaced = sClean.replace(/[^a-z0-9]/g, ' ').trim();
 
@@ -1299,19 +1298,16 @@
                                 matchFound = true; break;
                             }
 
-                            // Étape C : Recherche par "mot entier" pour les numéros et symboles
-                            // Si la pièce est "19", ça trouvera "19" dans "19 19", mais ça ignorera "119"
                             if (pSpaced.length > 0 && sSpaced.length > 0) {
                                 let regexP = new RegExp('\\b' + pSpaced + '\\b');
                                 let regexS = new RegExp('\\b' + sSpaced + '\\b');
 
-                                // On regarde si l'un des deux noms est contenu comme un mot entier dans l'autre
                                 if (regexP.test(sSpaced) || regexS.test(pSpaced)) {
                                     matchFound = true; break;
                                 }
                             }
                         }
-                        current = current.parent; // On remonte l'arborescence
+                        current = current.parent; 
                     }
                     
                     if (matchFound) {
@@ -1324,18 +1320,22 @@
             highlightedMeshes = targetMeshes;
             updateMaterials();
 
-            // 3. Mise à jour de l'interface
             if (highlightedMeshes.length > 0) {
                 isZoomedOnPart = true;
                 focusOnHighlightedPart();
 
-                // Affiche le nom sans le mot cible
                 const cleanPartName = scannedText.replace(/^(Cible|Pi[eè]ce)\s*[:\-]?\s*/i, '').trim();
         
                 activeBox = new THREE.Box3().setFromObject(highlightedMeshes[0]);
                 activeBox.getSize(activeOriginalSize); 
+
+                // NOUVEAU : Récupération du matériau pour le scanner
+                let matName = "Par défaut";
+                if (highlightedMeshes[0] && highlightedMeshes[0].userData.originalMaterial && highlightedMeshes[0].userData.originalMaterial.name) {
+                    matName = highlightedMeshes[0].userData.originalMaterial.name;
+                }
         
-                updateTopInfo(cleanPartName, activeOriginalSize); 
+                updateTopInfo(cleanPartName, activeOriginalSize, matName); 
         
                 document.getElementById('deselect-btn').style.display = 'flex';
                 document.getElementById('ui-panel').style.display = 'none';
