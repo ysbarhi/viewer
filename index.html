@@ -40,6 +40,27 @@
         #info-title { font-weight: bold; font-size: 16px; color: #111; }
         #info-dims { font-size: 13px; color: #555; margin-top: 4px; }
 
+        /* ========================================= */
+        /* NOUVEAU : BOUTON TACTILE (SÉLECTION 3D)   */
+        /* ========================================= */
+        #touch-select-container {
+            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 800;
+        }
+        #touch-toggle {
+            width: 32px; height: 56px; background: #999; border-radius: 16px;
+            position: relative; cursor: pointer; transition: background 0.3s;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+        #touch-toggle.toggle-on { background: #2563eb; }
+        .toggle-knob {
+            width: 24px; height: 24px; background: white; border-radius: 50%;
+            position: absolute; left: 4px; bottom: 4px; 
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        #touch-toggle.toggle-on .toggle-knob { transform: translateY(-24px); }
+
         #action-buttons {
             position: absolute; bottom: 25px; right: 20px;
             display: flex; flex-direction: column; gap: 12px; z-index: 800; display: none;
@@ -378,6 +399,17 @@
     </div>
     <button id="unit-toggle-btn" class="ui-element">mm</button>
 
+    <!-- NOUVELLE INTERFACE DE SÉLECTION TACTILE -->
+    <div id="touch-select-container" class="ui-element">
+        <div id="touch-toggle">
+            <div class="toggle-knob"></div>
+        </div>
+        <!-- Icône main avec index tendu -->
+        <svg class="touch-icon" viewBox="0 0 24 24" width="28" height="28" stroke="#555" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11V4a2 2 0 0 1 4 0v6M13 11a2 2 0 0 1 4 0v4a6 6 0 0 1-6 6H7a8 8 0 0 1-8-8v-2a2 2 0 0 1 4 0v2"></path>
+        </svg>
+    </div>
+
     <div id="label-x" class="floating-label"></div>
     <div id="label-y" class="floating-label"></div>
     <div id="label-z" class="floating-label"></div>
@@ -464,6 +496,12 @@
         let scene, camera, renderer, controls, globalModel;
         let isTextureOn = false;
         let isXrayOn = false;
+        
+        // Système tactile (Raycaster)
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+        let touchPointerDown = { x: 0, y: 0 };
+        let isTouchSelectOn = false;
 
         let showMeasurements = true;
         let currentUnit = 'mm';
@@ -491,9 +529,6 @@
             color: 0x000000, transparent: true, opacity: 1.0
         });
 
-        // ---------------------------------------------
-        // LOGIQUE DES MESURES DYNAMIQUES 
-        // ---------------------------------------------
         function getFormattedDims(sizeVector) {
             const mult = currentUnit === 'mm' ? 1000 : 100;
             const l = (sizeVector.x * mult).toFixed(1).replace('.0', '');
@@ -561,7 +596,6 @@
                 if (el.style.display !== 'none') el.style.display = 'none';
             }
         }
-        // ---------------------------------------------
 
         init();
         animate();
@@ -760,8 +794,89 @@
             });
             activeBox = null;
         }
+
+        // =========================================
+        // NOUVEAU : FONCTION DE SÉLECTION PAR CLIC
+        // =========================================
+        function selectPartByMesh(mesh) {
+            if (highlightedMeshes && highlightedMeshes.length > 0) {
+                highlightedMeshes.forEach(m => m.userData.isHighlighted = false);
+            }
+
+            // Remonte pour trouver le composant principal (groupe) de SketchUp
+            let topGroup = mesh;
+            while (topGroup.parent && topGroup.parent.uuid !== globalModel.uuid && topGroup.parent.type !== 'Scene') {
+                topGroup = topGroup.parent;
+            }
+
+            let targetMeshes = [];
+            topGroup.traverse((node) => {
+                if (node.isMesh && node.userData.isOriginalMesh) {
+                    node.userData.isHighlighted = true;
+                    targetMeshes.push(node);
+                }
+            });
+
+            highlightedMeshes = targetMeshes;
+            updateMaterials();
+
+            isZoomedOnPart = true;
+            focusOnHighlightedPart();
+
+            const cleanPartName = (topGroup.name || mesh.name || "Pièce").replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
+
+            const box = new THREE.Box3();
+            highlightedMeshes.forEach(m => box.union(new THREE.Box3().setFromObject(m)));
+            activeBox = box;
+            activeBox.getSize(activeOriginalSize);
+
+            updateTopInfo(cleanPartName, activeOriginalSize);
+
+            document.getElementById('deselect-btn').style.display = 'flex';
+            document.getElementById('ui-panel').style.display = 'none';
+        }
         
         function setupUI() {
+            // Logique du bouton Toggle Tactile
+            const touchSelectToggle = document.getElementById('touch-toggle');
+            touchSelectToggle.addEventListener('click', () => {
+                isTouchSelectOn = !isTouchSelectOn;
+                if (isTouchSelectOn) {
+                    touchSelectToggle.classList.add('toggle-on');
+                } else {
+                    touchSelectToggle.classList.remove('toggle-on');
+                }
+            });
+
+            // Écouteur tactile sur le Canvas 3D
+            const canvasEl = renderer.domElement;
+            canvasEl.addEventListener('pointerdown', (e) => {
+                touchPointerDown.x = e.clientX;
+                touchPointerDown.y = e.clientY;
+            });
+
+            canvasEl.addEventListener('pointerup', (e) => {
+                if (!isTouchSelectOn || !globalModel) return;
+                
+                // Si l'utilisateur a glissé le doigt (pour tourner la caméra), on ignore le clic
+                if (Math.abs(e.clientX - touchPointerDown.x) > 10 || Math.abs(e.clientY - touchPointerDown.y) > 10) return;
+
+                const rect = canvasEl.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObject(globalModel, true);
+                const validIntersects = intersects.filter(i => i.object.isMesh && i.object.userData.isOriginalMesh);
+
+                if (validIntersects.length > 0) {
+                    selectPartByMesh(validIntersects[0].object);
+                } else {
+                    // Clic dans le vide = Désélectionner
+                    document.getElementById('deselect-btn').click();
+                }
+            });
+
             document.getElementById('unit-toggle-btn').addEventListener('click', (e) => {
                 currentUnit = currentUnit === 'mm' ? 'cm' : 'mm';
                 e.target.innerText = currentUnit;
