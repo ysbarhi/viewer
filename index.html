@@ -88,6 +88,7 @@
             background-color: #000000; z-index: 9999;
             display: flex; justify-content: center; align-items: center;
             transition: opacity 0.5s ease-out;
+            cursor: pointer;
         }
         #splash-video {
             width: 100%; height: 100%; object-fit: cover;
@@ -399,7 +400,7 @@
     </div>
     <button id="unit-toggle-btn" class="ui-element">mm</button>
 
-    <!-- NOUVELLE INTERFACE DE SÉLECTION TACTILE -->
+    <!-- INTERFACE DE SÉLECTION TACTILE -->
     <div id="touch-select-container" class="ui-element">
         <div id="touch-toggle">
             <div class="toggle-knob"></div>
@@ -604,6 +605,12 @@
         setupFileUploader();
         setupSplashScreen();
         setupSidebar();
+        
+        // Initialiser la DB de manière indépendante pour que la galerie charge instantanément
+        initDB().then(() => {
+            setupGalleryViewToggle();
+            renderRecentGallery();
+        }).catch(err => console.error("Erreur DB:", err));
 
         function setupSplashScreen() {
             const splash = document.getElementById('splash-screen');
@@ -622,6 +629,10 @@
                 splashVideo.addEventListener('ended', hideSplash);
                 splashVideo.addEventListener('error', hideSplash);
             }
+            
+            // Permet de passer l'intro en touchant l'écran
+            splash.addEventListener('click', hideSplash);
+            splash.addEventListener('touchstart', hideSplash, { passive: true });
             
             setTimeout(hideSplash, 3500);
         }
@@ -796,15 +807,14 @@
         }
 
         // =========================================
-        // NOUVEAU : FONCTION DE SÉLECTION PAR CLIC
+        // FONCTION DE SÉLECTION PAR CLIC MODIFIÉE
         // =========================================
         function selectPartByMesh(mesh) {
             if (highlightedMeshes && highlightedMeshes.length > 0) {
                 highlightedMeshes.forEach(m => m.userData.isHighlighted = false);
             }
 
-            // On cible uniquement le parent immédiat (la pièce) ou le mesh lui-même, 
-            // pour ne pas sélectionner tout le meuble.
+            // On cible uniquement le parent immédiat (la pièce) ou le mesh lui-même
             let partGroup = mesh;
             if (mesh.parent && mesh.parent.uuid !== globalModel.uuid && mesh.parent.type !== 'Scene') {
                 partGroup = mesh.parent;
@@ -821,7 +831,7 @@
             highlightedMeshes = targetMeshes;
             updateMaterials();
 
-            // Le zoom automatique a été retiré ici comme demandé.
+            // Aucun zoom automatique comme demandé
 
             const cleanPartName = (partGroup.name || mesh.name || "Pièce").replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
 
@@ -858,7 +868,6 @@
             canvasEl.addEventListener('pointerup', (e) => {
                 if (!isTouchSelectOn || !globalModel) return;
                 
-                // Si l'utilisateur a glissé le doigt (pour tourner la caméra), on ignore le clic
                 if (Math.abs(e.clientX - touchPointerDown.x) > 10 || Math.abs(e.clientY - touchPointerDown.y) > 10) return;
 
                 const rect = canvasEl.getBoundingClientRect();
@@ -872,7 +881,6 @@
                 if (validIntersects.length > 0) {
                     selectPartByMesh(validIntersects[0].object);
                 } else {
-                    // Clic dans le vide = Désélectionner
                     document.getElementById('deselect-btn').click();
                 }
             });
@@ -1158,11 +1166,7 @@
                 showUIElements(false);
                 fileInput.value = "";
                 resetViewState();
-            });
-
-            initDB().then(() => {
-                setupGalleryViewToggle();
-                renderRecentGallery();
+                renderRecentGallery(); // FORCE REFRESH de l'historique quand on ferme un projet
             });
         }
 
@@ -1254,9 +1258,10 @@
             });
         }
 
+        // ==========================================
+        // SCANNER AMÉLIORÉ : RECHERCHE INTELLIGENTE
+        // ==========================================
         function highlightScannedPart(scannedText) {
-            const rawScan = scannedText.toLowerCase();
-            const cleanScan = rawScan.replace(/[^a-z0-9]/g, '');
             let targetMeshes = [];
 
             globalModel.traverse(function (node) {
@@ -1272,12 +1277,30 @@
 
                     while (current && current !== globalModel) {
                         if (current.name) {
-                            const cleanName = current.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            // Nettoyage intelligent : on enlève les mots "Cible" ou "Pièce" si présents dans le QR code
+                            let sText = scannedText.toLowerCase().trim();
+                            let sClean = sText.replace(/^(cible|pi[eè]ce)\s*[:\-]?\s*/i, '').trim();
+                            let pName = current.name.toLowerCase().trim();
 
-                            if (cleanName.length > 0) {
-                                if (cleanName === cleanScan) { matchFound = true; break; }
-                                else if (cleanName.length > 3 && cleanScan.includes(cleanName)) { matchFound = true; break; }
-                                else if (cleanScan.length > 3 && cleanName.includes(cleanScan)) { matchFound = true; break; }
+                            // 1. Match exact
+                            if (pName === sClean || pName === sText) {
+                                matchFound = true; break;
+                            }
+                            
+                            // 2. Match alphanumérique (ignore tirets/espaces pour compenser les erreurs de frappe)
+                            let pAlpha = pName.replace(/[^a-z0-9]/g, '');
+                            let sAlpha = sClean.replace(/[^a-z0-9]/g, '');
+                            
+                            if (pAlpha.length > 0 && pAlpha === sAlpha) {
+                                matchFound = true; break;
+                            }
+                            
+                            // 3. Inclusion (seulement si le texte est long pour éviter de sélectionner la pièce "1" avec le code "19")
+                            if (sAlpha.length > 2 && pAlpha.includes(sAlpha)) {
+                                matchFound = true; break;
+                            }
+                            if (pAlpha.length > 2 && sAlpha.includes(pAlpha)) {
+                                matchFound = true; break;
                             }
                         }
                         current = current.parent;
@@ -1296,7 +1319,8 @@
                 isZoomedOnPart = true;
                 focusOnHighlightedPart();
 
-                const cleanPartName = scannedText.replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
+                // Affiche le nom sans le mot cible
+                const cleanPartName = scannedText.replace(/^(Cible|Pi[eè]ce)\s*[:\-]?\s*/i, '').trim();
         
                 activeBox = new THREE.Box3().setFromObject(highlightedMeshes[0]);
                 activeBox.getSize(activeOriginalSize); 
