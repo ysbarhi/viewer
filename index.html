@@ -476,7 +476,6 @@
         let highlightedMeshes = []; 
         let isZoomedOnPart = false;
 
-        // Optimisation DOM (Evite le recalcul 60x par seconde)
         let labelsCached = false;
         let domLabels = {};
 
@@ -495,7 +494,6 @@
         // ---------------------------------------------
         // LOGIQUE DES MESURES DYNAMIQUES 
         // ---------------------------------------------
-        // Reçoit un Vector3 (taille d'origine) au lieu de la box dynamique
         function getFormattedDims(sizeVector) {
             const mult = currentUnit === 'mm' ? 1000 : 100;
             const l = (sizeVector.x * mult).toFixed(1).replace('.0', '');
@@ -527,22 +525,12 @@
                 return;
             }
 
-            // On utilise la boîte dynamique pour POSITIONNER les étiquettes sur les bords
             const min = activeBox.min;
             const max = activeBox.max;
 
-            // Mais on utilise "activeOriginalSize" (fixe) pour AFFICHER le texte
             updateLabelPos(domLabels.x, new THREE.Vector3((min.x + max.x)/2, min.y, max.z), activeOriginalSize.x);
             updateLabelPos(domLabels.y, new THREE.Vector3(min.x, (min.y + max.y)/2, max.z), activeOriginalSize.y);
             updateLabelPos(domLabels.z, new THREE.Vector3(min.x, min.y, (min.z + max.z)/2), activeOriginalSize.z);
-        }
-
-            const min = activeBox.min;
-            const max = activeBox.max;
-
-            updateLabelPos(domLabels.x, new THREE.Vector3((min.x + max.x)/2, min.y, max.z), (max.x - min.x));
-            updateLabelPos(domLabels.y, new THREE.Vector3(min.x, (min.y + max.y)/2, max.z), (max.y - min.y));
-            updateLabelPos(domLabels.z, new THREE.Vector3(min.x, min.y, (min.z + max.z)/2), (max.z - min.z));
         }
 
         function updateLabelPos(el, pos3D, sizeMeters) {
@@ -566,7 +554,6 @@
                 const mult = currentUnit === 'mm' ? 1000 : 100;
                 const newText = `${(sizeMeters * mult).toFixed(1).replace('.0', '')}`;
                 
-                // NOUVEAUTÉ: Met à jour le texte uniquement s'il a changé (Performance x100)
                 if (el.innerText !== newText) {
                     el.innerText = newText;
                 }
@@ -584,7 +571,6 @@
         setupSplashScreen();
         setupSidebar();
 
-        // NOUVEAUTÉ: Sécurité d'exécution de la vidéo Splash
         function setupSplashScreen() {
             const splash = document.getElementById('splash-screen');
             const splashVideo = document.getElementById('splash-video');
@@ -603,7 +589,6 @@
                 splashVideo.addEventListener('error', hideSplash);
             }
             
-            // Forcer l'ouverture après 3.5 secondes (Empêche l'appli de geler si le navigateur bloque l'autoplay)
             setTimeout(hideSplash, 3500);
         }
 
@@ -822,7 +807,7 @@
                 }
             
                 activeBox = new THREE.Box3().setFromObject(globalModel);
-                activeOriginalSize.copy(originalGlobalSize); // Restaure les mesures du meuble entier
+                activeOriginalSize.copy(originalGlobalSize); 
                 updateTopInfo(currentModelName, activeOriginalSize);
             
                 document.getElementById('ui-panel').style.display = 'none';
@@ -1086,7 +1071,7 @@
                 scene.updateMatrixWorld(true);
 
                 globalBox = new THREE.Box3().setFromObject(globalModel);
-                globalBox.getSize(originalGlobalSize); // Mémorise la taille d'origine du meuble
+                globalBox.getSize(originalGlobalSize); 
                 
                 activeBox = globalBox.clone();
                 activeOriginalSize.copy(originalGlobalSize);
@@ -1199,9 +1184,9 @@
                 const cleanPartName = scannedText.replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
         
                 activeBox = new THREE.Box3().setFromObject(highlightedMeshes[0]);
-                activeBox.getSize(activeOriginalSize); // NOUVELLE LIGNE : Mémorise la taille fixe de la pièce
+                activeBox.getSize(activeOriginalSize); 
         
-                updateTopInfo(cleanPartName, activeOriginalSize); // MODIFIÉ : On utilise activeOriginalSize au lieu de activeBox
+                updateTopInfo(cleanPartName, activeOriginalSize); 
         
                 document.getElementById('deselect-btn').style.display = 'flex';
                 document.getElementById('ui-panel').style.display = 'none';
