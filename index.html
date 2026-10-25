@@ -752,22 +752,23 @@
         // MODIFIÉ : Gestion de la vue Chants
         function updateMaterials() {
             if (!globalModel) return;
-            const targetOpacity = isXrayOn ? 0.25 : 1.0;
+            const targetOpacity = isEdgeBandingOn ? 0.15 : (isXrayOn ? 0.25 : 1.0);
             baseMaterial.opacity = targetOpacity;
             edgeMaterial.opacity = targetOpacity;
 
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
-                    if (isEdgeBandingOn) {
-                        if (node.userData.isEdgeBand) {
-                            node.material = edgeHighlightMaterial;
-                        } else {
-                            node.material = baseMaterial;
-                            node.material.opacity = 0.15; // Rend le reste du meuble presque transparent
-                        }
-                    } else if (node.userData.isHighlighted) {
+                    
+                    // 1. Priorité absolue aux chants si l'option est activée
+                    if (isEdgeBandingOn && node.userData.isEdgeBand) {
+                        node.material = edgeHighlightMaterial;
+                    } 
+                    // 2. Ensuite, la pièce sélectionnée reste rouge (même si les chants sont activés)
+                    else if (node.userData.isHighlighted) {
                         node.material = highlightMaterial;
-                    } else {
+                    } 
+                    // 3. Enfin, le reste du meuble (Texturé ou Gris avec opacité)
+                    else {
                         if (isTextureOn && node.userData.originalMaterial) {
                             node.material = node.userData.originalMaterial;
                             node.material.opacity = targetOpacity;
