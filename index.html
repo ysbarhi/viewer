@@ -1520,11 +1520,54 @@
                 const globalSizeMax = Math.max(originalGlobalSize.x, originalGlobalSize.y, originalGlobalSize.z) || 1;
                 const namesToStrip = new Set();
 
+                // CORRECTION CHANTS : un chant qui n'est pas groupé avec son panneau dans le .glb
+                // devenait une "pièce" indépendante, avec sa propre direction d'éclatement.
+                // On rattache donc chaque pièce composée uniquement de chants au panneau voisin
+                // (celui avec lequel sa boîte englobante se recoupe le plus) : même direction,
+                // même étape de montage => le chant suit son panneau.
+                const isEdgeOnlyPart = (pn) => {
+                    let any = false, all = true;
+                    pn.traverse(n => {
+                        if (n.isMesh && n.userData.isOriginalMesh) {
+                            any = true;
+                            if (!n.userData.isEdgeBand) all = false;
+                        }
+                    });
+                    return any && all;
+                };
+                const edgeParts = [], panelParts = [];
+                partNodes.forEach(pn => (isEdgeOnlyPart(pn) ? edgeParts : panelParts).push(pn));
+
+                const hostTol = globalSizeMax * 0.003;
+                const panelBoxes = new Map();
+                panelParts.forEach(pn => {
+                    panelBoxes.set(pn, new THREE.Box3().setFromObject(pn).expandByScalar(hostTol));
+                });
+
+                const edgeHost = new Map();   // pièce de chants -> panneau hôte
+                edgeParts.forEach(ep => {
+                    const eb = new THREE.Box3().setFromObject(ep);
+                    let best = null, bestVol = 0;
+                    panelBoxes.forEach((pb, pn) => {
+                        const inter = eb.clone().intersect(pb);
+                        if (inter.isEmpty()) return;
+                        const sz = inter.getSize(new THREE.Vector3());
+                        const vol = sz.x * sz.y * sz.z;
+                        if (vol > bestVol) { bestVol = vol; best = pn; }
+                    });
+                    if (best) edgeHost.set(ep, best);
+                });
+
+                const hostBoxes = new Map();  // boîtes non agrandies des panneaux (pour le centre)
+                panelParts.forEach(pn => hostBoxes.set(pn, new THREE.Box3().setFromObject(pn)));
+
                 partNodes.forEach(partNode => {
                     partNode.userData.isPartNode = true;
                     partNode.userData.originalPosition = partNode.position.clone();
 
-                    const partBox = new THREE.Box3().setFromObject(partNode);
+                    const hostPart = edgeHost.get(partNode);
+                    const partBox = hostPart ? hostBoxes.get(hostPart)
+                                             : new THREE.Box3().setFromObject(partNode);
                     const partCenter = new THREE.Vector3();
                     partBox.getCenter(partCenter);
 
@@ -1551,6 +1594,11 @@
                     };
                     partNode.traverse(checkNode);
                     for (let a = partNode.parent; a && a !== globalModel; a = a.parent) checkNode(a);
+                });
+
+                // Les chants héritent de l'étape de montage de leur panneau
+                edgeHost.forEach((host, ep) => {
+                    ep.userData.assemblyStep = host.userData.assemblyStep;
                 });
 
                 namesToStrip.forEach(n => { n.name = n.name.replace(/__STEP\d+/i, '').trim(); });
