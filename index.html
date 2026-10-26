@@ -53,6 +53,7 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: all 0.2s;
             display: flex; align-items: center; justify-content: center;
             font-size: 13px; font-weight: bold; text-transform: uppercase; overflow: hidden;
+            padding: 0; position: relative;
         }
         .mat-filter-btn.active {
             border-color: #2563eb; transform: scale(1.1); box-shadow: 0 0 10px rgba(37,99,235,0.8);
@@ -455,7 +456,7 @@
 
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">v1.25.10</div> 
+        <div class="author-badge">v1.25.11</div> 
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
@@ -565,7 +566,7 @@
         let isAssemblyModeOn = false;
         let maxAssemblyStep = 0;
 
-        let activeMaterialFilters = new Set(); // Filtres de matériaux
+        let activeMaterialFilters = new Set(); // Filtres de matériaux (clés = nom normalisé)
         
         let raycaster = new THREE.Raycaster();
         let mouse = new THREE.Vector2();
@@ -601,6 +602,38 @@
         const edgeMaterial = new THREE.LineBasicMaterial({
             color: 0x000000, transparent: true, opacity: 1.0
         });
+
+        // ==========================================
+        // OUTILS MATÉRIAUX
+        // ==========================================
+        function normMatName(mat) {
+            return ((mat && mat.name) ? String(mat.name) : "Default").trim().toLowerCase();
+        }
+
+        function isEdgeMatName(key) {
+            return key.includes("chant") || key.includes("edge") || key.includes("abf");
+        }
+
+        // Convertit n'importe quelle source d'image (Image, Canvas, ImageBitmap) en petite miniature.
+        // On dessine dans un canvas AU CHARGEMENT : les URLs blob de GLTFLoader sont déjà révoquées
+        // après coup, donc utiliser img.src directement donnait un bouton vide/blanc.
+        function makeTextureThumb(map, size = 64) {
+            try {
+                const img = map && map.image;
+                if (!img) return null;
+                const w = img.naturalWidth || img.videoWidth || img.width;
+                const h = img.naturalHeight || img.videoHeight || img.height;
+                if (!w || !h) return null;
+                const canvas = document.createElement('canvas');
+                canvas.width = size; canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h, 0, 0, size, size);
+                return canvas.toDataURL('image/jpeg', 0.8);
+            } catch (e) {
+                console.warn("Finjat: miniature impossible", e);
+                return null;
+            }
+        }
 
         function getFormattedDims(sizeVector) {
             const mult = currentUnit === 'mm' ? 1000 : 100;
@@ -805,7 +838,7 @@
         }
 
         // ==========================================
-        // LOGIQUE D'AFFICHAGE MULTICOUCHE (CORRIGÉE)
+        // LOGIQUE D'AFFICHAGE MULTICOUCHE
         // ==========================================
         function updateMaterials() {
             if (!globalModel) return;
@@ -824,7 +857,7 @@
                         node.material = highlightMaterial;
                     } 
                     else if (activeMaterialFilters.size > 0) {
-                        // On vérifie si la pièce possède l'un des matériaux filtrés
+                        // La pièce utilise-t-elle l'un des matériaux filtrés ?
                         let hasFilterMat = false;
                         if (node.userData.originalMaterialKeys) {
                             hasFilterMat = node.userData.originalMaterialKeys.some(key => activeMaterialFilters.has(key));
@@ -839,12 +872,12 @@
                             }
                         } else {
                             node.material = baseMaterial;
-                            node.material.opacity = isEdgeBandingOn ? 0.25 : 0.15; // Mode "fantôme" plus fort
+                            node.material.opacity = isEdgeBandingOn ? 0.25 : 0.15; // Mode "fantôme"
                         }
                     } 
                     else {
                         let currentOpacity = globalTargetOpacity;
-                        if (isEdgeBandingOn) currentOpacity = 0.25; // Force XRay quand les chants sont allumés
+                        if (isEdgeBandingOn) currentOpacity = 0.25;
 
                         if (isTextureOn && node.userData.originalMaterial) {
                             node.material = node.userData.originalMaterial;
@@ -972,12 +1005,14 @@
             activeBox = box;
             activeBox.getSize(activeOriginalSize);
 
-            // Mettre à jour les informations avec le ou les matériaux de la pièce
-            let matName = "Multiples / Défaut";
-            if (highlightedMeshes[0] && highlightedMeshes[0].userData.originalMaterialNames) {
-                let names = highlightedMeshes[0].userData.originalMaterialNames.filter(n => !n.toLowerCase().includes('chant'));
-                if(names.length > 0) matName = names.join(" | ");
-            }
+            // Matériaux de TOUTE la pièce (face + chants), sans les chants dans l'affichage
+            let namesSet = new Set();
+            highlightedMeshes.forEach(m => {
+                (m.userData.originalMaterialNames || []).forEach(n => {
+                    if (!isEdgeMatName(n.toLowerCase())) namesSet.add(n);
+                });
+            });
+            let matName = namesSet.size > 0 ? Array.from(namesSet).join(" | ") : "Multiples / Défaut";
 
             updateTopInfo(cleanPartName, activeOriginalSize, matName);
 
@@ -1417,7 +1452,10 @@
                 globalBox.getCenter(globalCenter);
 
                 let partNodes = new Set();
-                let uniqueMaterials = new Map(); // NOUVEAU: Extraction fiable des matériaux
+                // CORRECTION : matériaux regroupés par NOM normalisé (et non par uuid).
+                // SketchUp/GLTF peut créer plusieurs matériaux distincts portant le même nom
+                // (face avant/arrière, doublons) : par uuid, le filtre ne couvrait qu'une partie des pièces.
+                let uniqueMaterials = new Map(); // key (nom) -> { mat, name, thumb }
 
                 function getPartRoot(mesh) {
                     const p = mesh.parent;
@@ -1436,13 +1474,12 @@
                     }
                 });
 
-                // EXTRACTION DES MULTIPLES MATÉRIAUX
+                // EXTRACTION DES MATÉRIAUX
                 globalModel.traverse(function (node) {
                     if (node.isMesh) {
                         node.userData.isOriginalMesh = true;
                         node.userData.isHighlighted = false;
 
-                        // node.material peut être un seul matériau ou un tableau (array)
                         let mats = Array.isArray(node.material) ? node.material : [node.material];
                         let nodeMatKeys = [];
                         let nodeMatNames = [];
@@ -1450,16 +1487,21 @@
 
                         mats.forEach(mat => {
                             if (!mat) return;
-                            let mName = (mat.name || "Default").toLowerCase();
-                            let isEdge = mName.includes("chant") || mName.includes("edge") || mName.includes("abf");
+                            const key = normMatName(mat);
+                            const isEdge = isEdgeMatName(key);
                             
                             if (isEdge) isEdgeBandNode = true;
                             
-                            // Si ce n'est pas un chant, on l'ajoute au dictionnaire via son UUID !
-                            if (!isEdge && !uniqueMaterials.has(mat.uuid)) {
-                                uniqueMaterials.set(mat.uuid, mat.clone());
+                            if (!isEdge) {
+                                const existing = uniqueMaterials.get(key);
+                                // On préfère l'exemplaire qui possède une texture
+                                if (!existing) {
+                                    uniqueMaterials.set(key, { mat: mat, name: mat.name || "Default", thumb: null });
+                                } else if (!existing.mat.map && mat.map) {
+                                    existing.mat = mat;
+                                }
                             }
-                            nodeMatKeys.push(mat.uuid);
+                            nodeMatKeys.push(key);
                             nodeMatNames.push(mat.name || "Default");
                         });
 
@@ -1467,7 +1509,6 @@
                         node.userData.originalMaterialNames = nodeMatNames;
                         node.userData.isEdgeBand = isEdgeBandNode;
 
-                        // Sauvegarde du tableau ou du matériau unique cloné
                         if (Array.isArray(node.material)) {
                             node.userData.originalMaterial = node.material.map(m => {
                                 let clone = m.clone();
@@ -1487,6 +1528,8 @@
                         node.add(new THREE.LineSegments(edgesGeometry, edgeMaterial));
                     }
                 });
+
+                console.log("Finjat: matériaux détectés (hors chants) =", Array.from(uniqueMaterials.keys()));
 
                 const globalSizeMax = Math.max(originalGlobalSize.x, originalGlobalSize.y, originalGlobalSize.z) || 1;
                 const namesToStrip = new Set();
@@ -1530,47 +1573,45 @@
                 const matContainer = document.getElementById('material-filter-container');
                 matContainer.innerHTML = '';
                 
-                uniqueMaterials.forEach((mat, matKey) => {
+                uniqueMaterials.forEach((entry, matKey) => {
+                    const mat = entry.mat;
+                    const mName = entry.name;
                     const btn = document.createElement('button');
-                    btn.className = 'mat-filter-btn ui-element';
-                    const mName = mat.name || "Défaut";
+                    btn.className = 'mat-filter-btn';
                     btn.title = mName;
+
+                    // Miniature générée maintenant (avant que l'image ne devienne inaccessible)
+                    const thumb = mat.map ? makeTextureThumb(mat.map) : null;
                     
-                    let imageSet = false;
-                    if (mat.map && mat.map.image) {
-                        const img = mat.map.image;
-                        try {
-                            if (img.src) {
-                                btn.style.backgroundImage = `url(${img.src})`;
-                                imageSet = true;
-                            } else if (img instanceof HTMLCanvasElement) {
-                                btn.style.backgroundImage = `url(${img.toDataURL()})`;
-                                imageSet = true;
-                            } else if (typeof ImageBitmap !== 'undefined' && img instanceof ImageBitmap) {
-                                const canvas = document.createElement('canvas');
-                                canvas.width = img.width; canvas.height = img.height;
-                                canvas.getContext('2d').drawImage(img, 0, 0);
-                                btn.style.backgroundImage = `url(${canvas.toDataURL()})`;
-                                imageSet = true;
-                            }
-                        } catch(e) { } // Ignore CORS if happens
-                    } 
-                    
-                    if (!imageSet) {
-                        btn.style.backgroundColor = mat.color ? mat.color.getStyle() : '#cccccc';
-                        btn.innerText = mName.substring(0, 2).toUpperCase(); // Affiche les 2 premières lettres
-                        btn.style.color = (mat.color && mat.color.getHSL({}).l < 0.5) ? '#ffffff' : '#000000';
+                    if (thumb) {
+                        btn.style.backgroundImage = `url(${thumb})`;
+                    } else {
+                        // Pas de texture lisible : couleur du matériau + initiales
+                        const col = mat.color ? mat.color : new THREE.Color(0xcccccc);
+                        btn.style.backgroundColor = '#' + col.getHexString();
+                        btn.innerText = mName.substring(0, 2).toUpperCase();
+                        const hsl = {}; col.getHSL(hsl);
+                        btn.style.color = hsl.l < 0.5 ? '#ffffff' : '#000000';
                     }
 
                     btn.onclick = () => {
                         if (activeMaterialFilters.has(matKey)) {
                             activeMaterialFilters.delete(matKey);
                             btn.classList.remove('active');
-                            if (activeMaterialFilters.size === 0) updateTopInfo(currentModelName, activeOriginalSize);
                         } else {
                             activeMaterialFilters.add(matKey);
                             btn.classList.add('active');
-                            updateTopInfo("Filtre Actif", activeOriginalSize, mName); 
+                        }
+
+                        // Info panneau : liste des matériaux actifs
+                        if (activeMaterialFilters.size === 0) {
+                            updateTopInfo(currentModelName, activeOriginalSize);
+                        } else {
+                            const names = Array.from(activeMaterialFilters).map(k => {
+                                const e = uniqueMaterials.get(k);
+                                return e ? e.name : k;
+                            });
+                            updateTopInfo("Filtre Actif", activeOriginalSize, names.join(" + "));
                         }
                         updateMaterials();
                     };
@@ -1604,6 +1645,10 @@
                 
                 document.getElementById('loader').style.display = 'none';
                 showUIElements(true);
+
+                // Les boutons de filtre sont des .ui-element : showUIElements les a mis en display:flex.
+                // S'il n'y a aucun matériau, on masque le conteneur.
+                if (uniqueMaterials.size === 0) matContainer.style.display = 'none';
                 
                 if (maxAssemblyStep === 0) {
                     if(asmBtn) asmBtn.style.display = 'none';
@@ -1683,10 +1728,13 @@
                 activeBox = new THREE.Box3().setFromObject(highlightedMeshes[0]);
                 activeBox.getSize(activeOriginalSize); 
 
-                let matName = "Défaut";
-                if (highlightedMeshes[0] && highlightedMeshes[0].userData.originalMaterialNames) {
-                    matName = highlightedMeshes[0].userData.originalMaterialNames[0] || "Défaut";
-                }
+                let namesSet = new Set();
+                highlightedMeshes.forEach(m => {
+                    (m.userData.originalMaterialNames || []).forEach(n => {
+                        if (!isEdgeMatName(n.toLowerCase())) namesSet.add(n);
+                    });
+                });
+                let matName = namesSet.size > 0 ? Array.from(namesSet).join(" | ") : "Défaut";
         
                 updateTopInfo(cleanPartName, activeOriginalSize, matName); 
         
