@@ -202,13 +202,29 @@
         }
 
         #explode-slider-container {
-            bottom: 40px; left: 20px; height: 180px; width: 40px;
+            bottom: 45px; left: 20px; height: 180px; width: 40px;
             display: none; flex-direction: column; align-items: center;
         }
         #explode-slider {
             -webkit-appearance: slider-vertical;
             width: 8px; height: 180px; margin: 0; background: transparent; cursor: pointer;
         }
+
+        /* NOUVEAU : CONTRÔLEUR D'ÉTAPES SOUS LE SLIDER */
+        #step-controls-container {
+            bottom: 10px; left: 10px; width: 85px; height: 32px;
+            display: none; justify-content: space-between; align-items: center;
+            background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 0 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); box-sizing: border-box;
+        }
+        .step-btn {
+            background: none; border: none; font-size: 16px; font-weight: 900; color: #2563eb;
+            cursor: pointer; padding: 0; margin: 0; line-height: 1; transition: transform 0.1s;
+        }
+        .step-btn:disabled { color: #ccc; cursor: not-allowed; }
+        .step-btn:active:not(:disabled) { transform: scale(0.8); }
+        #step-indicator { font-size: 13px; font-weight: bold; color: #aaa; pointer-events: none; }
+        #step-indicator.active { color: #333; }
 
         .floating-btn {
             width: 60px; height: 60px; border-radius: 50%; background: #ffffff;
@@ -218,7 +234,7 @@
         .floating-btn.active { background: #dbeafe; border: 2px solid #2563eb; }
 
         /* BOUTONS FLOTTANTS */
-        #assembly-mode-btn { bottom: 230px; left: 15px; width: 50px; height: 50px; }
+        #assembly-mode-btn { bottom: 235px; left: 15px; width: 50px; height: 50px; }
         #texture-btn { bottom: 40px; left: calc(50% - 105px); }
         #xray-btn { bottom: 40px; left: calc(50% - 30px); }
         #edge-btn { bottom: 40px; left: calc(50% + 45px); }
@@ -458,6 +474,13 @@
 
     <div id="explode-slider-container" class="ui-element">
         <input type="range" id="explode-slider" min="0" max="100" step="1" value="0" orient="vertical">
+    </div>
+
+    <!-- CONTRÔLEUR D'ÉTAPES -->
+    <div id="step-controls-container" class="ui-element">
+        <button id="step-prev-btn" class="step-btn" disabled>&lt;</button>
+        <span id="step-indicator">0/0</span>
+        <button id="step-next-btn" class="step-btn" disabled>&gt;</button>
     </div>
 
     <button id="texture-btn" class="floating-btn ui-element">
@@ -834,6 +857,16 @@
                 slider.value = "0";
             }
 
+            const stepInd = document.getElementById('step-indicator');
+            if (stepInd) {
+                stepInd.innerText = "0/0";
+                stepInd.classList.remove('active');
+            }
+            const prevBtn = document.getElementById('step-prev-btn');
+            if (prevBtn) prevBtn.disabled = true;
+            const nextBtn = document.getElementById('step-next-btn');
+            if (nextBtn) nextBtn.disabled = true;
+
             document.getElementById('texture-btn').classList.remove('active');
             document.getElementById('xray-btn').classList.remove('active');
             document.getElementById('edge-btn').classList.remove('active');
@@ -859,7 +892,6 @@
                 highlightedMeshes.forEach(m => m.userData.isHighlighted = false);
             }
 
-            // CORRECTION : la "pièce" = le noeud qui regroupe face + chants (calculé au chargement)
             let partGroup = mesh.userData.partRoot || mesh;
 
             let targetMeshes = [];
@@ -894,6 +926,9 @@
         function setupUI() {
             const assemblyBtn = document.getElementById('assembly-mode-btn');
             const slider = document.getElementById('explode-slider');
+            const prevBtn = document.getElementById('step-prev-btn');
+            const nextBtn = document.getElementById('step-next-btn');
+            const stepInd = document.getElementById('step-indicator');
             
             assemblyBtn.addEventListener('click', () => {
                 if (!globalModel) return;
@@ -906,21 +941,50 @@
                     slider.max = maxAssemblyStep.toString();
                     slider.step = "1";
                     slider.value = maxAssemblyStep.toString(); 
+                    
+                    prevBtn.disabled = false;
+                    nextBtn.disabled = false;
+                    stepInd.classList.add('active');
                 } else {
                     slider.min = "0";
                     slider.max = "100";
                     slider.step = "1";
                     slider.value = "0";
+                    
+                    prevBtn.disabled = true;
+                    nextBtn.disabled = true;
+                    stepInd.classList.remove('active');
                 }
                 
                 slider.dispatchEvent(new Event('input'));
             });
 
-            // LOGIQUE D'EXPLOSION (PAR NOEUD "PIÈCE" : face + chants bougent ensemble)
+            prevBtn.addEventListener('click', () => {
+                if (!isAssemblyModeOn) return;
+                let val = parseInt(slider.value, 10);
+                if (val > 0) {
+                    slider.value = val - 1;
+                    slider.dispatchEvent(new Event('input'));
+                }
+            });
+
+            nextBtn.addEventListener('click', () => {
+                if (!isAssemblyModeOn) return;
+                let val = parseInt(slider.value, 10);
+                if (val < maxAssemblyStep) {
+                    slider.value = val + 1;
+                    slider.dispatchEvent(new Event('input'));
+                }
+            });
+
             slider.addEventListener('input', (e) => {
                 if (!globalModel) return;
                 const val = parseFloat(e.target.value);
                 
+                if (isAssemblyModeOn) {
+                    stepInd.innerText = `${val}/${maxAssemblyStep}`;
+                }
+
                 globalModel.traverse(function (node) {
                     if (node.userData.isPartNode) {
                         if (isAssemblyModeOn) {
@@ -1290,19 +1354,17 @@
                 const globalCenter = new THREE.Vector3();
                 globalBox.getCenter(globalCenter);
 
-                // Pièce = le noeud qui contient directement les meshes d'un panneau (face + chants ensemble)
                 let partNodes = new Set();
 
                 function getPartRoot(mesh) {
                     const p = mesh.parent;
                     if (p && p !== globalModel && p.type !== 'Scene' &&
                         p.children.length > 0 && p.children.every(c => c.isMesh)) {
-                        return p;       // panneau multi-matériaux : on déplace tout le groupe
+                        return p;       
                     }
-                    return mesh;        // panneau mono-matériau : le mesh lui-même
+                    return mesh;        
                 }
 
-                // Passe 1 : détecter les pièces AVANT d'ajouter les lignes de contour
                 globalModel.traverse(function (node) {
                     if (node.isMesh) {
                         const root = getPartRoot(node);
@@ -1311,7 +1373,6 @@
                     }
                 });
 
-                // Passe 2 : matériaux, détection des chants, contours
                 globalModel.traverse(function (node) {
                     if (node.isMesh) {
                         node.userData.isOriginalMesh = true;
@@ -1337,7 +1398,6 @@
                     }
                 });
 
-                // Passe 3 : directions d'explosion + étapes d'assemblage
                 const globalSizeMax = Math.max(originalGlobalSize.x, originalGlobalSize.y, originalGlobalSize.z) || 1;
                 const namesToStrip = new Set();
 
@@ -1357,11 +1417,10 @@
                     }
 
                     const dir = new THREE.Vector3().subVectors(localPartCenter, localGlobalCenter);
-                    if (dir.lengthSq() < 1e-8) dir.set(0, globalSizeMax * 0.3, 0); // pièce située au centre
+                    if (dir.lengthSq() < 1e-8) dir.set(0, globalSizeMax * 0.3, 0); 
                     partNode.userData.explodeDirection = dir;
                     partNode.userData.assemblyStep = 0;
 
-                    // __STEP peut être sur la pièce, à l'intérieur, ou sur un groupe parent
                     const checkNode = (n) => {
                         const match = n.name && n.name.match(/__STEP(\d+)/i);
                         if (match) {
@@ -1375,16 +1434,19 @@
                     for (let a = partNode.parent; a && a !== globalModel; a = a.parent) checkNode(a);
                 });
 
-                // On retire le suffixe __STEP seulement après que toutes les pièces l'aient lu
                 namesToStrip.forEach(n => { n.name = n.name.replace(/__STEP\d+/i, '').trim(); });
 
-                console.log("Finjat: pièces détectées =", partNodes.size, "| étape max =", maxAssemblyStep);
-
                 const asmBtn = document.getElementById('assembly-mode-btn');
+                const stepCtrl = document.getElementById('step-controls-container');
+                
                 if (maxAssemblyStep === 0) {
-                    asmBtn.style.display = 'none';
+                    if(asmBtn) asmBtn.style.display = 'none';
+                    if(stepCtrl) stepCtrl.style.display = 'none';
                 } else {
-                    asmBtn.style.display = 'flex';
+                    if(asmBtn) asmBtn.style.display = 'flex';
+                    if(stepCtrl) stepCtrl.style.display = 'flex';
+                    const stepInd = document.getElementById('step-indicator');
+                    if(stepInd) stepInd.innerText = `0/${maxAssemblyStep}`;
                 }
 
                 focusOnGlobalModel(true);
@@ -1401,7 +1463,12 @@
                 
                 document.getElementById('loader').style.display = 'none';
                 showUIElements(true);
-                if (maxAssemblyStep === 0 && asmBtn) asmBtn.style.display = 'none';
+                
+                if (maxAssemblyStep === 0) {
+                    if(asmBtn) asmBtn.style.display = 'none';
+                    if(stepCtrl) stepCtrl.style.display = 'none';
+                }
+                
                 URL.revokeObjectURL(url);
             }, undefined, function (err) {
                 console.error(err);
