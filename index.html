@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <meta name="theme-color" content="#000000">
     
-    <!-- Métadonnées et Droits d'auteur -->
     <meta name="author" content="Yassine Sbarhi">
     <meta name="publisher" content="YassineSbarhiApps">
     <meta name="copyright" content="All rights reserved to Yassine Sbarhi 2026">
@@ -219,7 +218,7 @@
         .floating-btn.active { background: #dbeafe; border: 2px solid #2563eb; }
 
         /* BOUTONS FLOTTANTS */
-        #assembly-btn { bottom: 230px; left: 15px; width: 50px; height: 50px; } /* NOUVEAU BOUTON */
+        #assembly-mode-btn { bottom: 230px; left: 15px; width: 50px; height: 50px; }
         #texture-btn { bottom: 40px; left: calc(50% - 105px); }
         #xray-btn { bottom: 40px; left: calc(50% - 30px); }
         #edge-btn { bottom: 40px; left: calc(50% + 45px); }
@@ -446,7 +445,6 @@
         <svg viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
     </button>
 
-    <!-- BOUTON MODE ASSEMBLAGE -->
     <button id="assembly-mode-btn" class="floating-btn ui-element" title="Mode Assemblage (Étapes)">
         <svg viewBox="0 0 24 24" width="28" height="28" stroke="#555" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="8" y1="6" x2="21" y2="6"></line>
@@ -520,7 +518,6 @@
         let isXrayOn = false;
         let isEdgeBandingOn = false;
         
-        // NOUVELLES VARIABLES D'ASSEMBLAGE
         let isAssemblyModeOn = false;
         let maxAssemblyStep = 0;
         
@@ -824,17 +821,18 @@
         }
 
         function resetViewState() {
-            // REINITIALISATION COMPLÈTE
             isAssemblyModeOn = false;
             maxAssemblyStep = 0;
             const asmBtn = document.getElementById('assembly-mode-btn');
             if(asmBtn) asmBtn.classList.remove('active');
             
             const slider = document.getElementById('explode-slider');
-            slider.min = "0";
-            slider.max = "100";
-            slider.step = "1";
-            slider.value = "0";
+            if(slider) {
+                slider.min = "0";
+                slider.max = "100";
+                slider.step = "1";
+                slider.value = "0";
+            }
 
             document.getElementById('texture-btn').classList.remove('active');
             document.getElementById('xray-btn').classList.remove('active');
@@ -896,9 +894,6 @@
         }
         
         function setupUI() {
-            // ==========================================
-            // NOUVELLE LOGIQUE : BOUTON MODE ASSEMBLAGE
-            // ==========================================
             const assemblyBtn = document.getElementById('assembly-mode-btn');
             const slider = document.getElementById('explode-slider');
             
@@ -909,63 +904,48 @@
                 assemblyBtn.classList.toggle('active', isAssemblyModeOn);
                 
                 if (isAssemblyModeOn) {
-                    // Configurer le slider en mode "Discret/Snapping"
                     slider.min = "0";
                     slider.max = maxAssemblyStep.toString();
                     slider.step = "1";
-                    slider.value = maxAssemblyStep.toString(); // Commence entièrement assemblé
+                    slider.value = maxAssemblyStep.toString(); 
                 } else {
-                    // Revenir au mode normal 0-100 fluide
                     slider.min = "0";
                     slider.max = "100";
                     slider.step = "1";
                     slider.value = "0";
                 }
                 
-                // Déclencher artificiellement l'événement pour mettre à jour la 3D
                 slider.dispatchEvent(new Event('input'));
             });
 
-            // ==========================================
-            // NOUVELLE LOGIQUE : ÉVÉNEMENT DU SLIDER
-            // ==========================================
+            // NOUVELLE LOGIQUE D'EXPLOSION (PAR GROUPE PARENT)
             slider.addEventListener('input', (e) => {
                 if (!globalModel) return;
                 const val = parseFloat(e.target.value);
                 
-                if (isAssemblyModeOn) {
-                    // MODE ASSEMBLAGE : Discret (1 par 1)
-                    globalModel.traverse(function (node) {
-                        if (node.isMesh && node.userData.isOriginalMesh) {
+                globalModel.traverse(function (node) {
+                    if (node.userData.isPartNode) {
+                        if (isAssemblyModeOn) {
                             if (node.userData.assemblyStep > val) {
-                                // Pièce non encore assemblée : On l'éloigne (explosion)
                                 node.position.copy(node.userData.originalPosition)
                                     .addScaledVector(node.userData.explodeDirection, 1.5);
                             } else {
-                                // Pièce assemblée : Reste à sa place
                                 node.position.copy(node.userData.originalPosition);
                             }
-                        }
-                    });
-                } else {
-                    // MODE NORMAL : Fluide (0 à 100)
-                    const factor = (val / 100) * 1.5;
-                    globalModel.traverse(function (node) {
-                        if (node.isMesh && node.userData.isOriginalMesh) {
+                        } else {
+                            const factor = (val / 100) * 1.5;
                             node.position.copy(node.userData.originalPosition)
                                 .addScaledVector(node.userData.explodeDirection, factor);
                         }
-                    });
-                }
+                    }
+                });
 
-                // Mise à jour de la boîte englobante pour les étiquettes de mesure
                 if (highlightedMeshes && highlightedMeshes.length > 0) {
                     activeBox = new THREE.Box3().setFromObject(highlightedMeshes[0]);
                 } else {
                     activeBox = new THREE.Box3().setFromObject(globalModel);
                 }
             });
-
 
             const touchSelectToggle = document.getElementById('touch-toggle');
             touchSelectToggle.addEventListener('click', () => {
@@ -1312,26 +1292,22 @@
                 const globalCenter = new THREE.Vector3();
                 globalBox.getCenter(globalCenter);
 
+                // NOUVEAU : On regroupe les meshes par leur groupe parent pour éviter la séparation
+                let partNodes = new Set();
+                function getPartRoot(mesh) {
+                    let current = mesh;
+                    while (current.parent && current.parent.uuid !== globalModel.uuid && current.parent.type !== 'Scene') {
+                        current = current.parent;
+                    }
+                    return current;
+                }
+
                 globalModel.traverse(function (node) {
                     if (node.isMesh) {
                         node.userData.isOriginalMesh = true;
                         node.userData.isHighlighted = false;
 
-                        // ==========================================
-                        // EXTRACTION DE L'ÉTAPE D'ASSEMBLAGE (STEP)
-                        // ==========================================
-                        let match = node.name.match(/__STEP(\d+)$/i);
-                        if (match) {
-                            node.userData.assemblyStep = parseInt(match[1], 10);
-                            // Nettoyage du nom pour l'affichage (enlève le suffixe __STEPx)
-                            node.name = node.name.replace(/__STEP\d+$/i, '').trim();
-                            // Mise à jour de l'étape maximale trouvée
-                            if (node.userData.assemblyStep > maxAssemblyStep) {
-                                maxAssemblyStep = node.userData.assemblyStep;
-                            }
-                        } else {
-                            node.userData.assemblyStep = 0; // Pièce sans tag (toujours assemblée)
-                        }
+                        partNodes.add(getPartRoot(node));
 
                         let matName = "";
                         if (Array.isArray(node.material) && node.material.length > 0) {
@@ -1350,23 +1326,44 @@
                         node.material = baseMaterial;
                         const edgesGeometry = new THREE.EdgesGeometry(node.geometry, 30);
                         node.add(new THREE.LineSegments(edgesGeometry, edgeMaterial));
-
-                        node.userData.originalPosition = node.position.clone();
-                        const meshBox = new THREE.Box3().setFromObject(node);
-                        const meshCenter = new THREE.Vector3();
-                        meshBox.getCenter(meshCenter);
-
-                        if (node.parent) {
-                            const localGlobalCenter = node.parent.worldToLocal(globalCenter.clone());
-                            const localMeshCenter = node.parent.worldToLocal(meshCenter.clone());
-                            node.userData.explodeDirection = new THREE.Vector3().subVectors(localMeshCenter, localGlobalCenter);
-                        } else {
-                            node.userData.explodeDirection = new THREE.Vector3().subVectors(meshCenter, globalCenter);
-                        }
                     }
                 });
-                
-                // Si aucune étape n'a été détectée, masquer le bouton de mode assemblage
+
+                // Application de l'explosion et de l'assemblage sur l'ensemble de la "Pièce"
+                partNodes.forEach(partNode => {
+                    partNode.userData.isPartNode = true;
+                    partNode.userData.originalPosition = partNode.position.clone();
+
+                    const partBox = new THREE.Box3().setFromObject(partNode);
+                    const partCenter = new THREE.Vector3();
+                    partBox.getCenter(partCenter);
+
+                    let localGlobalCenter = globalCenter.clone();
+                    let localPartCenter = partCenter.clone();
+                    
+                    if (partNode.parent) {
+                        localGlobalCenter = partNode.parent.worldToLocal(localGlobalCenter);
+                        localPartCenter = partNode.parent.worldToLocal(localPartCenter);
+                    }
+                    
+                    partNode.userData.explodeDirection = new THREE.Vector3().subVectors(localPartCenter, localGlobalCenter);
+                    partNode.userData.assemblyStep = 0;
+
+                    partNode.traverse(n => {
+                        let match = n.name.match(/__STEP(\d+)/i);
+                        if (match) {
+                            let step = parseInt(match[1], 10);
+                            if (step > partNode.userData.assemblyStep) {
+                                partNode.userData.assemblyStep = step;
+                            }
+                            if (step > maxAssemblyStep) {
+                                maxAssemblyStep = step;
+                            }
+                            n.name = n.name.replace(/__STEP\d+/i, '').trim();
+                        }
+                    });
+                });
+
                 const asmBtn = document.getElementById('assembly-mode-btn');
                 if (maxAssemblyStep === 0) {
                     asmBtn.style.display = 'none';
@@ -1388,10 +1385,7 @@
                 
                 document.getElementById('loader').style.display = 'none';
                 showUIElements(true);
-                
-                // On s'assure que le bouton Assembly est bien géré selon maxAssemblyStep
                 if (maxAssemblyStep === 0 && asmBtn) asmBtn.style.display = 'none';
-                
                 URL.revokeObjectURL(url);
             }, undefined, function (err) {
                 console.error(err);
