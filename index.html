@@ -41,7 +41,7 @@
         #info-material { font-size: 13px; color: #2563eb; margin-top: 4px; font-weight: bold; display: none; }
 
         /* ========================================= */
-        /* NOUVEAU : FILTRES MATÉRIAUX DYNAMIQUES    */
+        /* FILTRES MATÉRIAUX DYNAMIQUES              */
         /* ========================================= */
         #material-filter-container {
             position: absolute; top: 60px; right: 20px;
@@ -454,7 +454,7 @@
 
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">v1.25.10</div> 
+        <div class="author-badge">v1.25.11</div> 
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
@@ -564,7 +564,7 @@
         let isAssemblyModeOn = false;
         let maxAssemblyStep = 0;
 
-        let activeMaterialFilters = new Set(); // SET POUR LES FILTRES MATÉRIAUX
+        let activeMaterialFilters = new Set(); 
         
         let raycaster = new THREE.Raycaster();
         let mouse = new THREE.Vector2();
@@ -823,17 +823,17 @@
                         node.material = highlightMaterial;
                     } 
                     else if (activeMaterialFilters.size > 0) {
-                        if (activeMaterialFilters.has(node.userData.originalMaterialName)) {
+                        // Utilisation du UUID pour ne jamais confondre deux matériaux différents !
+                        if (activeMaterialFilters.has(node.userData.originalMaterialKey)) {
                             node.material = node.userData.originalMaterial;
-                            node.material.opacity = 1.0; // Pousse la texture à 100% si filtré
+                            node.material.opacity = 1.0; 
                         } else {
                             node.material = baseMaterial;
-                            node.material.opacity = 0.25; // Reste du modèle en XRAY
+                            node.material.opacity = 0.25; 
                         }
                     } 
                     else {
                         let currentOpacity = globalTargetOpacity;
-                        // Correction: si chants ON, tout le reste (non sélectionné) passe à 25%
                         if (isEdgeBandingOn) currentOpacity = 0.25; 
 
                         if (isTextureOn && node.userData.originalMaterial) {
@@ -1401,7 +1401,7 @@
                 globalBox.getCenter(globalCenter);
 
                 let partNodes = new Set();
-                let uniqueMaterials = new Map(); // NOUVEAU: Extraction des matériaux pour UI
+                let uniqueMaterials = new Map(); // UTILISATION DE MAP ET UUID
 
                 function getPartRoot(mesh) {
                     const p = mesh.parent;
@@ -1425,18 +1425,19 @@
                         node.userData.isOriginalMesh = true;
                         node.userData.isHighlighted = false;
 
-                        let matName = "";
                         const actualMat = Array.isArray(node.material) ? node.material[0] : node.material;
-                        if (actualMat) {
-                            matName = (actualMat.name || "Default").toLowerCase();
-                        }
+                        let matName = (actualMat && actualMat.name) ? actualMat.name.toLowerCase() : "";
                         
-                        node.userData.originalMaterialName = matName;
                         node.userData.isEdgeBand = matName.includes("chant") || matName.includes("edge") || matName.includes("abf");
 
-                        // NOUVEAU: Mémorise le matériau unique pour les boutons (ignore les chants)
-                        if (!node.userData.isEdgeBand && actualMat && !uniqueMaterials.has(matName)) {
-                            uniqueMaterials.set(matName, actualMat.clone());
+                        if (actualMat) {
+                            // UTILISATION DE L'UUID COMME CLÉ UNIQUE POUR NE PLUS CONFONDRE LES MATÉRIAUX
+                            node.userData.originalMaterialKey = actualMat.uuid;
+                            node.userData.originalMaterialName = actualMat.name || "Matériau sans nom";
+                            
+                            if (!node.userData.isEdgeBand && !uniqueMaterials.has(actualMat.uuid)) {
+                                uniqueMaterials.set(actualMat.uuid, actualMat.clone());
+                            }
                         }
 
                         node.userData.originalMaterial = node.material.clone();
@@ -1489,26 +1490,31 @@
 
                 namesToStrip.forEach(n => { n.name = n.name.replace(/__STEP\d+/i, '').trim(); });
 
-                // GÉNÉRATION DES BOUTONS DE FILTRES MATÉRIAUX
+                // GÉNÉRATION SÉCURISÉE DES BOUTONS MATÉRIAUX
                 const matContainer = document.getElementById('material-filter-container');
                 matContainer.innerHTML = '';
-                uniqueMaterials.forEach((mat, mName) => {
+                
+                uniqueMaterials.forEach((mat, matKey) => {
                     const btn = document.createElement('button');
                     btn.className = 'mat-filter-btn ui-element';
-                    btn.title = mat.name || mName;
+                    const mName = mat.name || "Matériau";
+                    btn.title = mName;
                     
-                    // Extraire l'image du matériau s'il y a une texture (map)
                     if (mat.map && mat.map.image) {
                         const img = mat.map.image;
-                        if (img.src) {
-                            btn.style.backgroundImage = `url(${img.src})`;
-                        } else if (img instanceof HTMLCanvasElement) {
-                            btn.style.backgroundImage = `url(${img.toDataURL()})`;
-                        } else if (typeof ImageBitmap !== 'undefined' && img instanceof ImageBitmap) {
-                            const canvas = document.createElement('canvas');
-                            canvas.width = img.width; canvas.height = img.height;
-                            canvas.getContext('2d').drawImage(img, 0, 0);
-                            btn.style.backgroundImage = `url(${canvas.toDataURL()})`;
+                        try {
+                            if (img.src) {
+                                btn.style.backgroundImage = `url(${img.src})`;
+                            } else if (img instanceof HTMLCanvasElement) {
+                                btn.style.backgroundImage = `url(${img.toDataURL()})`;
+                            } else if (typeof ImageBitmap !== 'undefined' && img instanceof ImageBitmap) {
+                                const canvas = document.createElement('canvas');
+                                canvas.width = img.width; canvas.height = img.height;
+                                canvas.getContext('2d').drawImage(img, 0, 0);
+                                btn.style.backgroundImage = `url(${canvas.toDataURL()})`;
+                            }
+                        } catch(e) {
+                            btn.style.backgroundColor = mat.color ? mat.color.getStyle() : '#ccc';
                         }
                     } else if (mat.color) {
                         btn.style.backgroundColor = mat.color.getStyle();
@@ -1517,20 +1523,19 @@
                     }
 
                     btn.onclick = () => {
-                        if (activeMaterialFilters.has(mName)) {
-                            activeMaterialFilters.delete(mName);
+                        if (activeMaterialFilters.has(matKey)) {
+                            activeMaterialFilters.delete(matKey);
                             btn.classList.remove('active');
                             if (activeMaterialFilters.size === 0) updateTopInfo(currentModelName, activeOriginalSize);
                         } else {
-                            activeMaterialFilters.add(mName);
+                            activeMaterialFilters.add(matKey);
                             btn.classList.add('active');
-                            updateTopInfo("Filtre Actif", activeOriginalSize, mat.name || mName); 
+                            updateTopInfo("Filtre Actif", activeOriginalSize, mName); 
                         }
                         updateMaterials();
                     };
                     matContainer.appendChild(btn);
                 });
-
 
                 const asmBtn = document.getElementById('assembly-mode-btn');
                 const stepCtrl = document.getElementById('step-controls-container');
