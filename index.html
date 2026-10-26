@@ -418,7 +418,7 @@
 
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">v1.25.8</div> 
+        <div class="author-badge">v1.25.9</div> 
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
@@ -859,10 +859,8 @@
                 highlightedMeshes.forEach(m => m.userData.isHighlighted = false);
             }
 
-            let partGroup = mesh;
-            if (mesh.parent && mesh.parent.uuid !== globalModel.uuid && mesh.parent.type !== 'Scene') {
-                partGroup = mesh.parent;
-            }
+            // CORRECTION : la "pièce" = le noeud qui regroupe face + chants (calculé au chargement)
+            let partGroup = mesh.userData.partRoot || mesh;
 
             let targetMeshes = [];
             partGroup.traverse((node) => {
@@ -918,7 +916,7 @@
                 slider.dispatchEvent(new Event('input'));
             });
 
-            // NOUVELLE LOGIQUE D'EXPLOSION (PAR GROUPE PARENT)
+            // LOGIQUE D'EXPLOSION (PAR NOEUD "PIÈCE" : face + chants bougent ensemble)
             slider.addEventListener('input', (e) => {
                 if (!globalModel) return;
                 const val = parseFloat(e.target.value);
@@ -1292,22 +1290,32 @@
                 const globalCenter = new THREE.Vector3();
                 globalBox.getCenter(globalCenter);
 
-                // NOUVEAU : On regroupe les meshes par leur groupe parent pour éviter la séparation
+                // Pièce = le noeud qui contient directement les meshes d'un panneau (face + chants ensemble)
                 let partNodes = new Set();
+
                 function getPartRoot(mesh) {
-                    let current = mesh;
-                    while (current.parent && current.parent.uuid !== globalModel.uuid && current.parent.type !== 'Scene') {
-                        current = current.parent;
+                    const p = mesh.parent;
+                    if (p && p !== globalModel && p.type !== 'Scene' &&
+                        p.children.length > 0 && p.children.every(c => c.isMesh)) {
+                        return p;       // panneau multi-matériaux : on déplace tout le groupe
                     }
-                    return current;
+                    return mesh;        // panneau mono-matériau : le mesh lui-même
                 }
 
+                // Passe 1 : détecter les pièces AVANT d'ajouter les lignes de contour
+                globalModel.traverse(function (node) {
+                    if (node.isMesh) {
+                        const root = getPartRoot(node);
+                        node.userData.partRoot = root;
+                        partNodes.add(root);
+                    }
+                });
+
+                // Passe 2 : matériaux, détection des chants, contours
                 globalModel.traverse(function (node) {
                     if (node.isMesh) {
                         node.userData.isOriginalMesh = true;
                         node.userData.isHighlighted = false;
-
-                        partNodes.add(getPartRoot(node));
 
                         let matName = "";
                         if (Array.isArray(node.material) && node.material.length > 0) {
@@ -1329,7 +1337,10 @@
                     }
                 });
 
-                // Application de l'explosion et de l'assemblage sur l'ensemble de la "Pièce"
+                // Passe 3 : directions d'explosion + étapes d'assemblage
+                const globalSizeMax = Math.max(originalGlobalSize.x, originalGlobalSize.y, originalGlobalSize.z) || 1;
+                const namesToStrip = new Set();
+
                 partNodes.forEach(partNode => {
                     partNode.userData.isPartNode = true;
                     partNode.userData.originalPosition = partNode.position.clone();
@@ -1340,29 +1351,34 @@
 
                     let localGlobalCenter = globalCenter.clone();
                     let localPartCenter = partCenter.clone();
-                    
                     if (partNode.parent) {
                         localGlobalCenter = partNode.parent.worldToLocal(localGlobalCenter);
                         localPartCenter = partNode.parent.worldToLocal(localPartCenter);
                     }
-                    
-                    partNode.userData.explodeDirection = new THREE.Vector3().subVectors(localPartCenter, localGlobalCenter);
+
+                    const dir = new THREE.Vector3().subVectors(localPartCenter, localGlobalCenter);
+                    if (dir.lengthSq() < 1e-8) dir.set(0, globalSizeMax * 0.3, 0); // pièce située au centre
+                    partNode.userData.explodeDirection = dir;
                     partNode.userData.assemblyStep = 0;
 
-                    partNode.traverse(n => {
-                        let match = n.name.match(/__STEP(\d+)/i);
+                    // __STEP peut être sur la pièce, à l'intérieur, ou sur un groupe parent
+                    const checkNode = (n) => {
+                        const match = n.name && n.name.match(/__STEP(\d+)/i);
                         if (match) {
-                            let step = parseInt(match[1], 10);
-                            if (step > partNode.userData.assemblyStep) {
-                                partNode.userData.assemblyStep = step;
-                            }
-                            if (step > maxAssemblyStep) {
-                                maxAssemblyStep = step;
-                            }
-                            n.name = n.name.replace(/__STEP\d+/i, '').trim();
+                            const step = parseInt(match[1], 10);
+                            if (step > partNode.userData.assemblyStep) partNode.userData.assemblyStep = step;
+                            if (step > maxAssemblyStep) maxAssemblyStep = step;
+                            namesToStrip.add(n);
                         }
-                    });
+                    };
+                    partNode.traverse(checkNode);
+                    for (let a = partNode.parent; a && a !== globalModel; a = a.parent) checkNode(a);
                 });
+
+                // On retire le suffixe __STEP seulement après que toutes les pièces l'aient lu
+                namesToStrip.forEach(n => { n.name = n.name.replace(/__STEP\d+/i, '').trim(); });
+
+                console.log("Finjat: pièces détectées =", partNodes.size, "| étape max =", maxAssemblyStep);
 
                 const asmBtn = document.getElementById('assembly-mode-btn');
                 if (maxAssemblyStep === 0) {
