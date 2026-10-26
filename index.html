@@ -246,8 +246,6 @@
         #xray-btn { bottom: 40px; left: calc(50% - 30px); }
         #edge-btn { bottom: 40px; left: calc(50% + 45px); }
         #zoom-btn { bottom: 130px; right: 25px; }
-        
-        /* BOUTON RÈGLE PLACÉ ENTRE ZOOM ET TOUCH TOGGLE */
         #toggle-measure-btn { bottom: 205px; right: 25px; font-size: 24px; }
 
         #ui-panel {
@@ -429,9 +427,6 @@
     <button id="unit-toggle-btn" class="ui-element">mm</button>
     
     <button id="toggle-measure-btn" class="floating-btn ui-element" title="Afficher/Masquer les dimensions">📏</button>
-    
-    <!-- Bouton désélection conservé mais masqué pour ne pas casser le JS existant -->
-    <button id="deselect-btn" style="display: none;"></button>
 
     <div id="touch-select-container" class="ui-element">
         <div id="touch-toggle">
@@ -448,7 +443,7 @@
 
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">v1.25.11</div> 
+        <div class="author-badge">v1.25.12</div> 
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
@@ -625,6 +620,25 @@
                 console.warn("Finjat: miniature impossible", e);
                 return null;
             }
+        }
+        
+        function clearSelection() {
+            if (highlightedMeshes && highlightedMeshes.length > 0) {
+                highlightedMeshes.forEach(mesh => {
+                    mesh.userData.isHighlighted = false;
+                });
+                highlightedMeshes = [];
+                updateMaterials();
+            }
+        
+            if (globalModel) {
+                activeBox = new THREE.Box3().setFromObject(globalModel);
+                activeOriginalSize.copy(originalGlobalSize); 
+                updateTopInfo(currentModelName, activeOriginalSize, null); 
+            }
+        
+            document.getElementById('ui-panel').style.display = 'none';
+            isZoomedOnPart = false;
         }
 
         function getFormattedDims(sizeVector) {
@@ -965,7 +979,6 @@
             isZoomedOnPart = false;
 
             document.getElementById('top-info-panel').style.display = 'none';
-            document.getElementById('action-buttons').style.display = 'none';
             ['x', 'y', 'z'].forEach(axis => {
                 if (domLabels[axis]) domLabels[axis].style.display = 'none';
             });
@@ -1008,7 +1021,6 @@
 
             updateTopInfo(cleanPartName, activeOriginalSize, matName);
 
-            document.getElementById('deselect-btn').style.display = 'flex';
             document.getElementById('ui-panel').style.display = 'none';
         }
         
@@ -1130,7 +1142,7 @@
                 if (validIntersects.length > 0) {
                     selectPartByMesh(validIntersects[0].object);
                 } else {
-                    document.getElementById('deselect-btn').click();
+                    clearSelection();
                 }
             });
 
@@ -1181,24 +1193,6 @@
             document.getElementById('toggle-measure-btn').addEventListener('click', () => {
                 showMeasurements = !showMeasurements;
                 updateMeasurementLabels(); 
-            });
-
-            document.getElementById('deselect-btn').addEventListener('click', () => {
-                if (highlightedMeshes && highlightedMeshes.length > 0) {
-                    highlightedMeshes.forEach(mesh => {
-                        mesh.userData.isHighlighted = false;
-                    });
-                    highlightedMeshes = [];
-                    updateMaterials();
-                }
-            
-                activeBox = new THREE.Box3().setFromObject(globalModel);
-                activeOriginalSize.copy(originalGlobalSize); 
-                updateTopInfo(currentModelName, activeOriginalSize, null); 
-            
-                document.getElementById('ui-panel').style.display = 'none';
-                document.getElementById('deselect-btn').style.display = 'none';
-                isZoomedOnPart = false;
             });
         }
 
@@ -1438,7 +1432,6 @@
                 updateTopInfo(currentModelName, activeOriginalSize);
         
                 document.getElementById('action-buttons').style.display = 'flex';
-                document.getElementById('deselect-btn').style.display = 'none';
 
                 const globalCenter = new THREE.Vector3();
                 globalBox.getCenter(globalCenter);
@@ -1727,7 +1720,6 @@
         
                 updateTopInfo(cleanPartName, activeOriginalSize, matName); 
         
-                document.getElementById('deselect-btn').style.display = 'flex';
                 document.getElementById('ui-panel').style.display = 'none';
             } else {
                 alert("Pièce introuvable dans ce meuble.\nCode lu : " + scannedText);
