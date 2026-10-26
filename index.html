@@ -106,211 +106,85 @@
             background-color: #e5e5e5; display: flex; flex-direction: column;
             align-items: center; z-index: 900;
             transition: background-color 0.3s ease;
-            padding-top: 6vh; 
+            padding-top: 8vh; 
         }
         #file-btn {
             background: #2563eb; color: #ffffff; border: none;
             padding: 15px 30px; border-radius: 10px; font-size: 18px; font-weight: bold;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 16px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 20px;
         }
         #file-btn:active { background: #1d4ed8; transform: scale(0.98); }
 
         /* ========================================= */
-        /* GALERIE DES MEUBLES (RECHERCHE, TRI, VUE) */
+        /* GALERIE DES MEUBLES                       */
         /* ========================================= */
         #recent-gallery-container {
             width: 90%; max-width: 800px; flex-grow: 1; 
-            margin-top: 20px; margin-bottom: 20px;
+            margin-top: 25px; margin-bottom: 20px;
             display: flex; flex-direction: column; overflow: hidden;
         }
         .gallery-header {
-            display: flex; flex-direction: column; gap: 10px;
-            margin-bottom: 12px; padding: 0 5px;
-        }
-        .gallery-header-top {
             display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 10px; padding: 0 5px;
         }
         .gallery-header h3 { margin: 0; font-size: 18px; color: #333; }
         
-        .gallery-controls {
-            display: flex; align-items: center; gap: 8px;
+        #view-toggle-btn {
+            background: transparent; border: none; padding: 5px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
         }
-
-        .gallery-action-btn {
-            background: #ffffff; border: 1px solid #ccc; border-radius: 8px;
-            padding: 6px 10px; cursor: pointer; display: flex; align-items: center;
-            justify-content: center; gap: 6px; font-size: 13px; font-weight: bold;
-            color: #333; box-shadow: 0 2px 4px rgba(0,0,0,0.06); transition: all 0.2s;
-        }
-        .gallery-action-btn:active { transform: scale(0.95); }
-
-        /* Barre de recherche rapide */
-        .search-bar-wrapper {
-            position: relative; display: flex; align-items: center; width: 100%;
-        }
-        .search-icon {
-            position: absolute; left: 12px; pointer-events: none; color: #777;
-        }
-        #history-search-input {
-            width: 100%; padding: 9px 34px 9px 36px; border-radius: 10px;
-            border: 1px solid #ccc; background: #ffffff; font-size: 14px; color: #222;
-            box-sizing: border-box; outline: none; box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-            transition: border-color 0.2s, box-shadow 0.2s;
-            touch-action: manipulation;
-        }
-        #history-search-input:focus {
-            border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
-        }
-        #clear-search-btn {
-            position: absolute; right: 8px; background: #e5e7eb; border: none;
-            color: #555; width: 22px; height: 22px; border-radius: 50%;
-            font-size: 12px; font-weight: bold; cursor: pointer;
-            display: none; align-items: center; justify-content: center; padding: 0;
-        }
-        #clear-search-btn:active { transform: scale(0.9); }
+        #view-toggle-btn:active { transform: scale(0.9); }
 
         #recent-gallery {
             overflow-y: auto; padding: 5px; display: grid; gap: 12px; flex-grow: 1;
-            align-content: flex-start; touch-action: pan-y;
-        }
-
-        .empty-history-msg {
-            grid-column: 1 / -1; text-align: center; color: #777;
-            padding: 35px 15px; font-size: 14px; font-style: italic;
+            align-content: flex-start;
         }
 
         .layout-list { grid-template-columns: 1fr; }
-        .layout-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } 
+        .layout-grid { grid-template-columns: repeat(2, 1fr); } 
 
         .recent-item {
-            background: #ffffff; border-radius: 12px; padding: 10px;
+            background: #ffffff; border-radius: 10px; padding: 10px;
             display: flex; align-items: center; justify-content: space-between;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.06); border: 1px solid #ddd;
-            position: relative; transition: transform 0.2s; overflow: hidden;
-            box-sizing: border-box;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #ddd;
+            position: relative; transition: transform 0.2s;
         }
         .recent-item:active { transform: scale(0.98); }
 
         #recent-gallery.layout-grid .recent-item {
-            flex-direction: column; padding: 8px; justify-content: flex-start;
-            aspect-ratio: 1 / 1.12;
+            flex-direction: column; padding: 10px; justify-content: flex-start;
+            aspect-ratio: 4 / 5;
         }
 
         .recent-thumb {
-            width: 52px; height: 52px; border-radius: 8px; object-fit: cover;
-            background: #f0f0f0; margin-right: 14px; flex-shrink: 0; border: 1px solid #eee;
+            width: 50px; height: 50px; border-radius: 6px; object-fit: cover;
+            background: #f0f0f0; margin-right: 15px; flex-shrink: 0; border: 1px solid #eee;
         }
         #recent-gallery.layout-grid .recent-thumb {
-            width: 100%; height: calc(100% - 34px); margin-right: 0; margin-bottom: 6px;
+            width: 100%; height: 75%; aspect-ratio: auto; margin-right: 0; margin-bottom: 10px;
             border-radius: 8px;
         }
 
         .recent-info {
-            display: flex; align-items: center; flex-grow: 1; overflow: hidden;
-            width: 100%; height: 100%; cursor: pointer; min-width: 0;
+            display: flex; align-items: center; flex-grow: 1; overflow: hidden; width: 100%; cursor: pointer;
         }
-        #recent-gallery.layout-grid .recent-info {
-            flex-direction: column; justify-content: space-between;
-        }
+        #recent-gallery.layout-grid .recent-info { flex-direction: column; justify-content: center; }
 
-        /* Gestion du titre et défilement continu (Marquee) */
-        .recent-title-wrapper {
-            width: 100%; overflow: hidden; white-space: nowrap;
-            position: relative; display: flex; align-items: center; min-width: 0;
-        }
-        #recent-gallery.layout-grid .recent-title-wrapper {
-            height: 26px; justify-content: center;
-        }
-        #recent-gallery.layout-grid .recent-title-wrapper.is-scrolling {
-            justify-content: flex-start;
-            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
-            mask-image: linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
-        }
-
-        .recent-title-track {
-            display: inline-flex; align-items: center; min-width: 0; max-width: 100%;
-        }
-        .recent-title-text {
+        .recent-item span { 
             font-weight: bold; color: #333; font-size: 14px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
         }
-        .recent-title-clone {
-            display: none; font-weight: bold; color: #333; font-size: 13px;
-            white-space: nowrap; padding-left: 36px;
-        }
-
-        /* En mode grille, si le texte dépasse, il défile en continu */
-        #recent-gallery.layout-grid .recent-title-text {
-            font-size: 13px;
-        }
-        #recent-gallery.layout-grid .recent-title-wrapper.is-scrolling .recent-title-track {
-            max-width: none;
-            animation: marqueeContinuous var(--marquee-duration, 7s) linear infinite;
-        }
-        #recent-gallery.layout-grid .recent-title-wrapper.is-scrolling .recent-title-text {
-            overflow: visible; text-overflow: clip;
-        }
-        #recent-gallery.layout-grid .recent-title-wrapper.is-scrolling .recent-title-clone {
-            display: inline-block;
-        }
-
-        @keyframes marqueeContinuous {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-        }
+        #recent-gallery.layout-grid .recent-item span { text-align: center; font-size: 13px; margin-top: 5px; }
 
         .recent-delete {
-            background: #ff4444; color: white; border: none; border-radius: 8px;
+            background: #ff4444; color: white; border: none; border-radius: 6px;
             width: 32px; height: 32px; font-weight: bold; cursor: pointer;
             display: flex; justify-content: center; align-items: center; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-shrink: 0; z-index: 3;
-            margin-left: 8px; transition: transform 0.15s, background 0.15s;
+            box-shadow: 0 2px 4px rgba(255,0,0,0.2); flex-shrink: 0; z-index: 2;
         }
-        .recent-delete:active { transform: scale(0.9); background: #dc2626; }
         #recent-gallery.layout-grid .recent-delete {
-            position: absolute; top: 14px; right: 14px; width: 28px; height: 28px;
-            font-size: 13px; border-radius: 50%; margin-left: 0;
-            background: rgba(239, 68, 68, 0.92); border: 1.5px solid #ffffff;
+            position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; font-size: 12px;
         }
-
-        /* ========================================= */
-        /* MODALE DE CONFIRMATION DE SUPPRESSION     */
-        /* ========================================= */
-        #delete-modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(4px);
-            z-index: 3500; display: none; justify-content: center; align-items: center;
-            opacity: 0; transition: opacity 0.2s ease;
-        }
-        #delete-modal-overlay.active {
-            display: flex; opacity: 1;
-        }
-        #delete-modal {
-            background: #ffffff; border-radius: 16px; padding: 22px 20px;
-            width: 85%; max-width: 340px; text-align: center;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.3);
-            transform: scale(0.92); transition: transform 0.2s ease;
-        }
-        #delete-modal-overlay.active #delete-modal {
-            transform: scale(1);
-        }
-        #delete-modal h4 {
-            margin: 0 0 10px 0; font-size: 18px; color: #111;
-        }
-        #delete-modal p {
-            margin: 0 0 20px 0; font-size: 14px; color: #555;
-            word-break: break-word; line-height: 1.4;
-        }
-        .modal-actions {
-            display: flex; gap: 10px; justify-content: center;
-        }
-        .modal-btn {
-            flex: 1; padding: 11px 14px; border: none; border-radius: 10px;
-            font-size: 14px; font-weight: bold; cursor: pointer; transition: transform 0.1s;
-        }
-        .modal-btn:active { transform: scale(0.96); }
-        #cancel-delete-btn { background: #e5e7eb; color: #374151; }
-        #confirm-delete-btn { background: #ef4444; color: #ffffff; box-shadow: 0 3px 8px rgba(239,68,68,0.35); }
         
         #loader {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
@@ -421,36 +295,13 @@
         #sidebar-overlay.active { opacity: 1; pointer-events: auto; }
 
         #sidebar {
-            position: fixed; top: 0; left: 0; width: 265px; height: 100vh;
-            background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(15px);
+            position: fixed; top: 0; left: 0; width: 260px; height: 100vh;
+            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(15px);
             box-shadow: 2px 0 15px rgba(0,0,0,0.3); z-index: 2000;
             transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             padding: 20px; box-sizing: border-box; display: flex; flex-direction: column;
         }
         #sidebar.active { transform: translateX(0); }
-
-        /* Section Enregistrement & Partage dans le panneau latéral */
-        #sidebar-project-actions {
-            display: none; flex-direction: column; gap: 10px; margin-bottom: 18px;
-            padding-bottom: 16px; border-bottom: 1px solid rgba(0,0,0,0.12);
-        }
-        .sidebar-action-btn {
-            border: none; border-radius: 10px;
-            padding: 12px 14px; font-size: 14px; font-weight: bold; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            transition: all 0.2s; width: 100%; box-sizing: border-box;
-        }
-        #save-device-btn {
-            background: #2563eb; color: #ffffff;
-            box-shadow: 0 4px 10px rgba(37,99,235,0.3);
-        }
-        #save-device-btn:active { transform: scale(0.97); background: #1d4ed8; }
-
-        #share-model-btn {
-            background: #10b981; color: #ffffff;
-            box-shadow: 0 4px 10px rgba(16,185,129,0.3);
-        }
-        #share-model-btn:active { transform: scale(0.97); background: #059669; }
 
         #sidebar h2 { margin: 0 0 20px 0; font-size: 20px; color: #333; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
         
@@ -526,6 +377,91 @@
         @keyframes shoot4 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(80px, 80px) scale(0); opacity: 0; } }
         @keyframes shoot5 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(0px, -100px) scale(0); opacity: 0; } }
         @keyframes shoot6 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(0px, 100px) scale(0); opacity: 0; } }
+    
+        /* ========================================= */
+        /* HISTORIQUE : liste / grandes vignettes    */
+        /* ========================================= */
+        #view-toggle-btn {
+            background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .recent-empty { color: #888; font-size: 14px; text-align: center; padding: 20px 0; grid-column: 1 / -1; }
+
+        .recent-name { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+        .recent-name-text {
+            display: block; font-weight: bold; color: #333; font-size: 14px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        #recent-gallery.layout-grid .recent-item {
+            flex-direction: column; align-items: stretch; justify-content: flex-start;
+            padding: 0; aspect-ratio: 1 / 1; overflow: hidden;
+        }
+        #recent-gallery.layout-grid .recent-info {
+            flex-direction: column; align-items: stretch; justify-content: flex-start;
+            height: 100%; width: 100%;
+        }
+        #recent-gallery.layout-grid .recent-thumb {
+            width: 100%; height: auto; flex: 1 1 0; min-height: 0;
+            margin: 0; border: none; border-radius: 0;
+        }
+        #recent-gallery.layout-grid .recent-name {
+            flex: 0 0 auto; height: 38px; padding: 0 10px; box-sizing: border-box;
+            display: flex; align-items: center; background: #fff; border-top: 1px solid #eee;
+        }
+        #recent-gallery.layout-grid .recent-name-text {
+            display: inline-block; overflow: visible; text-overflow: clip; width: auto;
+            font-size: 13px; text-align: left; margin: 0;
+        }
+        .recent-name-text.marquee {
+            animation: finjat-marquee var(--marquee-dur, 6s) ease-in-out infinite alternate;
+        }
+        @keyframes finjat-marquee {
+            0%, 15%   { transform: translateX(0); }
+            85%, 100% { transform: translateX(var(--marquee-dist, 0px)); }
+        }
+        #recent-gallery.layout-grid .recent-delete {
+            position: absolute; top: 8px; right: 8px; width: 28px; height: 28px;
+            border-radius: 50%; font-size: 13px; background: rgba(220, 38, 38, 0.92);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+        }
+
+        /* ========================================= */
+        /* POPUP DE CONFIRMATION DE SUPPRESSION      */
+        /* ========================================= */
+        #confirm-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 3000;
+            display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        #confirm-overlay.active { display: flex; }
+        #confirm-box {
+            background: #fff; border-radius: 14px; padding: 22px 20px 16px; width: 100%; max-width: 340px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35); text-align: center;
+        }
+        .confirm-title { font-size: 18px; font-weight: bold; color: #222; margin-bottom: 10px; }
+        #confirm-name {
+            font-weight: bold; color: #2563eb; font-size: 14px; word-break: break-all; margin-bottom: 8px;
+        }
+        .confirm-text { font-size: 14px; color: #666; margin-bottom: 18px; }
+        .confirm-actions { display: flex; gap: 10px; }
+        .confirm-actions button {
+            flex: 1; padding: 12px; border-radius: 8px; border: none; font-size: 15px;
+            font-weight: bold; cursor: pointer;
+        }
+        .confirm-actions button:active { transform: scale(0.97); }
+        #confirm-cancel { background: #e5e7eb; color: #333; }
+        #confirm-ok { background: #dc2626; color: #fff; }
+
+        /* ========================================= */
+        /* BOUTON "ENREGISTRER SUR L'APPAREIL"       */
+        /* ========================================= */
+        #save-local-btn {
+            display: none; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; background: #2563eb; color: #fff; border: none; border-radius: 8px;
+            padding: 12px; margin-bottom: 20px; font-size: 16px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+        }
+        #save-local-btn:active { transform: scale(0.98); }
     </style>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -547,28 +483,10 @@
 
     <div id="sidebar-overlay"></div>
     <div id="sidebar">
-        <!-- BOUTONS ENREGISTRER & PARTAGER (visibles uniquement quand un modèle est ouvert) -->
-        <div id="sidebar-project-actions">
-            <button id="save-device-btn" class="sidebar-action-btn">
-                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-                Enregistrer sur l'appareil
-            </button>
-            <button id="share-model-btn" class="sidebar-action-btn">
-                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="18" cy="5" r="3"></circle>
-                    <circle cx="6" cy="12" r="3"></circle>
-                    <circle cx="18" cy="19" r="3"></circle>
-                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                </svg>
-                Partager ce meuble
-            </button>
-        </div>
-
+        <button id="save-local-btn" type="button">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="white" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span id="save-local-label">Enregistrer sur l'appareil</span>
+        </button>
         <h2>Apparence</h2>
         <button class="theme-btn" data-color="#e5e5e5">
             <div class="theme-color-dot" style="background: #e5e5e5;"></div> Thème Clair
@@ -583,18 +501,6 @@
         <div class="color-picker-wrapper">
             <label for="custom-color-picker">Personnalisé</label>
             <input type="color" id="custom-color-picker" value="#e5e5e5">
-        </div>
-    </div>
-
-    <!-- MODALE DE CONFIRMATION DE SUPPRESSION -->
-    <div id="delete-modal-overlay">
-        <div id="delete-modal">
-            <h4>Supprimer ce meuble ?</h4>
-            <p id="delete-modal-text">Voulez-vous vraiment retirer ce fichier de l'historique ?</p>
-            <div class="modal-actions">
-                <button id="cancel-delete-btn" class="modal-btn">Annuler</button>
-                <button id="confirm-delete-btn" class="modal-btn">Supprimer</button>
-            </div>
         </div>
     </div>
 
@@ -626,38 +532,31 @@
 
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">v1.26.2</div> 
+        <div class="author-badge">v1.25.13</div> 
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
         
         <div id="recent-gallery-container">
             <div class="gallery-header">
-                <div class="gallery-header-top">
-                    <h3>Historique</h3>
-                    <div class="gallery-controls">
-                        <button id="sort-toggle-btn" class="gallery-action-btn" aria-label="Trier l'historique" title="Changer l'ordre de tri">
-                            <svg viewBox="0 0 24 24" width="18" height="18" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4"></path>
-                            </svg>
-                            <span id="sort-toggle-label">Récent</span>
-                        </button>
-                        <button id="view-toggle-btn" class="gallery-action-btn" aria-label="Changer l'affichage" title="Basculer Liste / Grille">
-                            <svg id="view-icon" viewBox="0 0 24 24" width="18" height="18" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></svg>
-                            <span id="view-toggle-label">Grille</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="search-bar-wrapper">
-                    <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                    <input type="text" id="history-search-input" placeholder="Rechercher un meuble..." autocomplete="off">
-                    <button id="clear-search-btn" title="Effacer la recherche">✕</button>
-                </div>
+                <h3>Historique</h3>
+                <button id="view-toggle-btn" aria-label="Changer l'affichage">
+                    <svg id="view-icon" viewBox="0 0 24 24" width="24" height="24" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></svg>
+                </button>
             </div>
             <div id="recent-gallery" class="layout-list"></div>
+        </div>
+    </div>
+
+    <div id="confirm-overlay">
+        <div id="confirm-box" role="dialog" aria-modal="true">
+            <div class="confirm-title">Supprimer ce fichier ?</div>
+            <div id="confirm-name"></div>
+            <div class="confirm-text">Il sera retiré de votre historique.</div>
+            <div class="confirm-actions">
+                <button id="confirm-cancel" type="button">Annuler</button>
+                <button id="confirm-ok" type="button">Supprimer</button>
+            </div>
         </div>
     </div>
 
@@ -755,7 +654,7 @@
         let isAssemblyModeOn = false;
         let maxAssemblyStep = 0;
 
-        let activeMaterialFilters = new Set();
+        let activeMaterialFilters = new Set(); // Filtres de matériaux (clés = nom normalisé)
         
         let raycaster = new THREE.Raycaster();
         let mouse = new THREE.Vector2();
@@ -770,21 +669,13 @@
         let originalGlobalSize = new THREE.Vector3();
         let activeOriginalSize = new THREE.Vector3();
         
+        let currentModelBlob = null;        // fichier du modèle ouvert (pour "Enregistrer sur l'appareil")
+        let currentModelSourceUrl = null;   // URL distante du modèle ouvert (liens ?model=)
         let highlightedMeshes = []; 
         let isZoomedOnPart = false;
 
         let labelsCached = false;
         let domLabels = {};
-
-        // Données du modèle actuellement ouvert (pour sauvegarde locale et partage)
-        let currentLoadedBuffer = null;
-        let currentLoadedFileName = null;
-        let currentCloudModelUrl = null;
-        let pendingDeleteModelName = null;
-
-        // État de recherche et de tri de l'historique
-        let historySearchQuery = "";
-        let historySortMode = localStorage.getItem('gallerySortMode') || 'date';
 
         const baseMaterial = new THREE.MeshLambertMaterial({
             color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
@@ -803,61 +694,6 @@
         });
 
         // ==========================================
-        // OUTILS DE NOMMAGE DU MEUBLE (VRAI NOM)
-        // ==========================================
-        function isGenericExportName(name) {
-            if (!name) return true;
-            const base = name.replace(/\.glb$/i, '').trim();
-            return /^Finjat_Export_\d+$/i.test(base) ||
-                   /^Meuble_Cloud$/i.test(base) ||
-                   /^Partage_\d+$/i.test(base) ||
-                   /^model$/i.test(base) ||
-                   /^scene$/i.test(base);
-        }
-
-        function extractEmbeddedModelName(gltf) {
-            try {
-                // 1. Vérifie les extras / userData du GLTF ou de la scène
-                const extrasTitle =
-                    (gltf.parser && gltf.parser.json && gltf.parser.json.asset && gltf.parser.json.asset.extras && (gltf.parser.json.asset.extras.title || gltf.parser.json.asset.extras.name || gltf.parser.json.asset.extras.modelName)) ||
-                    (gltf.scene && gltf.scene.userData && (gltf.scene.userData.name || gltf.scene.userData.title || gltf.scene.userData.modelName));
-                if (extrasTitle && typeof extrasTitle === 'string' && extrasTitle.trim().length > 1) {
-                    return extrasTitle.trim();
-                }
-
-                // 2. Vérifie le nom de la scène dans le JSON GLTF
-                if (gltf.parser && gltf.parser.json && Array.isArray(gltf.parser.json.scenes)) {
-                    const sceneDef = gltf.parser.json.scenes[0];
-                    if (sceneDef && sceneDef.name && !/^(scene|root|rootnode|default|untitled)$/i.test(sceneDef.name.trim())) {
-                        return sceneDef.name.trim();
-                    }
-                }
-
-                // 3. Vérifie gltf.scene.name
-                if (gltf.scene && gltf.scene.name && !/^(scene|root|rootnode|default|untitled|auxscene)$/i.test(gltf.scene.name.trim())) {
-                    return gltf.scene.name.trim();
-                }
-
-                // 4. Si la scène possède un unique groupe parent (ex: composant principal du meuble dans SketchUp)
-                if (gltf.scene && gltf.scene.children && gltf.scene.children.length === 1) {
-                    const rootChild = gltf.scene.children[0];
-                    if (rootChild.name && !rootChild.isMesh && !/^(scene|root|rootnode|default|group|instance)$/i.test(rootChild.name.trim())) {
-                        const cleaned = rootChild.name.replace(/__STEP\d+/i, '').trim();
-                        if (cleaned.length > 1) return cleaned;
-                    }
-                }
-            } catch (e) {
-                console.warn("Finjat: lecture du nom interne impossible", e);
-            }
-            return null;
-        }
-
-        function ensureGlbExtension(name) {
-            const clean = (name || 'Meuble').trim();
-            return clean.toLowerCase().endsWith('.glb') ? clean : clean + '.glb';
-        }
-
-        // ==========================================
         // OUTILS MATÉRIAUX
         // ==========================================
         function normMatName(mat) {
@@ -868,6 +704,9 @@
             return key.includes("chant") || key.includes("edge") || key.includes("abf");
         }
 
+        // Convertit n'importe quelle source d'image (Image, Canvas, ImageBitmap) en petite miniature.
+        // On dessine dans un canvas AU CHARGEMENT : les URLs blob de GLTFLoader sont déjà révoquées
+        // après coup, donc utiliser img.src directement donnait un bouton vide/blanc.
         function makeTextureThumb(map, size = 64) {
             try {
                 const img = map && map.image;
@@ -981,32 +820,18 @@
             }
         }
 
-        // ==========================================
-        // INITIALISATION DE L'APPLICATION
-        // ==========================================
         init();
         animate();
         setupUI();
         setupScanner();
+        setupFileUploader();
         setupSplashScreen();
         setupSidebar();
-        setupDeleteModal();
-        setupGalleryViewToggle();
-        setupGallerySearchAndSort();
-
-        // On initialise d'abord la DB et l'historique, puis le chargeur de fichiers/URL
-        initDB()
-            .catch(err => console.error("Erreur DB:", err))
-            .finally(() => {
-                renderRecentGallery();
-                setupFileUploader();
-            });
-
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && !globalModel) {
-                renderRecentGallery();
-            }
-        });
+        
+        // NB : l'initialisation de la base / de l'historique est faite tout en bas du script.
+        // Elle était ici avant, mais initDB() utilisait DB_NAME (const déclarée plus bas) avant
+        // son initialisation => ReferenceError avalée par le catch => historique vide au démarrage
+        // et bouton de vue jamais branché.
 
         function setupSplashScreen() {
             const splash = document.getElementById('splash-screen');
@@ -1037,14 +862,16 @@
             const overlay = document.getElementById('sidebar-overlay');
             const colorPicker = document.getElementById('custom-color-picker');
             const hint = document.getElementById('sidebar-hint'); 
-            const saveDeviceBtn = document.getElementById('save-device-btn');
-            const shareModelBtn = document.getElementById('share-model-btn');
+            const saveBtn = document.getElementById('save-local-btn');
+            const saveLabel = document.getElementById('save-local-label');
 
             if (hint) {
                 hint.addEventListener('click', openSidebar);
             }
             
             function openSidebar() {
+                // Le bouton d'enregistrement n'a de sens que lorsqu'un modèle est ouvert
+                if (saveBtn) saveBtn.style.display = globalModel ? 'flex' : 'none';
                 sidebar.classList.add('active');
                 overlay.classList.add('active');
                 if (hint) hint.style.opacity = '0'; 
@@ -1058,86 +885,13 @@
 
             overlay.addEventListener('click', closeSidebar);
 
-            // Bouton "Enregistrer sur l'appareil" (utilise le vrai nom du meuble)
-            if (saveDeviceBtn) {
-                saveDeviceBtn.addEventListener('click', () => {
-                    if (!currentLoadedBuffer) {
-                        alert("Le fichier n'est pas encore prêt pour le téléchargement.");
-                        return;
-                    }
-                    const preferredName = (currentModelName && !isGenericExportName(currentModelName))
-                        ? currentModelName
-                        : (currentLoadedFileName || 'Meuble');
-                    const downloadName = ensureGlbExtension(preferredName);
-
-                    const blob = new Blob([currentLoadedBuffer], { type: 'model/gltf-binary' });
-                    const blobUrl = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = blobUrl;
-                    a.download = downloadName;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    setTimeout(() => URL.revokeObjectURL(blobUrl), 2500);
-                    closeSidebar();
-                });
-            }
-
-            // Bouton "Partager ce meuble"
-            if (shareModelBtn) {
-                shareModelBtn.addEventListener('click', async () => {
-                    const displayTitle = currentModelName || 'Meuble 3D';
-                    const fileName = ensureGlbExtension(displayTitle);
-
-                    // 1. Si le modèle vient d'un lien Cloud (?model=...), on construit un lien propre avec ?name=
-                    if (currentCloudModelUrl) {
-                        const shareUrlObj = new URL(window.location.origin + window.location.pathname);
-                        shareUrlObj.searchParams.set('model', currentCloudModelUrl);
-                        if (displayTitle && !isGenericExportName(displayTitle)) {
-                            shareUrlObj.searchParams.set('name', displayTitle);
-                        }
-                        const shareUrl = shareUrlObj.toString();
-
-                        if (navigator.share) {
-                            try {
-                                await navigator.share({
-                                    title: displayTitle,
-                                    text: `Découvrez le modèle 3D : ${displayTitle}`,
-                                    url: shareUrl
-                                });
-                                closeSidebar();
-                                return;
-                            } catch (err) {
-                                if (err.name === 'AbortError') return;
-                            }
-                        }
-
-                        if (navigator.clipboard && navigator.clipboard.writeText) {
-                            await navigator.clipboard.writeText(shareUrl);
-                            alert("Lien du meuble copié dans le presse-papiers !");
-                            closeSidebar();
-                            return;
-                        }
-                    }
-
-                    // 2. Sinon, partage direct du fichier .glb via Web Share API
-                    if (currentLoadedBuffer && navigator.share) {
-                        try {
-                            const fileToShare = new File([currentLoadedBuffer], fileName, { type: 'model/gltf-binary' });
-                            if (!navigator.canShare || navigator.canShare({ files: [fileToShare] })) {
-                                await navigator.share({
-                                    title: displayTitle,
-                                    files: [fileToShare]
-                                });
-                                closeSidebar();
-                                return;
-                            }
-                        } catch (err) {
-                            if (err.name === 'AbortError') return;
-                        }
-                    }
-
-                    alert("Le partage direct n'est pas supporté sur ce navigateur. Utilisez 'Enregistrer sur l'appareil' pour envoyer le fichier.");
+            if (saveBtn) {
+                saveBtn.addEventListener('click', async () => {
+                    const original = saveLabel.textContent;
+                    saveLabel.textContent = 'Enregistrement...';
+                    const ok = await saveCurrentModelToDevice();
+                    saveLabel.textContent = ok ? '✓ Enregistré' : original;
+                    setTimeout(() => { saveLabel.textContent = original; }, 2000);
                 });
             }
 
@@ -1148,7 +902,7 @@
             }
 
             document.querySelectorAll('.theme-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', (e) => {
                     const color = btn.getAttribute('data-color');
                     changeBackgroundColor(color);
                     colorPicker.value = color;
@@ -1177,37 +931,6 @@
                     closeSidebar();
                 }
             }, { passive: true });
-        }
-
-        function setupDeleteModal() {
-            const overlay = document.getElementById('delete-modal-overlay');
-            const cancelBtn = document.getElementById('cancel-delete-btn');
-            const confirmBtn = document.getElementById('confirm-delete-btn');
-
-            function closeDeleteModal() {
-                overlay.classList.remove('active');
-                pendingDeleteModelName = null;
-            }
-
-            cancelBtn.addEventListener('click', closeDeleteModal);
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) closeDeleteModal();
-            });
-
-            confirmBtn.addEventListener('click', async () => {
-                if (pendingDeleteModelName) {
-                    const nameToRemove = pendingDeleteModelName;
-                    closeDeleteModal();
-                    await deleteModelFromDB(nameToRemove);
-                }
-            });
-        }
-
-        function requestDeleteModel(name) {
-            pendingDeleteModelName = name;
-            const textEl = document.getElementById('delete-modal-text');
-            textEl.innerText = `Voulez-vous vraiment supprimer "${name}" de votre historique ?`;
-            document.getElementById('delete-modal-overlay').classList.add('active');
         }
 
         function init() {
@@ -1247,6 +970,9 @@
             baseMaterial.opacity = globalTargetOpacity;
             edgeMaterial.opacity = globalTargetOpacity;
 
+            // Une "pièce" = un panneau + ses chants. Le filtre par matériau s'applique à la pièce
+            // entière : si un de ses meshes utilise le matériau filtré, tous ses meshes (chants
+            // compris) restent visibles en mode texturé.
             const groupOf = (n) => {
                 const r = n.userData.partRoot;
                 return r ? (r.userData.hostPart || r) : n;
@@ -1271,6 +997,7 @@
                         node.material = highlightMaterial;
                     } 
                     else if (activeMaterialFilters.size > 0) {
+                        // La pièce utilise-t-elle l'un des matériaux filtrés ?
                         const hasFilterMat = matchedGroups.has(groupOf(node));
 
                         if (hasFilterMat) {
@@ -1282,7 +1009,7 @@
                             }
                         } else {
                             node.material = baseMaterial;
-                            node.material.opacity = isEdgeBandingOn ? 0.25 : 0.15;
+                            node.material.opacity = isEdgeBandingOn ? 0.25 : 0.15; // Mode "fantôme"
                         }
                     } 
                     else {
@@ -1337,18 +1064,10 @@
             focusCameraOnBox(box, 1.5);
         }
 
-        function updateSidebarProjectActions() {
-            const sidebarActions = document.getElementById('sidebar-project-actions');
-            if (sidebarActions) {
-                sidebarActions.style.display = globalModel ? 'flex' : 'none';
-            }
-        }
-
         function showUIElements(show) {
             document.querySelectorAll('.ui-element:not(#ui-panel)')
                 .forEach(el => el.style.display = show ? 'flex' : 'none');
             if (!show) document.getElementById('ui-panel').style.display = 'none';
-            updateSidebarProjectActions();
         }
 
         function resetViewState() {
@@ -1422,6 +1141,7 @@
             activeBox = box;
             activeBox.getSize(activeOriginalSize);
 
+            // Matériaux de TOUTE la pièce (face + chants), sans les chants dans l'affichage
             let namesSet = new Set();
             highlightedMeshes.forEach(m => {
                 (m.userData.originalMaterialNames || []).forEach(n => {
@@ -1612,267 +1332,156 @@
         // ==========================================
         const DB_NAME = 'Finjat3D_DB';
         const STORE_NAME = 'models';
-        let db = null;
-        let dbInitPromise = null;
+        let db;
+        let currentLoadedFileName = null; 
 
         function initDB() {
-            if (db) return Promise.resolve(db);
-            if (dbInitPromise) return dbInitPromise;
-
-            dbInitPromise = new Promise((resolve, reject) => {
+            return new Promise((resolve, reject) => {
                 const request = indexedDB.open(DB_NAME, 2); 
                 request.onupgradeneeded = (e) => {
-                    const database = e.target.result;
-                    if (!database.objectStoreNames.contains(STORE_NAME)) {
-                        database.createObjectStore(STORE_NAME, { keyPath: 'name' });
+                    db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'name' });
                     }
                 };
-                request.onsuccess = (e) => {
-                    db = e.target.result;
-                    db.onversionchange = () => {
-                        db.close();
-                        db = null;
-                        dbInitPromise = null;
-                    };
-                    resolve(db);
-                };
-                request.onerror = (e) => {
-                    dbInitPromise = null;
-                    reject(e);
-                };
-                request.onblocked = () => {
-                    dbInitPromise = null;
-                };
-            });
-            return dbInitPromise;
-        }
-
-        // Convertit un File ou Blob en ArrayBuffer de manière compatible tous navigateurs
-        function blobToArrayBuffer(blob) {
-            if (blob instanceof ArrayBuffer) return Promise.resolve(blob);
-            if (blob && typeof blob.arrayBuffer === 'function') {
-                return blob.arrayBuffer();
-            }
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = () => reject(reader.error);
-                reader.readAsArrayBuffer(blob);
+                request.onsuccess = (e) => { db = e.target.result; resolve(db); };
+                request.onerror = (e) => reject(e);
             });
         }
 
-        // Sauvegarde un ArrayBuffer dans IndexedDB (plus fiable que File/Blob sur mobile/WebView)
-        async function saveBufferToDB(name, arrayBuffer, cloudUrl = null) {
-            if (!name || !arrayBuffer) return;
-            await initDB();
-            const cleanName = ensureGlbExtension(name);
-
-            return new Promise((resolve) => {
-                try {
-                    const tx = db.transaction(STORE_NAME, 'readwrite');
-                    const store = tx.objectStore(STORE_NAME);
-                    const getReq = store.get(cleanName);
-
-                    getReq.onsuccess = (e) => {
-                        const existing = e.target.result;
-                        store.put({
-                            name: cleanName,
-                            fileBuffer: arrayBuffer,
-                            cloudUrl: cloudUrl || (existing ? existing.cloudUrl : null),
-                            date: Date.now(),
-                            thumbnail: existing ? existing.thumbnail : null
-                        });
-                    };
-
-                    tx.oncomplete = () => resolve();
-                    tx.onerror = (err) => {
-                        console.warn("Erreur écriture DB:", err);
-                        resolve();
-                    };
-                } catch (err) {
-                    console.warn("Exception écriture DB:", err);
-                    resolve();
-                }
-            });
-        }
-
-        // Renomme une entrée dans IndexedDB si un meilleur nom (ex: nom interne du GLB) est découvert
-        async function renameModelInDB(oldName, newName) {
-            const cleanOld = ensureGlbExtension(oldName);
-            const cleanNew = ensureGlbExtension(newName);
-            if (cleanOld === cleanNew) return;
-            await initDB();
-
-            return new Promise((resolve) => {
-                try {
-                    const tx = db.transaction(STORE_NAME, 'readwrite');
-                    const store = tx.objectStore(STORE_NAME);
-                    const getReq = store.get(cleanOld);
-                    getReq.onsuccess = (e) => {
-                        const data = e.target.result;
-                        if (data) {
-                            store.delete(cleanOld);
-                            data.name = cleanNew;
-                            store.put(data);
-                        }
-                    };
-                    tx.oncomplete = () => resolve();
-                    tx.onerror = () => resolve();
-                } catch (e) {
-                    resolve();
-                }
-            });
+        async function saveModelToDB(file) {
+            if (!db) await initDB();
+            if (!file.name) return;
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            
+            const request = store.get(file.name);
+            request.onsuccess = (e) => {
+                const existing = e.target.result;
+                store.put({ 
+                    name: file.name, 
+                    fileBlob: file, 
+                    date: Date.now(),
+                    thumbnail: existing ? existing.thumbnail : null 
+                });
+            };
         }
 
         async function updateModelThumbnailInDB(name, dataUrl) {
-            if (!name) return;
-            await initDB();
-            const cleanName = ensureGlbExtension(name);
-
-            return new Promise((resolve) => {
-                try {
-                    const tx = db.transaction(STORE_NAME, 'readwrite');
-                    const store = tx.objectStore(STORE_NAME);
-                    const request = store.get(cleanName);
-                    request.onsuccess = (e) => {
-                        const data = e.target.result;
-                        if (data) {
-                            data.thumbnail = dataUrl;
-                            store.put(data);
-                        }
-                    };
-                    tx.oncomplete = () => resolve();
-                    tx.onerror = () => resolve();
-                } catch (e) {
-                    resolve();
+            if (!db) await initDB();
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.get(name);
+            request.onsuccess = (e) => {
+                const data = e.target.result;
+                if (data) {
+                    data.thumbnail = dataUrl;
+                    store.put(data);
                 }
-            });
+            };
         }
 
         async function getRecentModels() {
-            await initDB();
+            if (!db) await initDB();
             return new Promise((resolve) => {
-                try {
-                    const tx = db.transaction(STORE_NAME, 'readonly');
-                    const request = tx.objectStore(STORE_NAME).getAll();
-                    request.onsuccess = () => resolve(request.result || []);
-                    request.onerror = () => resolve([]);
-                } catch (e) {
-                    resolve([]);
-                }
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const request = tx.objectStore(STORE_NAME).getAll();
+                request.onsuccess = () => resolve(request.result.sort((a, b) => b.date - a.date));
             });
         }
 
         async function deleteModelFromDB(name) {
-            await initDB();
-            return new Promise((resolve) => {
-                try {
-                    const tx = db.transaction(STORE_NAME, 'readwrite');
-                    tx.objectStore(STORE_NAME).delete(name);
-                    tx.oncomplete = () => {
-                        renderRecentGallery();
-                        resolve();
-                    };
-                    tx.onerror = () => resolve();
-                } catch (e) {
-                    resolve();
-                }
+            if (!db) await initDB();
+            await new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).delete(name);
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+            renderRecentGallery();
+        }
+
+        // Popup de confirmation avant suppression : renvoie true (supprimer) ou false (annuler)
+        function confirmDeleteModel(name) {
+            return new Promise(resolve => {
+                const overlay = document.getElementById('confirm-overlay');
+                const nameEl = document.getElementById('confirm-name');
+                const okBtn = document.getElementById('confirm-ok');
+                const cancelBtn = document.getElementById('confirm-cancel');
+                nameEl.textContent = name;
+                overlay.classList.add('active');
+
+                const close = (result) => {
+                    overlay.classList.remove('active');
+                    okBtn.removeEventListener('click', onOk);
+                    cancelBtn.removeEventListener('click', onCancel);
+                    overlay.removeEventListener('click', onOverlay);
+                    document.removeEventListener('keydown', onKey);
+                    resolve(result);
+                };
+                const onOk = () => close(true);
+                const onCancel = () => close(false);
+                const onOverlay = (e) => { if (e.target === overlay) close(false); };
+                const onKey = (e) => { if (e.key === 'Escape') close(false); };
+
+                okBtn.addEventListener('click', onOk);
+                cancelBtn.addEventListener('click', onCancel);
+                overlay.addEventListener('click', onOverlay);
+                document.addEventListener('keydown', onKey);
             });
         }
 
-        function updateMarquees() {
+        // Défilement automatique des noms trop longs (vue en grille uniquement)
+        function applyGalleryMarquees() {
             const gallery = document.getElementById('recent-gallery');
             if (!gallery) return;
             const isGrid = gallery.classList.contains('layout-grid');
-
-            gallery.querySelectorAll('.recent-title-wrapper').forEach(wrapper => {
-                wrapper.classList.remove('is-scrolling');
-                wrapper.style.removeProperty('--marquee-duration');
-
+            gallery.querySelectorAll('.recent-name').forEach(box => {
+                const text = box.firstElementChild;
+                if (!text) return;
+                text.classList.remove('marquee');
+                text.style.removeProperty('--marquee-dist');
+                text.style.removeProperty('--marquee-dur');
                 if (!isGrid) return;
-
-                const textEl = wrapper.querySelector('.recent-title-text');
-                if (!textEl) return;
-
-                if (textEl.scrollWidth > wrapper.clientWidth + 2) {
-                    const duration = Math.max(5, Math.round(textEl.scrollWidth / 28));
-                    wrapper.style.setProperty('--marquee-duration', `${duration}s`);
-                    wrapper.classList.add('is-scrolling');
+                const cs = getComputedStyle(box);
+                const avail = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+                const overflow = text.scrollWidth - avail;
+                if (overflow > 1) {
+                    text.style.setProperty('--marquee-dist', (-overflow) + 'px');
+                    text.style.setProperty('--marquee-dur', (overflow / 25 + 2.5).toFixed(2) + 's');
+                    text.classList.add('marquee');
                 }
             });
-        }
-
-        function setupGallerySearchAndSort() {
-            const searchInput = document.getElementById('history-search-input');
-            const clearBtn = document.getElementById('clear-search-btn');
-            const sortBtn = document.getElementById('sort-toggle-btn');
-            const sortLabel = document.getElementById('sort-toggle-label');
-
-            function updateSortUI() {
-                if (sortLabel) {
-                    sortLabel.innerText = historySortMode === 'name' ? 'Nom A-Z' : 'Récent';
-                }
-            }
-            updateSortUI();
-
-            if (sortBtn) {
-                sortBtn.addEventListener('click', () => {
-                    historySortMode = historySortMode === 'date' ? 'name' : 'date';
-                    localStorage.setItem('gallerySortMode', historySortMode);
-                    updateSortUI();
-                    renderRecentGallery();
-                });
-            }
-
-            if (searchInput) {
-                searchInput.addEventListener('input', (e) => {
-                    historySearchQuery = e.target.value.trim().toLowerCase();
-                    if (clearBtn) {
-                        clearBtn.style.display = historySearchQuery.length > 0 ? 'flex' : 'none';
-                    }
-                    renderRecentGallery();
-                });
-            }
-
-            if (clearBtn) {
-                clearBtn.addEventListener('click', () => {
-                    searchInput.value = '';
-                    historySearchQuery = '';
-                    clearBtn.style.display = 'none';
-                    renderRecentGallery();
-                });
-            }
         }
 
         function setupGalleryViewToggle() {
             const gallery = document.getElementById('recent-gallery');
             const btn = document.getElementById('view-toggle-btn');
             const icon = document.getElementById('view-icon');
-            const label = document.getElementById('view-toggle-label');
-            
+            if (!gallery || !btn || !icon) return;
+
+            // Icône = la vue vers laquelle on bascule au clic
             const layouts = [
-                { 
+                {
                     class: 'layout-list',
-                    nextLabel: 'Grille',
+                    title: 'Passer en grandes vignettes',
                     svg: '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>'
                 },
-                { 
+                {
                     class: 'layout-grid',
-                    nextLabel: 'Liste',
-                    svg: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>' 
+                    title: 'Passer en liste',
+                    svg: '<line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line>'
                 }
             ];
-            
+
             let currentLayoutIndex = parseInt(localStorage.getItem('galleryLayout'), 10);
-            if (isNaN(currentLayoutIndex) || currentLayoutIndex < 0 || currentLayoutIndex >= layouts.length) {
-                currentLayoutIndex = 0;
-            }
-            
+            if (!(currentLayoutIndex >= 0 && currentLayoutIndex < layouts.length)) currentLayoutIndex = 0;
+
             function applyLayout() {
                 gallery.className = layouts[currentLayoutIndex].class;
                 icon.innerHTML = layouts[currentLayoutIndex].svg;
-                if (label) label.innerText = layouts[currentLayoutIndex].nextLabel;
-                requestAnimationFrame(updateMarquees);
+                btn.title = layouts[currentLayoutIndex].title;
+                requestAnimationFrame(applyGalleryMarquees);
             }
             applyLayout();
 
@@ -1886,167 +1495,107 @@
         async function renderRecentGallery() {
             const gallery = document.getElementById('recent-gallery');
             if (!gallery) return;
-            
-            let models = await getRecentModels();
+
+            const models = await getRecentModels();
             gallery.innerHTML = '';
 
             if (models.length === 0) {
-                const emptyMsg = document.createElement('div');
-                emptyMsg.className = 'empty-history-msg';
-                emptyMsg.innerText = 'Aucun meuble dans l\'historique.';
-                gallery.appendChild(emptyMsg);
+                const empty = document.createElement('div');
+                empty.className = 'recent-empty';
+                empty.textContent = "Aucun fichier dans l'historique";
+                gallery.appendChild(empty);
                 return;
             }
 
-            if (historySearchQuery) {
-                models = models.filter(m => (m.name || '').toLowerCase().includes(historySearchQuery));
-            }
-
-            models.sort((a, b) => {
-                if (historySortMode === 'name') {
-                    return (a.name || '').localeCompare(b.name || '', 'fr', { numeric: true, sensitivity: 'base' });
-                }
-                return (b.date || 0) - (a.date || 0);
-            });
-
-            if (models.length === 0) {
-                const noMatchMsg = document.createElement('div');
-                noMatchMsg.className = 'empty-history-msg';
-                noMatchMsg.innerText = `Aucun meuble ne correspond à "${historySearchQuery}".`;
-                gallery.appendChild(noMatchMsg);
-                return;
-            }
+            const placeholder = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23ddd"/><text x="50" y="55" font-family="Arial" font-size="20" font-weight="bold" fill="%23888" text-anchor="middle">3D</text></svg>';
 
             models.forEach(model => {
                 const item = document.createElement('div');
                 item.className = 'recent-item';
-                
+
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'recent-info';
 
                 const thumb = document.createElement('img');
                 thumb.className = 'recent-thumb';
-                thumb.src = model.thumbnail || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23ddd"/><text x="50" y="55" font-family="Arial" font-size="20" font-weight="bold" fill="%23888" text-anchor="middle">3D</text></svg>';
-                
-                const displayName = (model.name || 'Meuble').replace(/\.glb$/i, '');
+                thumb.src = model.thumbnail || placeholder;
 
-                const titleWrapper = document.createElement('div');
-                titleWrapper.className = 'recent-title-wrapper';
+                const nameBox = document.createElement('div');
+                nameBox.className = 'recent-name';
+                nameBox.title = model.name;
+                const nameText = document.createElement('div');
+                nameText.className = 'recent-name-text';
+                nameText.textContent = model.name;
+                nameBox.appendChild(nameText);
 
-                const titleTrack = document.createElement('div');
-                titleTrack.className = 'recent-title-track';
-
-                const titleText = document.createElement('span');
-                titleText.className = 'recent-title-text';
-                titleText.innerText = displayName;
-
-                const titleClone = document.createElement('span');
-                titleClone.className = 'recent-title-clone';
-                titleClone.setAttribute('aria-hidden', 'true');
-                titleClone.innerText = displayName;
-
-                titleTrack.appendChild(titleText);
-                titleTrack.appendChild(titleClone);
-                titleWrapper.appendChild(titleTrack);
-
-                infoDiv.onclick = async () => {
+                infoDiv.onclick = () => {
                     currentLoadedFileName = model.name;
-                    currentCloudModelUrl = model.cloudUrl || null;
-
-                    if (model.fileBuffer) {
-                        currentLoadedBuffer = model.fileBuffer;
-                        const blob = new Blob([model.fileBuffer], { type: 'model/gltf-binary' });
-                        loadModelFromUrl(URL.createObjectURL(blob));
-                        saveBufferToDB(model.name, model.fileBuffer, model.cloudUrl).then(renderRecentGallery);
-                    } else if (model.fileBlob) {
-                        // Compatibilité avec les anciens enregistrements stockés sous forme de Blob
-                        loadModelFromUrl(URL.createObjectURL(model.fileBlob));
-                        blobToArrayBuffer(model.fileBlob).then(buf => {
-                            currentLoadedBuffer = buf;
-                            saveBufferToDB(model.name, buf, model.cloudUrl).then(renderRecentGallery);
-                        });
-                    } else if (model.cloudUrl) {
-                        openModelFromCloudUrl(model.cloudUrl, model.name);
-                    }
+                    currentModelBlob = model.fileBlob;
+                    loadModelFromUrl(URL.createObjectURL(model.fileBlob));
+                    saveModelToDB(model.fileBlob).then(renderRecentGallery);
                 };
 
                 const delBtn = document.createElement('button');
                 delBtn.className = 'recent-delete';
                 delBtn.innerHTML = '✕';
-                delBtn.title = 'Supprimer de l\'historique';
-                delBtn.onclick = (e) => {
+                delBtn.setAttribute('aria-label', 'Supprimer');
+                delBtn.onclick = async (e) => {
                     e.stopPropagation();
-                    requestDeleteModel(model.name);
+                    if (await confirmDeleteModel(model.name)) {
+                        deleteModelFromDB(model.name);
+                    }
                 };
 
                 infoDiv.appendChild(thumb);
-                infoDiv.appendChild(titleWrapper);
+                infoDiv.appendChild(nameBox);
                 item.appendChild(infoDiv);
                 item.appendChild(delBtn);
                 gallery.appendChild(item);
             });
 
-            requestAnimationFrame(updateMarquees);
+            requestAnimationFrame(applyGalleryMarquees);
         }
 
-        // Charge un fichier local IMMÉDIATEMENT dans le viewer 3D sans être bloqué par IndexedDB
-        function loadFile(file) {
-            if (!file) return;
-            const fileName = ensureGlbExtension(file.name || `Meuble_${Date.now()}.glb`);
-            currentLoadedFileName = fileName;
-            currentCloudModelUrl = null;
-
-            // 1. Ouvre immédiatement le modèle 3D
-            const objectUrl = URL.createObjectURL(file);
-            loadModelFromUrl(objectUrl);
-
-            // 2. Enregistre en arrière-plan dans IndexedDB
-            blobToArrayBuffer(file)
-                .then(buffer => {
-                    currentLoadedBuffer = buffer;
-                    updateSidebarProjectActions();
-                    return saveBufferToDB(currentLoadedFileName, buffer, null);
-                })
-                .then(() => renderRecentGallery())
-                .catch(err => console.warn("Sauvegarde historique impossible:", err));
-        }
-
-        // Charge un modèle depuis une URL Cloud (?model=...) et l'ajoute à l'historique
-        function openModelFromCloudUrl(cloudUrl, explicitName = null) {
-            currentCloudModelUrl = cloudUrl;
-
-            // Détermine un nom initial à partir du paramètre ?name= ou de l'URL
-            let rawUrlName = explicitName;
-            if (!rawUrlName) {
-                try {
-                    const decodedPath = decodeURIComponent(cloudUrl.split('?')[0]);
-                    rawUrlName = decodedPath.split('/').pop() || 'Meuble.glb';
-                } catch (e) {
-                    rawUrlName = 'Meuble.glb';
+        // Enregistre le .glb ouvert sur l'appareil (téléchargement)
+        async function saveCurrentModelToDevice() {
+            let blob = currentModelBlob;
+            try {
+                if (!blob && currentModelSourceUrl) {
+                    const r = await fetch(currentModelSourceUrl);
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    blob = await r.blob();
                 }
+            } catch (err) {
+                console.error('Téléchargement impossible :', err);
+                alert("Impossible de récupérer le fichier à enregistrer.");
+                return false;
             }
-            currentLoadedFileName = ensureGlbExtension(rawUrlName);
+            if (!blob) {
+                alert("Aucun fichier à enregistrer.");
+                return false;
+            }
 
-            // Télécharge les octets du modèle pour à la fois l'afficher, le mettre en historique et permettre "Enregistrer sur l'appareil"
-            document.getElementById('start-menu').style.display = 'none';
-            document.getElementById('loader').style.display = 'flex';
+            let name = currentLoadedFileName ||
+                (currentModelSourceUrl ? decodeURIComponent(currentModelSourceUrl.split('?')[0].split('/').pop() || '') : '') ||
+                'meuble.glb';
+            if (!/\.glb$/i.test(name)) name += '.glb';
 
-            fetch(cloudUrl)
-                .then(res => {
-                    if (!res.ok) throw new Error("HTTP " + res.status);
-                    return res.arrayBuffer();
-                })
-                .then(buffer => {
-                    currentLoadedBuffer = buffer;
-                    const blob = new Blob([buffer], { type: 'model/gltf-binary' });
-                    loadModelFromUrl(URL.createObjectURL(blob), false);
-                    return saveBufferToDB(currentLoadedFileName, buffer, cloudUrl);
-                })
-                .then(() => renderRecentGallery())
-                .catch(() => {
-                    // Fallback si CORS empêche fetch() mais que GLTFLoader y parvient
-                    loadModelFromUrl(cloudUrl, true);
-                });
+            const url = URL.createObjectURL(new Blob([blob], { type: 'model/gltf-binary' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+            return true;
+        }
+
+        function loadFile(file) {
+            currentLoadedFileName = file.name;
+            currentModelBlob = file;
+            saveModelToDB(file).then(renderRecentGallery);
+            loadModelFromUrl(URL.createObjectURL(file));
         }
         
         async function loadSharedFile() {
@@ -2057,8 +1606,7 @@
                 if (!response) return;
                 const blob = await response.blob();
                 await cache.delete(key);
-                const sharedFile = new File([blob], `Partage_${Date.now()}.glb`, { type: 'model/gltf-binary' });
-                loadFile(sharedFile);
+                loadFile(blob);
             } catch (e) {
                 console.error('Lecture du fichier partagé impossible :', e);
             } finally {
@@ -2075,8 +1623,8 @@
             
             if (urlParams.has('model')) {
                 const cloudModelUrl = urlParams.get('model');
-                const customTitle = urlParams.get('name') || urlParams.get('title') || null;
-                openModelFromCloudUrl(cloudModelUrl, customTitle);
+                document.getElementById('start-menu').style.display = 'none';
+                loadModelFromUrl(cloudModelUrl);
             } 
             else if (urlParams.has('shared')) {
                 loadSharedFile();
@@ -2090,21 +1638,15 @@
                 });
             }
 
-            fileBtn.addEventListener('click', () => {
-                fileInput.value = "";
-                fileInput.click();
-            });
+            fileBtn.addEventListener('click', () => fileInput.click());
 
             fileInput.addEventListener('change', function (event) {
-                const file = event.target.files && event.target.files[0];
+                const file = event.target.files[0];
                 if (file) loadFile(file);
             });
 
             closeProjectBtn.addEventListener('click', () => {
                 removeCurrentModel();
-                currentLoadedBuffer = null;
-                currentLoadedFileName = null;
-                currentCloudModelUrl = null;
                 document.getElementById('start-menu').style.display = 'flex';
                 showUIElements(false);
                 fileInput.value = "";
@@ -2120,7 +1662,13 @@
             }
         }
 
-        function loadModelFromUrl(url, isRemoteUrl = false) {
+        function loadModelFromUrl(url) {
+            if (String(url).startsWith('blob:')) {
+                currentModelSourceUrl = null;
+            } else {
+                currentModelSourceUrl = url;
+                currentModelBlob = null;
+            }
             removeCurrentModel();
             resetViewState();
             document.getElementById('start-menu').style.display = 'none';
@@ -2137,27 +1685,21 @@
                 
                 activeBox = globalBox.clone();
                 activeOriginalSize.copy(originalGlobalSize);
-
-                // Si le nom du fichier est générique (ex: Finjat_Export_1793011664.glb),
-                // on cherche le vrai nom du meuble à l'intérieur du GLB
-                const previousFileName = currentLoadedFileName || "Meuble.glb";
-                const embeddedName = extractEmbeddedModelName(gltf);
-                if (embeddedName && isGenericExportName(previousFileName)) {
-                    currentLoadedFileName = ensureGlbExtension(embeddedName);
-                    renameModelInDB(previousFileName, currentLoadedFileName).then(renderRecentGallery);
-                }
-
-                currentModelName = currentLoadedFileName
-                    ? currentLoadedFileName.replace(/\.glb$/i, '')
-                    : (embeddedName || "Meuble Global");
-
+                
+                currentModelName = currentLoadedFileName ? currentLoadedFileName.replace('.glb', '') : "Meuble Global";
                 updateTopInfo(currentModelName, activeOriginalSize);
+
+                // CORRECTION : la ligne qui faisait planter le chargement
+                // (document.getElementById('action-buttons').style.display = 'flex')
+                // a été supprimée : cet élément n'existe plus dans le HTML, donc getElementById
+                // renvoyait null et l'erreur était interceptée par GLTFLoader, qui affichait
+                // "Impossible de lire ce fichier .glb."
 
                 const globalCenter = new THREE.Vector3();
                 globalBox.getCenter(globalCenter);
 
                 let partNodes = new Set();
-                let uniqueMaterials = new Map();
+                let uniqueMaterials = new Map(); // key (nom) -> { mat, name, thumb }
 
                 function getPartRoot(mesh) {
                     const p = mesh.parent;
@@ -2196,6 +1738,7 @@
                             
                             if (!isEdge) {
                                 const existing = uniqueMaterials.get(key);
+                                // On préfère l'exemplaire qui possède une texture
                                 if (!existing) {
                                     uniqueMaterials.set(key, { mat: mat, name: mat.name || "Default", thumb: null });
                                 } else if (!existing.mat.map && mat.map) {
@@ -2230,9 +1773,16 @@
                     }
                 });
 
+                console.log("Finjat: matériaux détectés (hors chants) =", Array.from(uniqueMaterials.keys()));
+
                 const globalSizeMax = Math.max(originalGlobalSize.x, originalGlobalSize.y, originalGlobalSize.z) || 1;
                 const namesToStrip = new Set();
 
+                // CORRECTION CHANTS : un chant qui n'est pas groupé avec son panneau dans le .glb
+                // devenait une "pièce" indépendante, avec sa propre direction d'éclatement.
+                // On rattache donc chaque pièce composée uniquement de chants au panneau voisin
+                // (celui avec lequel sa boîte englobante se recoupe le plus) : même direction,
+                // même étape de montage => le chant suit son panneau.
                 const isEdgeOnlyPart = (pn) => {
                     let any = false, all = true;
                     pn.traverse(n => {
@@ -2252,7 +1802,7 @@
                     panelBoxes.set(pn, new THREE.Box3().setFromObject(pn).expandByScalar(hostTol));
                 });
 
-                const edgeHost = new Map();
+                const edgeHost = new Map();   // pièce de chants -> panneau hôte
                 edgeParts.forEach(ep => {
                     const eb = new THREE.Box3().setFromObject(ep);
                     let best = null, bestVol = 0;
@@ -2266,7 +1816,7 @@
                     if (best) edgeHost.set(ep, best);
                 });
 
-                const hostBoxes = new Map();
+                const hostBoxes = new Map();  // boîtes non agrandies des panneaux (pour le centre)
                 panelParts.forEach(pn => hostBoxes.set(pn, new THREE.Box3().setFromObject(pn)));
 
                 partNodes.forEach(partNode => {
@@ -2304,9 +1854,10 @@
                     for (let a = partNode.parent; a && a !== globalModel; a = a.parent) checkNode(a);
                 });
 
+                // Les chants héritent de l'étape de montage de leur panneau
                 edgeHost.forEach((host, ep) => {
                     ep.userData.assemblyStep = host.userData.assemblyStep;
-                    ep.userData.hostPart = host;
+                    ep.userData.hostPart = host;   // utilisé par le filtre par matériau
                 });
 
                 namesToStrip.forEach(n => { n.name = n.name.replace(/__STEP\d+/i, '').trim(); });
@@ -2322,11 +1873,13 @@
                     btn.className = 'mat-filter-btn';
                     btn.title = mName;
 
+                    // Miniature générée maintenant (avant que l'image ne devienne inaccessible)
                     const thumb = mat.map ? makeTextureThumb(mat.map) : null;
                     
                     if (thumb) {
                         btn.style.backgroundImage = `url(${thumb})`;
                     } else {
+                        // Pas de texture lisible : couleur du matériau + initiales
                         const col = mat.color ? mat.color : new THREE.Color(0xcccccc);
                         btn.style.backgroundColor = '#' + col.getHexString();
                         btn.innerText = mName.substring(0, 2).toUpperCase();
@@ -2343,6 +1896,7 @@
                             btn.classList.add('active');
                         }
 
+                        // Info panneau : liste des matériaux actifs
                         if (activeMaterialFilters.size === 0) {
                             updateTopInfo(currentModelName, activeOriginalSize);
                         } else {
@@ -2374,7 +1928,6 @@
                 
                 if (currentLoadedFileName) {
                     setTimeout(() => {
-                        if (!globalModel) return;
                         renderer.render(scene, camera); 
                         const dataUrl = renderer.domElement.toDataURL('image/jpeg', 0.6);
                         updateModelThumbnailInDB(currentLoadedFileName, dataUrl).then(() => {
@@ -2386,6 +1939,8 @@
                 document.getElementById('loader').style.display = 'none';
                 showUIElements(true);
 
+                // Les boutons de filtre sont des .ui-element : showUIElements les a mis en display:flex.
+                // S'il n'y a aucun matériau, on masque le conteneur.
                 if (uniqueMaterials.size === 0) matContainer.style.display = 'none';
                 
                 if (maxAssemblyStep === 0) {
@@ -2393,14 +1948,10 @@
                     if(stepCtrl) stepCtrl.style.display = 'none';
                 }
                 
-                if (!isRemoteUrl) {
-                    URL.revokeObjectURL(url);
-                }
+                URL.revokeObjectURL(url);
             }, undefined, function (err) {
                 console.error(err);
-                if (!isRemoteUrl) {
-                    URL.revokeObjectURL(url);
-                }
+                URL.revokeObjectURL(url);
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('start-menu').style.display = 'flex';
                 alert("Impossible de lire ce fichier .glb.");
@@ -2509,7 +2060,7 @@
                 }
             }
 
-            window.addEventListener('popstate', () => {
+            window.addEventListener('popstate', (event) => {
                 if (isScannerOpen) stopAndHideScanner();
             });
 
@@ -2547,7 +2098,6 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            updateMarquees();
         }
 
         function animate() {
@@ -2556,6 +2106,19 @@
             updateMeasurementLabels();
             renderer.render(scene, camera);
         }
+
+        // ==========================================
+        // DÉMARRAGE DE L'HISTORIQUE (après toutes les déclarations ci-dessus)
+        // ==========================================
+        setupGalleryViewToggle();
+        initDB().then(() => renderRecentGallery())
+                .catch(err => console.error("Erreur DB:", err));
+
+        // Demande au navigateur de ne pas purger l'historique (stockage persistant)
+        if (navigator.storage && navigator.storage.persist) {
+            navigator.storage.persist().catch(() => {});
+        }
+        window.addEventListener('resize', () => applyGalleryMarquees());
     </script>
 </body>
 </html>
