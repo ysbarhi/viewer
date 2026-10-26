@@ -853,6 +853,23 @@
             baseMaterial.opacity = globalTargetOpacity;
             edgeMaterial.opacity = globalTargetOpacity;
 
+            // Une "pièce" = un panneau + ses chants. Le filtre par matériau s'applique à la pièce
+            // entière : si un de ses meshes utilise le matériau filtré, tous ses meshes (chants
+            // compris) restent visibles en mode texturé.
+            const groupOf = (n) => {
+                const r = n.userData.partRoot;
+                return r ? (r.userData.hostPart || r) : n;
+            };
+            const matchedGroups = new Set();
+            if (activeMaterialFilters.size > 0) {
+                globalModel.traverse(function (n) {
+                    if (n.isMesh && n.userData.isOriginalMesh && n.userData.originalMaterialKeys &&
+                        n.userData.originalMaterialKeys.some(key => activeMaterialFilters.has(key))) {
+                        matchedGroups.add(groupOf(n));
+                    }
+                });
+            }
+
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
                     
@@ -864,10 +881,7 @@
                     } 
                     else if (activeMaterialFilters.size > 0) {
                         // La pièce utilise-t-elle l'un des matériaux filtrés ?
-                        let hasFilterMat = false;
-                        if (node.userData.originalMaterialKeys) {
-                            hasFilterMat = node.userData.originalMaterialKeys.some(key => activeMaterialFilters.has(key));
-                        }
+                        const hasFilterMat = matchedGroups.has(groupOf(node));
 
                         if (hasFilterMat) {
                             node.material = node.userData.originalMaterial;
@@ -1599,6 +1613,7 @@
                 // Les chants héritent de l'étape de montage de leur panneau
                 edgeHost.forEach((host, ep) => {
                     ep.userData.assemblyStep = host.userData.assemblyStep;
+                    ep.userData.hostPart = host;   // utilisé par le filtre par matériau
                 });
 
                 namesToStrip.forEach(n => { n.name = n.name.replace(/__STEP\d+/i, '').trim(); });
