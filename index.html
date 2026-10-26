@@ -41,6 +41,23 @@
         #info-material { font-size: 13px; color: #2563eb; margin-top: 4px; font-weight: bold; display: none; }
 
         /* ========================================= */
+        /* NOUVEAU : FILTRES MATÉRIAUX DYNAMIQUES    */
+        /* ========================================= */
+        #material-filter-container {
+            position: absolute; top: 60px; right: 20px;
+            display: flex; flex-direction: column; gap: 12px; z-index: 800;
+        }
+        .mat-filter-btn {
+            width: 42px; height: 42px; border-radius: 8px; border: 3px solid #ffffff;
+            cursor: pointer; background-size: cover; background-position: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: all 0.2s;
+            display: block;
+        }
+        .mat-filter-btn.active {
+            border-color: #2563eb; transform: scale(1.1); box-shadow: 0 0 10px rgba(37,99,235,0.8);
+        }
+
+        /* ========================================= */
         /* BOUTON TACTILE (SÉLECTION 3D)             */
         /* ========================================= */
         #touch-select-container {
@@ -210,7 +227,7 @@
             width: 8px; height: 180px; margin: 0; background: transparent; cursor: pointer;
         }
 
-        /* NOUVEAU : CONTRÔLEUR D'ÉTAPES SOUS LE SLIDER */
+        /* CONTRÔLEUR D'ÉTAPES */
         #step-controls-container {
             bottom: 10px; left: 10px; width: 85px; height: 32px;
             display: none; justify-content: space-between; align-items: center;
@@ -413,6 +430,9 @@
         <div id="info-material"></div> 
     </div>
 
+    <!-- CONTENEUR DES FILTRES DE MATERIAUX -->
+    <div id="material-filter-container" class="ui-element"></div>
+
     <div id="action-buttons">
         <button id="toggle-measure-btn" title="Afficher/Masquer les dimensions">📏</button>
         <button id="deselect-btn" title="Désélectionner la pièce">✖️</button>
@@ -434,7 +454,7 @@
 
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">v1.25.9</div> 
+        <div class="author-badge">v1.25.10</div> 
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
@@ -543,6 +563,8 @@
         
         let isAssemblyModeOn = false;
         let maxAssemblyStep = 0;
+
+        let activeMaterialFilters = new Set(); // SET POUR LES FILTRES MATÉRIAUX
         
         let raycaster = new THREE.Raycaster();
         let mouse = new THREE.Vector2();
@@ -781,24 +803,45 @@
             window.addEventListener('resize', onWindowResize, false);
         }
 
+        // ==========================================
+        // LOGIQUE D'AFFICHAGE MULTICOUCHE
+        // ==========================================
         function updateMaterials() {
             if (!globalModel) return;
-            const targetOpacity = isEdgeBandingOn ? 0.15 : (isXrayOn ? 0.25 : 1.0);
-            baseMaterial.opacity = targetOpacity;
-            edgeMaterial.opacity = targetOpacity;
+            
+            const globalTargetOpacity = isXrayOn ? 0.25 : 1.0;
+            baseMaterial.opacity = globalTargetOpacity;
+            edgeMaterial.opacity = globalTargetOpacity;
 
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
+                    
                     if (isEdgeBandingOn && node.userData.isEdgeBand) {
                         node.material = edgeHighlightMaterial;
-                    } else if (node.userData.isHighlighted) {
+                    } 
+                    else if (node.userData.isHighlighted) {
                         node.material = highlightMaterial;
-                    } else {
-                        if (isTextureOn && node.userData.originalMaterial) {
+                    } 
+                    else if (activeMaterialFilters.size > 0) {
+                        if (activeMaterialFilters.has(node.userData.originalMaterialName)) {
                             node.material = node.userData.originalMaterial;
-                            node.material.opacity = targetOpacity;
+                            node.material.opacity = 1.0; // Pousse la texture à 100% si filtré
                         } else {
                             node.material = baseMaterial;
+                            node.material.opacity = 0.25; // Reste du modèle en XRAY
+                        }
+                    } 
+                    else {
+                        let currentOpacity = globalTargetOpacity;
+                        // Correction: si chants ON, tout le reste (non sélectionné) passe à 25%
+                        if (isEdgeBandingOn) currentOpacity = 0.25; 
+
+                        if (isTextureOn && node.userData.originalMaterial) {
+                            node.material = node.userData.originalMaterial;
+                            node.material.opacity = currentOpacity;
+                        } else {
+                            node.material = baseMaterial;
+                            node.material.opacity = currentOpacity;
                         }
                     }
                 }
@@ -866,6 +909,9 @@
             if (prevBtn) prevBtn.disabled = true;
             const nextBtn = document.getElementById('step-next-btn');
             if (nextBtn) nextBtn.disabled = true;
+
+            activeMaterialFilters.clear();
+            document.getElementById('material-filter-container').innerHTML = '';
 
             document.getElementById('texture-btn').classList.remove('active');
             document.getElementById('xray-btn').classList.remove('active');
@@ -1355,6 +1401,7 @@
                 globalBox.getCenter(globalCenter);
 
                 let partNodes = new Set();
+                let uniqueMaterials = new Map(); // NOUVEAU: Extraction des matériaux pour UI
 
                 function getPartRoot(mesh) {
                     const p = mesh.parent;
@@ -1379,12 +1426,18 @@
                         node.userData.isHighlighted = false;
 
                         let matName = "";
-                        if (Array.isArray(node.material) && node.material.length > 0) {
-                            matName = (node.material[0].name || "").toLowerCase();
-                        } else if (node.material) {
-                            matName = (node.material.name || "").toLowerCase();
+                        const actualMat = Array.isArray(node.material) ? node.material[0] : node.material;
+                        if (actualMat) {
+                            matName = (actualMat.name || "Default").toLowerCase();
                         }
+                        
+                        node.userData.originalMaterialName = matName;
                         node.userData.isEdgeBand = matName.includes("chant") || matName.includes("edge") || matName.includes("abf");
+
+                        // NOUVEAU: Mémorise le matériau unique pour les boutons (ignore les chants)
+                        if (!node.userData.isEdgeBand && actualMat && !uniqueMaterials.has(matName)) {
+                            uniqueMaterials.set(matName, actualMat.clone());
+                        }
 
                         node.userData.originalMaterial = node.material.clone();
                         node.userData.originalMaterial.transparent = true;
@@ -1435,6 +1488,49 @@
                 });
 
                 namesToStrip.forEach(n => { n.name = n.name.replace(/__STEP\d+/i, '').trim(); });
+
+                // GÉNÉRATION DES BOUTONS DE FILTRES MATÉRIAUX
+                const matContainer = document.getElementById('material-filter-container');
+                matContainer.innerHTML = '';
+                uniqueMaterials.forEach((mat, mName) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'mat-filter-btn ui-element';
+                    btn.title = mat.name || mName;
+                    
+                    // Extraire l'image du matériau s'il y a une texture (map)
+                    if (mat.map && mat.map.image) {
+                        const img = mat.map.image;
+                        if (img.src) {
+                            btn.style.backgroundImage = `url(${img.src})`;
+                        } else if (img instanceof HTMLCanvasElement) {
+                            btn.style.backgroundImage = `url(${img.toDataURL()})`;
+                        } else if (typeof ImageBitmap !== 'undefined' && img instanceof ImageBitmap) {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img.width; canvas.height = img.height;
+                            canvas.getContext('2d').drawImage(img, 0, 0);
+                            btn.style.backgroundImage = `url(${canvas.toDataURL()})`;
+                        }
+                    } else if (mat.color) {
+                        btn.style.backgroundColor = mat.color.getStyle();
+                    } else {
+                        btn.style.backgroundColor = '#cccccc';
+                    }
+
+                    btn.onclick = () => {
+                        if (activeMaterialFilters.has(mName)) {
+                            activeMaterialFilters.delete(mName);
+                            btn.classList.remove('active');
+                            if (activeMaterialFilters.size === 0) updateTopInfo(currentModelName, activeOriginalSize);
+                        } else {
+                            activeMaterialFilters.add(mName);
+                            btn.classList.add('active');
+                            updateTopInfo("Filtre Actif", activeOriginalSize, mat.name || mName); 
+                        }
+                        updateMaterials();
+                    };
+                    matContainer.appendChild(btn);
+                });
+
 
                 const asmBtn = document.getElementById('assembly-mode-btn');
                 const stepCtrl = document.getElementById('step-controls-container');
