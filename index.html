@@ -421,26 +421,36 @@
         #sidebar-overlay.active { opacity: 1; pointer-events: auto; }
 
         #sidebar {
-            position: fixed; top: 0; left: 0; width: 260px; height: 100vh;
-            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(15px);
+            position: fixed; top: 0; left: 0; width: 265px; height: 100vh;
+            background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(15px);
             box-shadow: 2px 0 15px rgba(0,0,0,0.3); z-index: 2000;
             transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             padding: 20px; box-sizing: border-box; display: flex; flex-direction: column;
         }
         #sidebar.active { transform: translateX(0); }
 
-        /* Section Enregistrement dans le panneau latéral */
+        /* Section Enregistrement & Partage dans le panneau latéral */
         #sidebar-project-actions {
-            display: none; flex-direction: column; margin-bottom: 18px;
+            display: none; flex-direction: column; gap: 10px; margin-bottom: 18px;
             padding-bottom: 16px; border-bottom: 1px solid rgba(0,0,0,0.12);
         }
-        #save-device-btn {
-            background: #2563eb; color: #ffffff; border: none; border-radius: 10px;
-            padding: 13px 14px; font-size: 14px; font-weight: bold; cursor: pointer;
+        .sidebar-action-btn {
+            border: none; border-radius: 10px;
+            padding: 12px 14px; font-size: 14px; font-weight: bold; cursor: pointer;
             display: flex; align-items: center; justify-content: center; gap: 10px;
-            box-shadow: 0 4px 10px rgba(37,99,235,0.3); transition: all 0.2s;
+            transition: all 0.2s; width: 100%; box-sizing: border-box;
+        }
+        #save-device-btn {
+            background: #2563eb; color: #ffffff;
+            box-shadow: 0 4px 10px rgba(37,99,235,0.3);
         }
         #save-device-btn:active { transform: scale(0.97); background: #1d4ed8; }
+
+        #share-model-btn {
+            background: #10b981; color: #ffffff;
+            box-shadow: 0 4px 10px rgba(16,185,129,0.3);
+        }
+        #share-model-btn:active { transform: scale(0.97); background: #059669; }
 
         #sidebar h2 { margin: 0 0 20px 0; font-size: 20px; color: #333; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
         
@@ -537,15 +547,25 @@
 
     <div id="sidebar-overlay"></div>
     <div id="sidebar">
-        <!-- BOUTON ENREGISTRER SUR L'APPAREIL (visible uniquement quand un modèle est ouvert) -->
+        <!-- BOUTONS ENREGISTRER & PARTAGER (visibles uniquement quand un modèle est ouvert) -->
         <div id="sidebar-project-actions">
-            <button id="save-device-btn">
+            <button id="save-device-btn" class="sidebar-action-btn">
                 <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                 </svg>
                 Enregistrer sur l'appareil
+            </button>
+            <button id="share-model-btn" class="sidebar-action-btn">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="18" cy="5" r="3"></circle>
+                    <circle cx="6" cy="12" r="3"></circle>
+                    <circle cx="18" cy="19" r="3"></circle>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
+                Partager ce meuble
             </button>
         </div>
 
@@ -606,7 +626,7 @@
 
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">v1.26.1</div> 
+        <div class="author-badge">v1.26.2</div> 
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
@@ -756,14 +776,15 @@
         let labelsCached = false;
         let domLabels = {};
 
-        // Référence au blob actuellement ouvert pour permettre la sauvegarde locale
-        let currentLoadedBlob = null;
+        // Données du modèle actuellement ouvert (pour sauvegarde locale et partage)
+        let currentLoadedBuffer = null;
         let currentLoadedFileName = null;
+        let currentCloudModelUrl = null;
         let pendingDeleteModelName = null;
 
         // État de recherche et de tri de l'historique
         let historySearchQuery = "";
-        let historySortMode = localStorage.getItem('gallerySortMode') || 'date'; // 'date' | 'name'
+        let historySortMode = localStorage.getItem('gallerySortMode') || 'date';
 
         const baseMaterial = new THREE.MeshLambertMaterial({
             color: 0xd5d5d5, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
@@ -780,6 +801,61 @@
         const edgeMaterial = new THREE.LineBasicMaterial({
             color: 0x000000, transparent: true, opacity: 1.0
         });
+
+        // ==========================================
+        // OUTILS DE NOMMAGE DU MEUBLE (VRAI NOM)
+        // ==========================================
+        function isGenericExportName(name) {
+            if (!name) return true;
+            const base = name.replace(/\.glb$/i, '').trim();
+            return /^Finjat_Export_\d+$/i.test(base) ||
+                   /^Meuble_Cloud$/i.test(base) ||
+                   /^Partage_\d+$/i.test(base) ||
+                   /^model$/i.test(base) ||
+                   /^scene$/i.test(base);
+        }
+
+        function extractEmbeddedModelName(gltf) {
+            try {
+                // 1. Vérifie les extras / userData du GLTF ou de la scène
+                const extrasTitle =
+                    (gltf.parser && gltf.parser.json && gltf.parser.json.asset && gltf.parser.json.asset.extras && (gltf.parser.json.asset.extras.title || gltf.parser.json.asset.extras.name || gltf.parser.json.asset.extras.modelName)) ||
+                    (gltf.scene && gltf.scene.userData && (gltf.scene.userData.name || gltf.scene.userData.title || gltf.scene.userData.modelName));
+                if (extrasTitle && typeof extrasTitle === 'string' && extrasTitle.trim().length > 1) {
+                    return extrasTitle.trim();
+                }
+
+                // 2. Vérifie le nom de la scène dans le JSON GLTF
+                if (gltf.parser && gltf.parser.json && Array.isArray(gltf.parser.json.scenes)) {
+                    const sceneDef = gltf.parser.json.scenes[0];
+                    if (sceneDef && sceneDef.name && !/^(scene|root|rootnode|default|untitled)$/i.test(sceneDef.name.trim())) {
+                        return sceneDef.name.trim();
+                    }
+                }
+
+                // 3. Vérifie gltf.scene.name
+                if (gltf.scene && gltf.scene.name && !/^(scene|root|rootnode|default|untitled|auxscene)$/i.test(gltf.scene.name.trim())) {
+                    return gltf.scene.name.trim();
+                }
+
+                // 4. Si la scène possède un unique groupe parent (ex: composant principal du meuble dans SketchUp)
+                if (gltf.scene && gltf.scene.children && gltf.scene.children.length === 1) {
+                    const rootChild = gltf.scene.children[0];
+                    if (rootChild.name && !rootChild.isMesh && !/^(scene|root|rootnode|default|group|instance)$/i.test(rootChild.name.trim())) {
+                        const cleaned = rootChild.name.replace(/__STEP\d+/i, '').trim();
+                        if (cleaned.length > 1) return cleaned;
+                    }
+                }
+            } catch (e) {
+                console.warn("Finjat: lecture du nom interne impossible", e);
+            }
+            return null;
+        }
+
+        function ensureGlbExtension(name) {
+            const clean = (name || 'Meuble').trim();
+            return clean.toLowerCase().endsWith('.glb') ? clean : clean + '.glb';
+        }
 
         // ==========================================
         // OUTILS MATÉRIAUX
@@ -912,19 +988,20 @@
         animate();
         setupUI();
         setupScanner();
-        setupFileUploader();
         setupSplashScreen();
         setupSidebar();
         setupDeleteModal();
         setupGalleryViewToggle();
         setupGallerySearchAndSort();
 
-        // Chargement immédiat de l'historique dès le démarrage
-        initDB().then(() => {
-            renderRecentGallery();
-        }).catch(err => console.error("Erreur DB:", err));
+        // On initialise d'abord la DB et l'historique, puis le chargeur de fichiers/URL
+        initDB()
+            .catch(err => console.error("Erreur DB:", err))
+            .finally(() => {
+                renderRecentGallery();
+                setupFileUploader();
+            });
 
-        // Rafraîchit aussi l'historique si l'application revient au premier plan
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && !globalModel) {
                 renderRecentGallery();
@@ -961,6 +1038,7 @@
             const colorPicker = document.getElementById('custom-color-picker');
             const hint = document.getElementById('sidebar-hint'); 
             const saveDeviceBtn = document.getElementById('save-device-btn');
+            const shareModelBtn = document.getElementById('share-model-btn');
 
             if (hint) {
                 hint.addEventListener('click', openSidebar);
@@ -980,23 +1058,86 @@
 
             overlay.addEventListener('click', closeSidebar);
 
-            // Bouton "Enregistrer sur l'appareil"
+            // Bouton "Enregistrer sur l'appareil" (utilise le vrai nom du meuble)
             if (saveDeviceBtn) {
                 saveDeviceBtn.addEventListener('click', () => {
-                    if (!currentLoadedBlob) return;
-                    let downloadName = currentLoadedFileName || (currentModelName ? currentModelName + '.glb' : 'meuble.glb');
-                    if (!downloadName.toLowerCase().endsWith('.glb')) {
-                        downloadName += '.glb';
+                    if (!currentLoadedBuffer) {
+                        alert("Le fichier n'est pas encore prêt pour le téléchargement.");
+                        return;
                     }
-                    const blobUrl = URL.createObjectURL(currentLoadedBlob);
+                    const preferredName = (currentModelName && !isGenericExportName(currentModelName))
+                        ? currentModelName
+                        : (currentLoadedFileName || 'Meuble');
+                    const downloadName = ensureGlbExtension(preferredName);
+
+                    const blob = new Blob([currentLoadedBuffer], { type: 'model/gltf-binary' });
+                    const blobUrl = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = blobUrl;
                     a.download = downloadName;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
-                    setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 2500);
                     closeSidebar();
+                });
+            }
+
+            // Bouton "Partager ce meuble"
+            if (shareModelBtn) {
+                shareModelBtn.addEventListener('click', async () => {
+                    const displayTitle = currentModelName || 'Meuble 3D';
+                    const fileName = ensureGlbExtension(displayTitle);
+
+                    // 1. Si le modèle vient d'un lien Cloud (?model=...), on construit un lien propre avec ?name=
+                    if (currentCloudModelUrl) {
+                        const shareUrlObj = new URL(window.location.origin + window.location.pathname);
+                        shareUrlObj.searchParams.set('model', currentCloudModelUrl);
+                        if (displayTitle && !isGenericExportName(displayTitle)) {
+                            shareUrlObj.searchParams.set('name', displayTitle);
+                        }
+                        const shareUrl = shareUrlObj.toString();
+
+                        if (navigator.share) {
+                            try {
+                                await navigator.share({
+                                    title: displayTitle,
+                                    text: `Découvrez le modèle 3D : ${displayTitle}`,
+                                    url: shareUrl
+                                });
+                                closeSidebar();
+                                return;
+                            } catch (err) {
+                                if (err.name === 'AbortError') return;
+                            }
+                        }
+
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(shareUrl);
+                            alert("Lien du meuble copié dans le presse-papiers !");
+                            closeSidebar();
+                            return;
+                        }
+                    }
+
+                    // 2. Sinon, partage direct du fichier .glb via Web Share API
+                    if (currentLoadedBuffer && navigator.share) {
+                        try {
+                            const fileToShare = new File([currentLoadedBuffer], fileName, { type: 'model/gltf-binary' });
+                            if (!navigator.canShare || navigator.canShare({ files: [fileToShare] })) {
+                                await navigator.share({
+                                    title: displayTitle,
+                                    files: [fileToShare]
+                                });
+                                closeSidebar();
+                                return;
+                            }
+                        } catch (err) {
+                            if (err.name === 'AbortError') return;
+                        }
+                    }
+
+                    alert("Le partage direct n'est pas supporté sur ce navigateur. Utilisez 'Enregistrer sur l'appareil' pour envoyer le fichier.");
                 });
             }
 
@@ -1196,16 +1337,18 @@
             focusCameraOnBox(box, 1.5);
         }
 
+        function updateSidebarProjectActions() {
+            const sidebarActions = document.getElementById('sidebar-project-actions');
+            if (sidebarActions) {
+                sidebarActions.style.display = globalModel ? 'flex' : 'none';
+            }
+        }
+
         function showUIElements(show) {
             document.querySelectorAll('.ui-element:not(#ui-panel)')
                 .forEach(el => el.style.display = show ? 'flex' : 'none');
             if (!show) document.getElementById('ui-panel').style.display = 'none';
-
-            // Affiche ou masque le bouton "Enregistrer sur l'appareil" dans le panneau latéral
-            const sidebarActions = document.getElementById('sidebar-project-actions');
-            if (sidebarActions) {
-                sidebarActions.style.display = (show && currentLoadedBlob) ? 'flex' : 'none';
-            }
+            updateSidebarProjectActions();
         }
 
         function resetViewState() {
@@ -1486,90 +1629,154 @@
                 };
                 request.onsuccess = (e) => {
                     db = e.target.result;
+                    db.onversionchange = () => {
+                        db.close();
+                        db = null;
+                        dbInitPromise = null;
+                    };
                     resolve(db);
                 };
                 request.onerror = (e) => {
                     dbInitPromise = null;
                     reject(e);
                 };
+                request.onblocked = () => {
+                    dbInitPromise = null;
+                };
             });
             return dbInitPromise;
         }
 
-        async function saveModelToDB(fileOrBlob, explicitName = null) {
-            await initDB();
-            const modelName = explicitName || fileOrBlob.name;
-            if (!modelName) return;
-
-            let safeBlob = fileOrBlob;
-            try {
-                const buffer = await fileOrBlob.arrayBuffer();
-                safeBlob = new Blob([buffer], { type: 'model/gltf-binary' });
-            } catch (e) {
-                safeBlob = fileOrBlob;
+        // Convertit un File ou Blob en ArrayBuffer de manière compatible tous navigateurs
+        function blobToArrayBuffer(blob) {
+            if (blob instanceof ArrayBuffer) return Promise.resolve(blob);
+            if (blob && typeof blob.arrayBuffer === 'function') {
+                return blob.arrayBuffer();
             }
-
             return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, 'readwrite');
-                const store = tx.objectStore(STORE_NAME);
-                const getReq = store.get(modelName);
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsArrayBuffer(blob);
+            });
+        }
 
-                getReq.onsuccess = (e) => {
-                    const existing = e.target.result;
-                    store.put({
-                        name: modelName,
-                        fileBlob: safeBlob,
-                        date: Date.now(),
-                        thumbnail: existing ? existing.thumbnail : null
-                    });
-                };
+        // Sauvegarde un ArrayBuffer dans IndexedDB (plus fiable que File/Blob sur mobile/WebView)
+        async function saveBufferToDB(name, arrayBuffer, cloudUrl = null) {
+            if (!name || !arrayBuffer) return;
+            await initDB();
+            const cleanName = ensureGlbExtension(name);
 
-                tx.oncomplete = () => resolve();
-                tx.onerror = (e) => reject(e);
+            return new Promise((resolve) => {
+                try {
+                    const tx = db.transaction(STORE_NAME, 'readwrite');
+                    const store = tx.objectStore(STORE_NAME);
+                    const getReq = store.get(cleanName);
+
+                    getReq.onsuccess = (e) => {
+                        const existing = e.target.result;
+                        store.put({
+                            name: cleanName,
+                            fileBuffer: arrayBuffer,
+                            cloudUrl: cloudUrl || (existing ? existing.cloudUrl : null),
+                            date: Date.now(),
+                            thumbnail: existing ? existing.thumbnail : null
+                        });
+                    };
+
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = (err) => {
+                        console.warn("Erreur écriture DB:", err);
+                        resolve();
+                    };
+                } catch (err) {
+                    console.warn("Exception écriture DB:", err);
+                    resolve();
+                }
+            });
+        }
+
+        // Renomme une entrée dans IndexedDB si un meilleur nom (ex: nom interne du GLB) est découvert
+        async function renameModelInDB(oldName, newName) {
+            const cleanOld = ensureGlbExtension(oldName);
+            const cleanNew = ensureGlbExtension(newName);
+            if (cleanOld === cleanNew) return;
+            await initDB();
+
+            return new Promise((resolve) => {
+                try {
+                    const tx = db.transaction(STORE_NAME, 'readwrite');
+                    const store = tx.objectStore(STORE_NAME);
+                    const getReq = store.get(cleanOld);
+                    getReq.onsuccess = (e) => {
+                        const data = e.target.result;
+                        if (data) {
+                            store.delete(cleanOld);
+                            data.name = cleanNew;
+                            store.put(data);
+                        }
+                    };
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                } catch (e) {
+                    resolve();
+                }
             });
         }
 
         async function updateModelThumbnailInDB(name, dataUrl) {
+            if (!name) return;
             await initDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, 'readwrite');
-                const store = tx.objectStore(STORE_NAME);
-                const request = store.get(name);
-                request.onsuccess = (e) => {
-                    const data = e.target.result;
-                    if (data) {
-                        data.thumbnail = dataUrl;
-                        store.put(data);
-                    }
-                };
-                tx.oncomplete = () => resolve();
-                tx.onerror = (e) => reject(e);
+            const cleanName = ensureGlbExtension(name);
+
+            return new Promise((resolve) => {
+                try {
+                    const tx = db.transaction(STORE_NAME, 'readwrite');
+                    const store = tx.objectStore(STORE_NAME);
+                    const request = store.get(cleanName);
+                    request.onsuccess = (e) => {
+                        const data = e.target.result;
+                        if (data) {
+                            data.thumbnail = dataUrl;
+                            store.put(data);
+                        }
+                    };
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                } catch (e) {
+                    resolve();
+                }
             });
         }
 
         async function getRecentModels() {
             await initDB();
             return new Promise((resolve) => {
-                const tx = db.transaction(STORE_NAME, 'readonly');
-                const request = tx.objectStore(STORE_NAME).getAll();
-                request.onsuccess = () => {
-                    const list = request.result || [];
-                    resolve(list);
-                };
-                request.onerror = () => resolve([]);
+                try {
+                    const tx = db.transaction(STORE_NAME, 'readonly');
+                    const request = tx.objectStore(STORE_NAME).getAll();
+                    request.onsuccess = () => resolve(request.result || []);
+                    request.onerror = () => resolve([]);
+                } catch (e) {
+                    resolve([]);
+                }
             });
         }
 
         async function deleteModelFromDB(name) {
             await initDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, 'readwrite');
-                tx.objectStore(STORE_NAME).delete(name);
-                tx.oncomplete = () => {
-                    renderRecentGallery();
+            return new Promise((resolve) => {
+                try {
+                    const tx = db.transaction(STORE_NAME, 'readwrite');
+                    tx.objectStore(STORE_NAME).delete(name);
+                    tx.oncomplete = () => {
+                        renderRecentGallery();
+                        resolve();
+                    };
+                    tx.onerror = () => resolve();
+                } catch (e) {
                     resolve();
-                };
-                tx.onerror = (e) => reject(e);
+                }
             });
         }
 
@@ -1691,12 +1898,10 @@
                 return;
             }
 
-            // Filtrage par recherche rapide
             if (historySearchQuery) {
                 models = models.filter(m => (m.name || '').toLowerCase().includes(historySearchQuery));
             }
 
-            // Tri selon le mode actif (par date récente ou par nom A-Z)
             models.sort((a, b) => {
                 if (historySortMode === 'name') {
                     return (a.name || '').localeCompare(b.name || '', 'fr', { numeric: true, sensitivity: 'base' });
@@ -1723,6 +1928,8 @@
                 thumb.className = 'recent-thumb';
                 thumb.src = model.thumbnail || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23ddd"/><text x="50" y="55" font-family="Arial" font-size="20" font-weight="bold" fill="%23888" text-anchor="middle">3D</text></svg>';
                 
+                const displayName = (model.name || 'Meuble').replace(/\.glb$/i, '');
+
                 const titleWrapper = document.createElement('div');
                 titleWrapper.className = 'recent-title-wrapper';
 
@@ -1731,12 +1938,12 @@
 
                 const titleText = document.createElement('span');
                 titleText.className = 'recent-title-text';
-                titleText.innerText = model.name;
+                titleText.innerText = displayName;
 
                 const titleClone = document.createElement('span');
                 titleClone.className = 'recent-title-clone';
                 titleClone.setAttribute('aria-hidden', 'true');
-                titleClone.innerText = model.name;
+                titleClone.innerText = displayName;
 
                 titleTrack.appendChild(titleText);
                 titleTrack.appendChild(titleClone);
@@ -1744,10 +1951,23 @@
 
                 infoDiv.onclick = async () => {
                     currentLoadedFileName = model.name;
-                    currentLoadedBlob = model.fileBlob;
-                    loadModelFromUrl(URL.createObjectURL(model.fileBlob));
-                    await saveModelToDB(model.fileBlob, model.name);
-                    renderRecentGallery(); 
+                    currentCloudModelUrl = model.cloudUrl || null;
+
+                    if (model.fileBuffer) {
+                        currentLoadedBuffer = model.fileBuffer;
+                        const blob = new Blob([model.fileBuffer], { type: 'model/gltf-binary' });
+                        loadModelFromUrl(URL.createObjectURL(blob));
+                        saveBufferToDB(model.name, model.fileBuffer, model.cloudUrl).then(renderRecentGallery);
+                    } else if (model.fileBlob) {
+                        // Compatibilité avec les anciens enregistrements stockés sous forme de Blob
+                        loadModelFromUrl(URL.createObjectURL(model.fileBlob));
+                        blobToArrayBuffer(model.fileBlob).then(buf => {
+                            currentLoadedBuffer = buf;
+                            saveBufferToDB(model.name, buf, model.cloudUrl).then(renderRecentGallery);
+                        });
+                    } else if (model.cloudUrl) {
+                        openModelFromCloudUrl(model.cloudUrl, model.name);
+                    }
                 };
 
                 const delBtn = document.createElement('button');
@@ -1769,13 +1989,64 @@
             requestAnimationFrame(updateMarquees);
         }
 
-        async function loadFile(file) {
-            const fileName = file.name || `Meuble_${Date.now()}.glb`;
+        // Charge un fichier local IMMÉDIATEMENT dans le viewer 3D sans être bloqué par IndexedDB
+        function loadFile(file) {
+            if (!file) return;
+            const fileName = ensureGlbExtension(file.name || `Meuble_${Date.now()}.glb`);
             currentLoadedFileName = fileName;
-            currentLoadedBlob = file;
-            await saveModelToDB(file, fileName);
-            await renderRecentGallery();
-            loadModelFromUrl(URL.createObjectURL(file));
+            currentCloudModelUrl = null;
+
+            // 1. Ouvre immédiatement le modèle 3D
+            const objectUrl = URL.createObjectURL(file);
+            loadModelFromUrl(objectUrl);
+
+            // 2. Enregistre en arrière-plan dans IndexedDB
+            blobToArrayBuffer(file)
+                .then(buffer => {
+                    currentLoadedBuffer = buffer;
+                    updateSidebarProjectActions();
+                    return saveBufferToDB(currentLoadedFileName, buffer, null);
+                })
+                .then(() => renderRecentGallery())
+                .catch(err => console.warn("Sauvegarde historique impossible:", err));
+        }
+
+        // Charge un modèle depuis une URL Cloud (?model=...) et l'ajoute à l'historique
+        function openModelFromCloudUrl(cloudUrl, explicitName = null) {
+            currentCloudModelUrl = cloudUrl;
+
+            // Détermine un nom initial à partir du paramètre ?name= ou de l'URL
+            let rawUrlName = explicitName;
+            if (!rawUrlName) {
+                try {
+                    const decodedPath = decodeURIComponent(cloudUrl.split('?')[0]);
+                    rawUrlName = decodedPath.split('/').pop() || 'Meuble.glb';
+                } catch (e) {
+                    rawUrlName = 'Meuble.glb';
+                }
+            }
+            currentLoadedFileName = ensureGlbExtension(rawUrlName);
+
+            // Télécharge les octets du modèle pour à la fois l'afficher, le mettre en historique et permettre "Enregistrer sur l'appareil"
+            document.getElementById('start-menu').style.display = 'none';
+            document.getElementById('loader').style.display = 'flex';
+
+            fetch(cloudUrl)
+                .then(res => {
+                    if (!res.ok) throw new Error("HTTP " + res.status);
+                    return res.arrayBuffer();
+                })
+                .then(buffer => {
+                    currentLoadedBuffer = buffer;
+                    const blob = new Blob([buffer], { type: 'model/gltf-binary' });
+                    loadModelFromUrl(URL.createObjectURL(blob), false);
+                    return saveBufferToDB(currentLoadedFileName, buffer, cloudUrl);
+                })
+                .then(() => renderRecentGallery())
+                .catch(() => {
+                    // Fallback si CORS empêche fetch() mais que GLTFLoader y parvient
+                    loadModelFromUrl(cloudUrl, true);
+                });
         }
         
         async function loadSharedFile() {
@@ -1804,19 +2075,8 @@
             
             if (urlParams.has('model')) {
                 const cloudModelUrl = urlParams.get('model');
-                document.getElementById('start-menu').style.display = 'none';
-                fetch(cloudModelUrl)
-                    .then(r => r.blob())
-                    .then(blob => {
-                        const urlFileName = cloudModelUrl.split('/').pop().split('?')[0] || 'Meuble_Cloud.glb';
-                        currentLoadedFileName = urlFileName.endsWith('.glb') ? urlFileName : urlFileName + '.glb';
-                        currentLoadedBlob = blob;
-                        saveModelToDB(blob, currentLoadedFileName).then(renderRecentGallery);
-                        loadModelFromUrl(URL.createObjectURL(blob));
-                    })
-                    .catch(() => {
-                        loadModelFromUrl(cloudModelUrl);
-                    });
+                const customTitle = urlParams.get('name') || urlParams.get('title') || null;
+                openModelFromCloudUrl(cloudModelUrl, customTitle);
             } 
             else if (urlParams.has('shared')) {
                 loadSharedFile();
@@ -1830,17 +2090,21 @@
                 });
             }
 
-            fileBtn.addEventListener('click', () => fileInput.click());
+            fileBtn.addEventListener('click', () => {
+                fileInput.value = "";
+                fileInput.click();
+            });
 
             fileInput.addEventListener('change', function (event) {
-                const file = event.target.files[0];
+                const file = event.target.files && event.target.files[0];
                 if (file) loadFile(file);
             });
 
             closeProjectBtn.addEventListener('click', () => {
                 removeCurrentModel();
-                currentLoadedBlob = null;
+                currentLoadedBuffer = null;
                 currentLoadedFileName = null;
+                currentCloudModelUrl = null;
                 document.getElementById('start-menu').style.display = 'flex';
                 showUIElements(false);
                 fileInput.value = "";
@@ -1856,7 +2120,7 @@
             }
         }
 
-        function loadModelFromUrl(url) {
+        function loadModelFromUrl(url, isRemoteUrl = false) {
             removeCurrentModel();
             resetViewState();
             document.getElementById('start-menu').style.display = 'none';
@@ -1873,8 +2137,20 @@
                 
                 activeBox = globalBox.clone();
                 activeOriginalSize.copy(originalGlobalSize);
-                
-                currentModelName = currentLoadedFileName ? currentLoadedFileName.replace(/\.glb$/i, '') : "Meuble Global";
+
+                // Si le nom du fichier est générique (ex: Finjat_Export_1793011664.glb),
+                // on cherche le vrai nom du meuble à l'intérieur du GLB
+                const previousFileName = currentLoadedFileName || "Meuble.glb";
+                const embeddedName = extractEmbeddedModelName(gltf);
+                if (embeddedName && isGenericExportName(previousFileName)) {
+                    currentLoadedFileName = ensureGlbExtension(embeddedName);
+                    renameModelInDB(previousFileName, currentLoadedFileName).then(renderRecentGallery);
+                }
+
+                currentModelName = currentLoadedFileName
+                    ? currentLoadedFileName.replace(/\.glb$/i, '')
+                    : (embeddedName || "Meuble Global");
+
                 updateTopInfo(currentModelName, activeOriginalSize);
 
                 const globalCenter = new THREE.Vector3();
@@ -2097,12 +2373,11 @@
                 focusOnGlobalModel(true);
                 
                 if (currentLoadedFileName) {
-                    const capturedFileName = currentLoadedFileName;
                     setTimeout(() => {
                         if (!globalModel) return;
                         renderer.render(scene, camera); 
                         const dataUrl = renderer.domElement.toDataURL('image/jpeg', 0.6);
-                        updateModelThumbnailInDB(capturedFileName, dataUrl).then(() => {
+                        updateModelThumbnailInDB(currentLoadedFileName, dataUrl).then(() => {
                             renderRecentGallery(); 
                         });
                     }, 800); 
@@ -2118,10 +2393,14 @@
                     if(stepCtrl) stepCtrl.style.display = 'none';
                 }
                 
-                URL.revokeObjectURL(url);
+                if (!isRemoteUrl) {
+                    URL.revokeObjectURL(url);
+                }
             }, undefined, function (err) {
                 console.error(err);
-                URL.revokeObjectURL(url);
+                if (!isRemoteUrl) {
+                    URL.revokeObjectURL(url);
+                }
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('start-menu').style.display = 'flex';
                 alert("Impossible de lire ce fichier .glb.");
