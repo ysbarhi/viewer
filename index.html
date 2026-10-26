@@ -245,10 +245,10 @@
         #texture-btn { bottom: 40px; left: calc(50% - 105px); }
         #xray-btn { bottom: 40px; left: calc(50% - 30px); }
         #edge-btn { bottom: 40px; left: calc(50% + 45px); }
-        
-        /* BOUTON RÈGLE ET ZOOM SUR LE CÔTÉ DROIT */
-        #toggle-measure-btn { bottom: 210px; right: 25px; width: 50px; height: 50px; font-size: 22px; }
         #zoom-btn { bottom: 130px; right: 25px; }
+        
+        /* BOUTON RÈGLE PLACÉ ENTRE ZOOM ET TOUCH TOGGLE */
+        #toggle-measure-btn { bottom: 205px; right: 25px; font-size: 24px; }
 
         #ui-panel {
             top: 20px; left: 50%; transform: translateX(-50%);
@@ -428,8 +428,10 @@
 
     <button id="unit-toggle-btn" class="ui-element">mm</button>
     
-    <!-- BOUTON MESURE INDÉPENDANT -->
     <button id="toggle-measure-btn" class="floating-btn ui-element" title="Afficher/Masquer les dimensions">📏</button>
+    
+    <!-- Bouton désélection conservé mais masqué pour ne pas casser le JS existant -->
+    <button id="deselect-btn" style="display: none;"></button>
 
     <div id="touch-select-container" class="ui-element">
         <div id="touch-toggle">
@@ -446,7 +448,7 @@
 
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">v1.25.12</div> 
+        <div class="author-badge">v1.25.11</div> 
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
@@ -594,7 +596,7 @@
         });
 
         // ==========================================
-        // OUTILS MATÉRIAUX ET GESTION DE SÉLECTION
+        // OUTILS MATÉRIAUX
         // ==========================================
         function normMatName(mat) {
             return ((mat && mat.name) ? String(mat.name) : "Default").trim().toLowerCase();
@@ -604,6 +606,9 @@
             return key.includes("chant") || key.includes("edge") || key.includes("abf");
         }
 
+        // Convertit n'importe quelle source d'image (Image, Canvas, ImageBitmap) en petite miniature.
+        // On dessine dans un canvas AU CHARGEMENT : les URLs blob de GLTFLoader sont déjà révoquées
+        // après coup, donc utiliser img.src directement donnait un bouton vide/blanc.
         function makeTextureThumb(map, size = 64) {
             try {
                 const img = map && map.image;
@@ -620,25 +625,6 @@
                 console.warn("Finjat: miniature impossible", e);
                 return null;
             }
-        }
-
-        function clearSelection() {
-            if (highlightedMeshes && highlightedMeshes.length > 0) {
-                highlightedMeshes.forEach(mesh => {
-                    mesh.userData.isHighlighted = false;
-                });
-                highlightedMeshes = [];
-                updateMaterials();
-            }
-        
-            if (globalModel) {
-                activeBox = new THREE.Box3().setFromObject(globalModel);
-                activeOriginalSize.copy(originalGlobalSize); 
-                updateTopInfo(currentModelName, activeOriginalSize, null); 
-            }
-        
-            document.getElementById('ui-panel').style.display = 'none';
-            isZoomedOnPart = false;
         }
 
         function getFormattedDims(sizeVector) {
@@ -863,6 +849,7 @@
                         node.material = highlightMaterial;
                     } 
                     else if (activeMaterialFilters.size > 0) {
+                        // La pièce utilise-t-elle l'un des matériaux filtrés ?
                         let hasFilterMat = false;
                         if (node.userData.originalMaterialKeys) {
                             hasFilterMat = node.userData.originalMaterialKeys.some(key => activeMaterialFilters.has(key));
@@ -877,7 +864,7 @@
                             }
                         } else {
                             node.material = baseMaterial;
-                            node.material.opacity = isEdgeBandingOn ? 0.25 : 0.15; 
+                            node.material.opacity = isEdgeBandingOn ? 0.25 : 0.15; // Mode "fantôme"
                         }
                     } 
                     else {
@@ -978,7 +965,7 @@
             isZoomedOnPart = false;
 
             document.getElementById('top-info-panel').style.display = 'none';
-            
+            document.getElementById('action-buttons').style.display = 'none';
             ['x', 'y', 'z'].forEach(axis => {
                 if (domLabels[axis]) domLabels[axis].style.display = 'none';
             });
@@ -1010,16 +997,18 @@
             activeBox = box;
             activeBox.getSize(activeOriginalSize);
 
+            // Matériaux de TOUTE la pièce (face + chants), sans les chants dans l'affichage
             let namesSet = new Set();
             highlightedMeshes.forEach(m => {
                 (m.userData.originalMaterialNames || []).forEach(n => {
                     if (!isEdgeMatName(n.toLowerCase())) namesSet.add(n);
                 });
             });
-            let matName = namesSet.size > 0 ? Array.from(namesSet).join(" | ") : "Défaut";
+            let matName = namesSet.size > 0 ? Array.from(namesSet).join(" | ") : "Multiples / Défaut";
 
             updateTopInfo(cleanPartName, activeOriginalSize, matName);
 
+            document.getElementById('deselect-btn').style.display = 'flex';
             document.getElementById('ui-panel').style.display = 'none';
         }
         
@@ -1141,7 +1130,7 @@
                 if (validIntersects.length > 0) {
                     selectPartByMesh(validIntersects[0].object);
                 } else {
-                    clearSelection();
+                    document.getElementById('deselect-btn').click();
                 }
             });
 
@@ -1192,6 +1181,24 @@
             document.getElementById('toggle-measure-btn').addEventListener('click', () => {
                 showMeasurements = !showMeasurements;
                 updateMeasurementLabels(); 
+            });
+
+            document.getElementById('deselect-btn').addEventListener('click', () => {
+                if (highlightedMeshes && highlightedMeshes.length > 0) {
+                    highlightedMeshes.forEach(mesh => {
+                        mesh.userData.isHighlighted = false;
+                    });
+                    highlightedMeshes = [];
+                    updateMaterials();
+                }
+            
+                activeBox = new THREE.Box3().setFromObject(globalModel);
+                activeOriginalSize.copy(originalGlobalSize); 
+                updateTopInfo(currentModelName, activeOriginalSize, null); 
+            
+                document.getElementById('ui-panel').style.display = 'none';
+                document.getElementById('deselect-btn').style.display = 'none';
+                isZoomedOnPart = false;
             });
         }
 
@@ -1429,12 +1436,15 @@
                 
                 currentModelName = currentLoadedFileName ? currentLoadedFileName.replace('.glb', '') : "Meuble Global";
                 updateTopInfo(currentModelName, activeOriginalSize);
+        
+                document.getElementById('action-buttons').style.display = 'flex';
+                document.getElementById('deselect-btn').style.display = 'none';
 
                 const globalCenter = new THREE.Vector3();
                 globalBox.getCenter(globalCenter);
 
                 let partNodes = new Set();
-                let uniqueMaterials = new Map(); 
+                let uniqueMaterials = new Map(); // key (nom) -> { mat, name, thumb }
 
                 function getPartRoot(mesh) {
                     const p = mesh.parent;
@@ -1453,6 +1463,7 @@
                     }
                 });
 
+                // EXTRACTION DES MATÉRIAUX
                 globalModel.traverse(function (node) {
                     if (node.isMesh) {
                         node.userData.isOriginalMesh = true;
@@ -1472,6 +1483,7 @@
                             
                             if (!isEdge) {
                                 const existing = uniqueMaterials.get(key);
+                                // On préfère l'exemplaire qui possède une texture
                                 if (!existing) {
                                     uniqueMaterials.set(key, { mat: mat, name: mat.name || "Default", thumb: null });
                                 } else if (!existing.mat.map && mat.map) {
@@ -1505,6 +1517,8 @@
                         node.add(new THREE.LineSegments(edgesGeometry, edgeMaterial));
                     }
                 });
+
+                console.log("Finjat: matériaux détectés (hors chants) =", Array.from(uniqueMaterials.keys()));
 
                 const globalSizeMax = Math.max(originalGlobalSize.x, originalGlobalSize.y, originalGlobalSize.z) || 1;
                 const namesToStrip = new Set();
@@ -1552,14 +1566,16 @@
                     const mat = entry.mat;
                     const mName = entry.name;
                     const btn = document.createElement('button');
-                    btn.className = 'mat-filter-btn ui-element';
+                    btn.className = 'mat-filter-btn';
                     btn.title = mName;
 
+                    // Miniature générée maintenant (avant que l'image ne devienne inaccessible)
                     const thumb = mat.map ? makeTextureThumb(mat.map) : null;
                     
                     if (thumb) {
                         btn.style.backgroundImage = `url(${thumb})`;
                     } else {
+                        // Pas de texture lisible : couleur du matériau + initiales
                         const col = mat.color ? mat.color : new THREE.Color(0xcccccc);
                         btn.style.backgroundColor = '#' + col.getHexString();
                         btn.innerText = mName.substring(0, 2).toUpperCase();
@@ -1576,6 +1592,7 @@
                             btn.classList.add('active');
                         }
 
+                        // Info panneau : liste des matériaux actifs
                         if (activeMaterialFilters.size === 0) {
                             updateTopInfo(currentModelName, activeOriginalSize);
                         } else {
@@ -1618,6 +1635,8 @@
                 document.getElementById('loader').style.display = 'none';
                 showUIElements(true);
 
+                // Les boutons de filtre sont des .ui-element : showUIElements les a mis en display:flex.
+                // S'il n'y a aucun matériau, on masque le conteneur.
                 if (uniqueMaterials.size === 0) matContainer.style.display = 'none';
                 
                 if (maxAssemblyStep === 0) {
@@ -1708,6 +1727,7 @@
         
                 updateTopInfo(cleanPartName, activeOriginalSize, matName); 
         
+                document.getElementById('deselect-btn').style.display = 'flex';
                 document.getElementById('ui-panel').style.display = 'none';
             } else {
                 alert("Pièce introuvable dans ce meuble.\nCode lu : " + scannedText);
