@@ -443,7 +443,7 @@
 
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">v1.25.12</div> 
+        <div class="author-badge">v1.25.13</div> 
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
@@ -1430,8 +1430,12 @@
                 
                 currentModelName = currentLoadedFileName ? currentLoadedFileName.replace('.glb', '') : "Meuble Global";
                 updateTopInfo(currentModelName, activeOriginalSize);
-        
-                document.getElementById('action-buttons').style.display = 'flex';
+
+                // CORRECTION : la ligne qui faisait planter le chargement
+                // (document.getElementById('action-buttons').style.display = 'flex')
+                // a été supprimée : cet élément n'existe plus dans le HTML, donc getElementById
+                // renvoyait null et l'erreur était interceptée par GLTFLoader, qui affichait
+                // "Impossible de lire ce fichier .glb."
 
                 const globalCenter = new THREE.Vector3();
                 globalBox.getCenter(globalCenter);
