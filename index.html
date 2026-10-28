@@ -236,17 +236,33 @@
         .floating-btn {
             width: 60px; height: 60px; border-radius: 50%; background: #ffffff;
             border: none; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer;
-            display: flex; align-items: center; justify-content: center; transition: background 0.2s;
+            display: flex; align-items: center; justify-content: center; transition: all 0.2s;
         }
         .floating-btn.active { background: #dbeafe; border: 2px solid #2563eb; }
 
         /* BOUTONS FLOTTANTS */
+        #anim-mode-btn { bottom: 295px; left: 15px; width: 50px; height: 50px; }
+        #anim-mode-btn.active {
+            background: #dcfce7; border: 2px solid #16a34a;
+            box-shadow: 0 0 12px rgba(22, 163, 74, 0.6);
+        }
+        #anim-mode-btn.active svg { stroke: #15803d; }
+
         #assembly-mode-btn { bottom: 235px; left: 15px; width: 50px; height: 50px; }
         #texture-btn { bottom: 40px; left: calc(50% - 105px); }
         #xray-btn { bottom: 40px; left: calc(50% - 30px); }
         #edge-btn { bottom: 40px; left: calc(50% + 45px); }
         #zoom-btn { bottom: 130px; right: 25px; }
         #toggle-measure-btn { bottom: 205px; right: 25px; font-size: 24px; }
+
+        /* BANNIÈRE MODE ANIMATION */
+        #anim-banner {
+            position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%);
+            background: rgba(22, 163, 74, 0.92); color: #ffffff;
+            padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
+            z-index: 800; pointer-events: none; display: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); white-space: nowrap;
+        }
 
         #ui-panel {
             top: 20px; left: 50%; transform: translateX(-50%);
@@ -510,6 +526,8 @@
         <div id="info-material"></div> 
     </div>
 
+    <div id="anim-banner">▶ Mode Animation : cliquez sur une porte ou un tiroir</div>
+
     <!-- CONTENEUR DES FILTRES DE MATERIAUX -->
     <div id="material-filter-container" class="ui-element"></div>
 
@@ -532,7 +550,7 @@
 
     <div id="start-menu">
         <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">v1.25.13</div> 
+        <div class="author-badge">v1.26.0</div> 
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
@@ -569,6 +587,15 @@
 
     <button id="close-project-btn" class="ui-element">
         <svg viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+
+    <!-- BOUTON MODE ANIMATION DES OUVRANTS -->
+    <button id="anim-mode-btn" class="floating-btn ui-element" title="Mode Animation : cliquer sur les ouvrants (portes, tiroirs)">
+        <svg viewBox="0 0 24 24" width="26" height="26" stroke="#555" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 3v18l11-3V6L5 3z"></path>
+            <path d="M16 5h3a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-3"></path>
+            <circle cx="13" cy="12" r="1"></circle>
+        </svg>
     </button>
 
     <button id="assembly-mode-btn" class="floating-btn ui-element" title="Mode Assemblage (Étapes)">
@@ -654,6 +681,14 @@
         let isAssemblyModeOn = false;
         let maxAssemblyStep = 0;
 
+        // ==========================================
+        // ÉTAT DU MODE ANIMATION DES OUVRANTS
+        // ==========================================
+        let isAnimationModeOn = false;
+        let animatedPartNodes = []; // Liste des partNodes possédant une animation Finjat
+        const ANIM_DURATION = 0.7;  // Durée d'ouverture/fermeture en secondes (identique à SketchUp)
+        let lastFrameTime = performance.now();
+
         let activeMaterialFilters = new Set(); // Filtres de matériaux (clés = nom normalisé)
         
         let raycaster = new THREE.Raycaster();
@@ -694,6 +729,183 @@
         });
 
         // ==========================================
+        // MOTEUR MATHÉMATIQUE D'ANIMATION FINJAT
+        // ==========================================
+        // Conversion des coordonnées monde SketchUp (Z-up, mètres) vers glTF / Three.js (Y-up, mètres) :
+        // glTF = (x, z, -y)
+        function suPointToThree(arr) {
+            return new THREE.Vector3(arr[0], arr[2], -arr[1]);
+        }
+
+        function suVecToThree(arr) {
+            return new THREE.Vector3(arr[0], arr[2], -arr[1]);
+        }
+
+        function stepProgress(cfg, i, n, t) {
+            if (cfg.mode === 'sequential' && n > 1) {
+                return Math.min(Math.max(t * n - i, 0.0), 1.0);
+            }
+            return t;
+        }
+
+        function slideAmountMeters(cfg, st, p) {
+            const d = Number(st.distance) || 0;
+            if (cfg.type === 'push_open') {
+                const push = Number(cfg.push) || 0.005;
+                return p < 0.2 ? -push * (p / 0.2) : -push + (d + push) * ((p - 0.2) / 0.8);
+            }
+            return d * p;
+        }
+
+        // Calcule la matrice de transformation 4x4 (en coordonnées monde Three.js)
+        // d'une configuration d'animation Finjat à la progression t (0 = fermé, 1 = ouvert)
+        function computeFinjatAnimWorldMatrix(cfg, t) {
+            const steps = cfg.steps || [];
+            const n = steps.length;
+            const a = new THREE.Matrix4(); // Identité
+
+            for (let i = 0; i < n; i++) {
+                const st = steps[i];
+                const p = stepProgress(cfg, i, n, t);
+
+                if (st.kind === 'rotate') {
+                    if (!st.pivot || !st.axis) continue;
+                    const pivot = suPointToThree(st.pivot).applyMatrix4(a);
+                    const axis = suVecToThree(st.axis).transformDirection(a).normalize();
+                    if (axis.lengthSq() < 1e-10) continue;
+
+                    const angleRad = THREE.MathUtils.degToRad((Number(st.angle) || 0) * p);
+                    const T1 = new THREE.Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z);
+                    const R = new THREE.Matrix4().makeRotationAxis(axis, angleRad);
+                    const T2 = new THREE.Matrix4().makeTranslation(pivot.x, pivot.y, pivot.z);
+                    const stepMat = new THREE.Matrix4().multiplyMatrices(T2, R).multiply(T1);
+                    a.premultiply(stepMat);
+
+                } else if (st.kind === 'slide') {
+                    if (!st.direction) continue;
+                    const dir = suVecToThree(st.direction).transformDirection(a);
+                    if (dir.lengthSq() < 1e-10) continue;
+                    dir.normalize();
+                    const amount = slideAmountMeters(cfg, st, p);
+                    if (Math.abs(amount) < 1e-9) continue;
+
+                    const stepMat = new THREE.Matrix4().makeTranslation(
+                        dir.x * amount, dir.y * amount, dir.z * amount
+                    );
+                    a.premultiply(stepMat);
+
+                } else if (st.kind === 'fold') {
+                    if (!st.pivot) continue;
+                    const pivot = suPointToThree(st.pivot).applyMatrix4(a);
+                    const angleRad = THREE.MathUtils.degToRad((Number(st.angle) || 0) * p);
+                    const f = Math.max(Math.cos(angleRad), 0.02);
+                    const sa = st.slice_axis ? suVecToThree(st.slice_axis) : new THREE.Vector3(1, 0, 0);
+
+                    const sx = Math.abs(sa.x) > 0.5 ? f : 1.0;
+                    const sy = Math.abs(sa.y) > 0.5 ? f : 1.0;
+                    const sz = Math.abs(sa.z) > 0.5 ? f : 1.0;
+
+                    const T1 = new THREE.Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z);
+                    const S = new THREE.Matrix4().makeScale(sx, sy, sz);
+                    const T2 = new THREE.Matrix4().makeTranslation(pivot.x, pivot.y, pivot.z);
+                    const stepMat = new THREE.Matrix4().multiplyMatrices(T2, S).multiply(T1);
+                    a.premultiply(stepMat);
+                }
+            }
+            return a;
+        }
+
+        // Applique la matrice monde d'animation à un noeud (et à ses chants rattachés)
+        function applyAnimMatrixToNode(node, worldDeltaMatrix) {
+            const parentInv = node.userData.parentWorldInverse || new THREE.Matrix4();
+            const parentWorld = node.userData.parentWorldMatrix || new THREE.Matrix4();
+            const origLocal = node.userData.originalLocalMatrix;
+            if (!origLocal) return;
+
+            // newLocal = parentWorld^-1 * worldDeltaMatrix * parentWorld * origLocal
+            const m = new THREE.Matrix4()
+                .copy(parentInv)
+                .multiply(worldDeltaMatrix)
+                .multiply(parentWorld)
+                .multiply(origLocal);
+
+            m.decompose(node.position, node.quaternion, node.scale);
+        }
+
+        function applyPartAnimationProgress(partNode, easedT) {
+            const cfg = partNode.userData.animationCfg;
+            if (!cfg) return;
+            const worldDelta = computeFinjatAnimWorldMatrix(cfg, easedT);
+            applyAnimMatrixToNode(partNode, worldDelta);
+
+            // Faire suivre les chants rattachés (edgeParts) qui ont ce panneau comme hôte
+            if (partNode.userData.attachedEdgeParts) {
+                partNode.userData.attachedEdgeParts.forEach(ep => {
+                    applyAnimMatrixToNode(ep, worldDelta);
+                });
+            }
+        }
+
+        function updateAnimations(dt) {
+            if (!globalModel || animatedPartNodes.length === 0) return;
+            let anyMoving = false;
+
+            animatedPartNodes.forEach(partNode => {
+                const st = partNode.userData.animState;
+                if (!st) return;
+                const diff = st.target - st.t;
+                if (Math.abs(diff) < 1e-5) return;
+
+                const step = dt / ANIM_DURATION;
+                st.t += Math.min(Math.max(diff, -step), step);
+                const p = st.t;
+                const eased = p * p * (3 - 2 * p); // Smoothstep (identique au Ruby)
+                applyPartAnimationProgress(partNode, eased);
+                anyMoving = true;
+            });
+
+            if (anyMoving) {
+                if (highlightedMeshes && highlightedMeshes.length > 0) {
+                    const box = new THREE.Box3();
+                    highlightedMeshes.forEach(m => box.union(new THREE.Box3().setFromObject(m)));
+                    activeBox = box;
+                } else if (globalModel) {
+                    activeBox = new THREE.Box3().setFromObject(globalModel);
+                }
+            }
+        }
+
+        function togglePartOpenClose(partNode) {
+            // Si on a cliqué sur un chant rattaché à un panneau animé, on anime le panneau hôte
+            const targetNode = (partNode.userData.hostPart && partNode.userData.hostPart.userData.animationCfg)
+                ? partNode.userData.hostPart
+                : partNode;
+
+            if (!targetNode || !targetNode.userData.animationCfg) return false;
+
+            if (!targetNode.userData.animState) {
+                targetNode.userData.animState = { t: 0.0, target: 0.0 };
+            }
+            const st = targetNode.userData.animState;
+            st.target = st.target > 0.5 ? 0.0 : 1.0;
+            return true;
+        }
+
+        // Remet toutes les pièces à leur position fermée (ou instantanément si immediate = true)
+        function resetAllAnimations(immediate = false) {
+            animatedPartNodes.forEach(partNode => {
+                if (!partNode.userData.animState) {
+                    partNode.userData.animState = { t: 0.0, target: 0.0 };
+                }
+                partNode.userData.animState.target = 0.0;
+                if (immediate) {
+                    partNode.userData.animState.t = 0.0;
+                    applyPartAnimationProgress(partNode, 0.0);
+                }
+            });
+        }
+
+        // ==========================================
         // OUTILS MATÉRIAUX
         // ==========================================
         function normMatName(mat) {
@@ -704,9 +916,6 @@
             return key.includes("chant") || key.includes("edge") || key.includes("abf");
         }
 
-        // Convertit n'importe quelle source d'image (Image, Canvas, ImageBitmap) en petite miniature.
-        // On dessine dans un canvas AU CHARGEMENT : les URLs blob de GLTFLoader sont déjà révoquées
-        // après coup, donc utiliser img.src directement donnait un bouton vide/blanc.
         function makeTextureThumb(map, size = 64) {
             try {
                 const img = map && map.image;
@@ -827,11 +1036,6 @@
         setupFileUploader();
         setupSplashScreen();
         setupSidebar();
-        
-        // NB : l'initialisation de la base / de l'historique est faite tout en bas du script.
-        // Elle était ici avant, mais initDB() utilisait DB_NAME (const déclarée plus bas) avant
-        // son initialisation => ReferenceError avalée par le catch => historique vide au démarrage
-        // et bouton de vue jamais branché.
 
         function setupSplashScreen() {
             const splash = document.getElementById('splash-screen');
@@ -870,7 +1074,6 @@
             }
             
             function openSidebar() {
-                // Le bouton d'enregistrement n'a de sens que lorsqu'un modèle est ouvert
                 if (saveBtn) saveBtn.style.display = globalModel ? 'flex' : 'none';
                 sidebar.classList.add('active');
                 overlay.classList.add('active');
@@ -970,9 +1173,6 @@
             baseMaterial.opacity = globalTargetOpacity;
             edgeMaterial.opacity = globalTargetOpacity;
 
-            // Une "pièce" = un panneau + ses chants. Le filtre par matériau s'applique à la pièce
-            // entière : si un de ses meshes utilise le matériau filtré, tous ses meshes (chants
-            // compris) restent visibles en mode texturé.
             const groupOf = (n) => {
                 const r = n.userData.partRoot;
                 return r ? (r.userData.hostPart || r) : n;
@@ -997,7 +1197,6 @@
                         node.material = highlightMaterial;
                     } 
                     else if (activeMaterialFilters.size > 0) {
-                        // La pièce utilise-t-elle l'un des matériaux filtrés ?
                         const hasFilterMat = matchedGroups.has(groupOf(node));
 
                         if (hasFilterMat) {
@@ -1009,7 +1208,7 @@
                             }
                         } else {
                             node.material = baseMaterial;
-                            node.material.opacity = isEdgeBandingOn ? 0.25 : 0.15; // Mode "fantôme"
+                            node.material.opacity = isEdgeBandingOn ? 0.25 : 0.15;
                         }
                     } 
                     else {
@@ -1067,7 +1266,10 @@
         function showUIElements(show) {
             document.querySelectorAll('.ui-element:not(#ui-panel)')
                 .forEach(el => el.style.display = show ? 'flex' : 'none');
-            if (!show) document.getElementById('ui-panel').style.display = 'none';
+            if (!show) {
+                document.getElementById('ui-panel').style.display = 'none';
+                document.getElementById('anim-banner').style.display = 'none';
+            }
         }
 
         function resetViewState() {
@@ -1075,6 +1277,13 @@
             maxAssemblyStep = 0;
             const asmBtn = document.getElementById('assembly-mode-btn');
             if(asmBtn) asmBtn.classList.remove('active');
+
+            isAnimationModeOn = false;
+            animatedPartNodes = [];
+            const animBtn = document.getElementById('anim-mode-btn');
+            if (animBtn) animBtn.classList.remove('active');
+            const animBanner = document.getElementById('anim-banner');
+            if (animBanner) animBanner.style.display = 'none';
             
             const slider = document.getElementById('explode-slider');
             if(slider) {
@@ -1141,7 +1350,6 @@
             activeBox = box;
             activeBox.getSize(activeOriginalSize);
 
-            // Matériaux de TOUTE la pièce (face + chants), sans les chants dans l'affichage
             let namesSet = new Set();
             highlightedMeshes.forEach(m => {
                 (m.userData.originalMaterialNames || []).forEach(n => {
@@ -1156,14 +1364,57 @@
         }
         
         function setupUI() {
+            const animBtn = document.getElementById('anim-mode-btn');
+            const animBanner = document.getElementById('anim-banner');
             const assemblyBtn = document.getElementById('assembly-mode-btn');
             const slider = document.getElementById('explode-slider');
             const prevBtn = document.getElementById('step-prev-btn');
             const nextBtn = document.getElementById('step-next-btn');
             const stepInd = document.getElementById('step-indicator');
+
+            // BOUTON MODE ANIMATION (OUVRANTS)
+            animBtn.addEventListener('click', () => {
+                if (!globalModel) return;
+                isAnimationModeOn = !isAnimationModeOn;
+                animBtn.classList.toggle('active', isAnimationModeOn);
+
+                if (isAnimationModeOn) {
+                    // Désactiver le mode assemblage et remettre l'éclatement à zéro pour animer depuis la pose fermée
+                    if (isAssemblyModeOn) {
+                        isAssemblyModeOn = false;
+                        assemblyBtn.classList.remove('active');
+                        prevBtn.disabled = true;
+                        nextBtn.disabled = true;
+                        stepInd.classList.remove('active');
+                    }
+                    slider.min = "0";
+                    slider.max = "100";
+                    slider.step = "1";
+                    slider.value = "0";
+                    slider.dispatchEvent(new Event('input'));
+
+                    if (animatedPartNodes.length > 0) {
+                        animBanner.innerText = `▶ Mode Animation (${animatedPartNodes.length} ouvrant${animatedPartNodes.length > 1 ? 's' : ''}) : cliquez sur une pièce`;
+                    } else {
+                        animBanner.innerText = "▶ Mode Animation : aucune animation Finjat détectée dans ce .glb";
+                    }
+                    animBanner.style.display = 'block';
+                } else {
+                    animBanner.style.display = 'none';
+                    resetAllAnimations(false);
+                }
+            });
             
             assemblyBtn.addEventListener('click', () => {
                 if (!globalModel) return;
+
+                // Si le mode animation était actif, on le referme proprement
+                if (isAnimationModeOn) {
+                    isAnimationModeOn = false;
+                    animBtn.classList.remove('active');
+                    animBanner.style.display = 'none';
+                    resetAllAnimations(true);
+                }
                 
                 isAssemblyModeOn = !isAssemblyModeOn;
                 assemblyBtn.classList.toggle('active', isAssemblyModeOn);
@@ -1212,6 +1463,14 @@
             slider.addEventListener('input', (e) => {
                 if (!globalModel) return;
                 const val = parseFloat(e.target.value);
+
+                // Si l'utilisateur manipule l'éclatement pendant que des portes sont ouvertes, on les referme
+                if (val > 0 && isAnimationModeOn) {
+                    isAnimationModeOn = false;
+                    animBtn.classList.remove('active');
+                    animBanner.style.display = 'none';
+                    resetAllAnimations(true);
+                }
                 
                 if (isAssemblyModeOn) {
                     stepInd.innerText = `${val}/${maxAssemblyStep}`;
@@ -1219,6 +1478,10 @@
 
                 globalModel.traverse(function (node) {
                     if (node.userData.isPartNode) {
+                        // Remettre l'orientation initiale avant d'appliquer la translation d'éclatement
+                        if (node.userData.originalQuaternion) node.quaternion.copy(node.userData.originalQuaternion);
+                        if (node.userData.originalScale) node.scale.copy(node.userData.originalScale);
+
                         if (isAssemblyModeOn) {
                             if (node.userData.assemblyStep > val) {
                                 node.position.copy(node.userData.originalPosition)
@@ -1258,9 +1521,12 @@
             });
 
             canvasEl.addEventListener('pointerup', (e) => {
-                if (!isTouchSelectOn || !globalModel) return;
-                
+                if (!globalModel) return;
+                // Ignorer si l'utilisateur a fait tourner la caméra (glisser > 10px)
                 if (Math.abs(e.clientX - touchPointerDown.x) > 10 || Math.abs(e.clientY - touchPointerDown.y) > 10) return;
+
+                // On n'intercepte le clic que si le Mode Animation OU la Sélection Tactile est actif
+                if (!isAnimationModeOn && !isTouchSelectOn) return;
 
                 const rect = canvasEl.getBoundingClientRect();
                 mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -1271,8 +1537,34 @@
                 const validIntersects = intersects.filter(i => i.object.isMesh && i.object.userData.isOriginalMesh);
 
                 if (validIntersects.length > 0) {
-                    selectPartByMesh(validIntersects[0].object);
-                } else {
+                    const hitMesh = validIntersects[0].object;
+                    const partRoot = hitMesh.userData.partRoot || hitMesh;
+
+                    // 1. PRIORITÉ AU MODE ANIMATION s'il est activé
+                    if (isAnimationModeOn) {
+                        const animated = togglePartOpenClose(partRoot);
+                        if (animated) {
+                            const host = (partRoot.userData.hostPart && partRoot.userData.hostPart.userData.animationCfg)
+                                ? partRoot.userData.hostPart : partRoot;
+                            const cleanName = (host.name || "Ouvrant").replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
+                            const isOpening = host.userData.animState.target > 0.5;
+                            animBanner.innerText = `${isOpening ? '🔓 Ouverture' : '🔒 Fermeture'} : ${cleanName}`;
+                        } else {
+                            const cleanName = (partRoot.name || "Pièce").replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
+                            animBanner.innerText = `ℹ️ Aucune animation sur : ${cleanName}`;
+                        }
+                        // Si la sélection tactile est aussi activée, on affiche aussi les cotes
+                        if (isTouchSelectOn) {
+                            selectPartByMesh(hitMesh);
+                        }
+                        return;
+                    }
+
+                    // 2. MODE SÉLECTION TACTILE CLASSIQUE
+                    if (isTouchSelectOn) {
+                        selectPartByMesh(hitMesh);
+                    }
+                } else if (isTouchSelectOn && !isAnimationModeOn) {
                     clearSelection();
                 }
             });
@@ -1401,7 +1693,6 @@
             renderRecentGallery();
         }
 
-        // Popup de confirmation avant suppression : renvoie true (supprimer) ou false (annuler)
         function confirmDeleteModel(name) {
             return new Promise(resolve => {
                 const overlay = document.getElementById('confirm-overlay');
@@ -1431,7 +1722,6 @@
             });
         }
 
-        // Défilement automatique des noms trop longs (vue en grille uniquement)
         function applyGalleryMarquees() {
             const gallery = document.getElementById('recent-gallery');
             if (!gallery) return;
@@ -1460,7 +1750,6 @@
             const icon = document.getElementById('view-icon');
             if (!gallery || !btn || !icon) return;
 
-            // Icône = la vue vers laquelle on bascule au clic
             const layouts = [
                 {
                     class: 'layout-list',
@@ -1556,7 +1845,6 @@
             requestAnimationFrame(applyGalleryMarquees);
         }
 
-        // Enregistre le .glb ouvert sur l'appareil (téléchargement)
         async function saveCurrentModelToDevice() {
             let blob = currentModelBlob;
             try {
@@ -1689,17 +1977,11 @@
                 currentModelName = currentLoadedFileName ? currentLoadedFileName.replace('.glb', '') : "Meuble Global";
                 updateTopInfo(currentModelName, activeOriginalSize);
 
-                // CORRECTION : la ligne qui faisait planter le chargement
-                // (document.getElementById('action-buttons').style.display = 'flex')
-                // a été supprimée : cet élément n'existe plus dans le HTML, donc getElementById
-                // renvoyait null et l'erreur était interceptée par GLTFLoader, qui affichait
-                // "Impossible de lire ce fichier .glb."
-
                 const globalCenter = new THREE.Vector3();
                 globalBox.getCenter(globalCenter);
 
                 let partNodes = new Set();
-                let uniqueMaterials = new Map(); // key (nom) -> { mat, name, thumb }
+                let uniqueMaterials = new Map();
 
                 function getPartRoot(mesh) {
                     const p = mesh.parent;
@@ -1738,7 +2020,6 @@
                             
                             if (!isEdge) {
                                 const existing = uniqueMaterials.get(key);
-                                // On préfère l'exemplaire qui possède une texture
                                 if (!existing) {
                                     uniqueMaterials.set(key, { mat: mat, name: mat.name || "Default", thumb: null });
                                 } else if (!existing.mat.map && mat.map) {
@@ -1773,16 +2054,9 @@
                     }
                 });
 
-                console.log("Finjat: matériaux détectés (hors chants) =", Array.from(uniqueMaterials.keys()));
-
                 const globalSizeMax = Math.max(originalGlobalSize.x, originalGlobalSize.y, originalGlobalSize.z) || 1;
                 const namesToStrip = new Set();
 
-                // CORRECTION CHANTS : un chant qui n'est pas groupé avec son panneau dans le .glb
-                // devenait une "pièce" indépendante, avec sa propre direction d'éclatement.
-                // On rattache donc chaque pièce composée uniquement de chants au panneau voisin
-                // (celui avec lequel sa boîte englobante se recoupe le plus) : même direction,
-                // même étape de montage => le chant suit son panneau.
                 const isEdgeOnlyPart = (pn) => {
                     let any = false, all = true;
                     pn.traverse(n => {
@@ -1802,7 +2076,7 @@
                     panelBoxes.set(pn, new THREE.Box3().setFromObject(pn).expandByScalar(hostTol));
                 });
 
-                const edgeHost = new Map();   // pièce de chants -> panneau hôte
+                const edgeHost = new Map();
                 edgeParts.forEach(ep => {
                     const eb = new THREE.Box3().setFromObject(ep);
                     let best = null, bestVol = 0;
@@ -1816,12 +2090,28 @@
                     if (best) edgeHost.set(ep, best);
                 });
 
-                const hostBoxes = new Map();  // boîtes non agrandies des panneaux (pour le centre)
+                const hostBoxes = new Map();
                 panelParts.forEach(pn => hostBoxes.set(pn, new THREE.Box3().setFromObject(pn)));
+
+                animatedPartNodes = [];
 
                 partNodes.forEach(partNode => {
                     partNode.userData.isPartNode = true;
                     partNode.userData.originalPosition = partNode.position.clone();
+                    partNode.userData.originalQuaternion = partNode.quaternion.clone();
+                    partNode.userData.originalScale = partNode.scale.clone();
+
+                    // Sauvegarde des matrices en position fermée pour le moteur d'animation
+                    partNode.updateMatrix();
+                    partNode.userData.originalLocalMatrix = partNode.matrix.clone();
+                    if (partNode.parent) {
+                        partNode.parent.updateMatrixWorld(true);
+                        partNode.userData.parentWorldMatrix = partNode.parent.matrixWorld.clone();
+                        partNode.userData.parentWorldInverse = partNode.parent.matrixWorld.clone().invert();
+                    } else {
+                        partNode.userData.parentWorldMatrix = new THREE.Matrix4();
+                        partNode.userData.parentWorldInverse = new THREE.Matrix4();
+                    }
 
                     const hostPart = edgeHost.get(partNode);
                     const partBox = hostPart ? hostBoxes.get(hostPart)
@@ -1841,6 +2131,7 @@
                     partNode.userData.explodeDirection = dir;
                     partNode.userData.assemblyStep = 0;
 
+                    let foundAnimCfg = null;
                     const checkNode = (n) => {
                         const match = n.name && n.name.match(/__STEP(\d+)/i);
                         if (match) {
@@ -1849,18 +2140,32 @@
                             if (step > maxAssemblyStep) maxAssemblyStep = step;
                             namesToStrip.add(n);
                         }
+                        // Détection des données d'animation injectées dans node.extras.finjat.animation
+                        if (!foundAnimCfg && n.userData && n.userData.finjat && n.userData.finjat.animation) {
+                            foundAnimCfg = n.userData.finjat.animation;
+                        }
                     };
                     partNode.traverse(checkNode);
                     for (let a = partNode.parent; a && a !== globalModel; a = a.parent) checkNode(a);
+
+                    if (foundAnimCfg && Array.isArray(foundAnimCfg.steps) && foundAnimCfg.steps.length > 0) {
+                        partNode.userData.animationCfg = foundAnimCfg;
+                        partNode.userData.animState = { t: 0.0, target: 0.0 };
+                        animatedPartNodes.push(partNode);
+                    }
                 });
 
-                // Les chants héritent de l'étape de montage de leur panneau
+                // Les chants héritent de l'étape de montage ET suivent l'animation de leur panneau hôte
                 edgeHost.forEach((host, ep) => {
                     ep.userData.assemblyStep = host.userData.assemblyStep;
-                    ep.userData.hostPart = host;   // utilisé par le filtre par matériau
+                    ep.userData.hostPart = host;
+                    if (!host.userData.attachedEdgeParts) host.userData.attachedEdgeParts = [];
+                    host.userData.attachedEdgeParts.push(ep);
                 });
 
                 namesToStrip.forEach(n => { n.name = n.name.replace(/__STEP\d+/i, '').trim(); });
+
+                console.log(`Finjat: ${animatedPartNodes.length} pièce(s) animée(s) détectée(s).`);
 
                 // GÉNÉRATION DES BOUTONS FILTRES DE MATÉRIAUX
                 const matContainer = document.getElementById('material-filter-container');
@@ -1873,13 +2178,11 @@
                     btn.className = 'mat-filter-btn';
                     btn.title = mName;
 
-                    // Miniature générée maintenant (avant que l'image ne devienne inaccessible)
                     const thumb = mat.map ? makeTextureThumb(mat.map) : null;
                     
                     if (thumb) {
                         btn.style.backgroundImage = `url(${thumb})`;
                     } else {
-                        // Pas de texture lisible : couleur du matériau + initiales
                         const col = mat.color ? mat.color : new THREE.Color(0xcccccc);
                         btn.style.backgroundColor = '#' + col.getHexString();
                         btn.innerText = mName.substring(0, 2).toUpperCase();
@@ -1896,7 +2199,6 @@
                             btn.classList.add('active');
                         }
 
-                        // Info panneau : liste des matériaux actifs
                         if (activeMaterialFilters.size === 0) {
                             updateTopInfo(currentModelName, activeOriginalSize);
                         } else {
@@ -1913,16 +2215,7 @@
 
                 const asmBtn = document.getElementById('assembly-mode-btn');
                 const stepCtrl = document.getElementById('step-controls-container');
-                
-                if (maxAssemblyStep === 0) {
-                    if(asmBtn) asmBtn.style.display = 'none';
-                    if(stepCtrl) stepCtrl.style.display = 'none';
-                } else {
-                    if(asmBtn) asmBtn.style.display = 'flex';
-                    if(stepCtrl) stepCtrl.style.display = 'flex';
-                    const stepInd = document.getElementById('step-indicator');
-                    if(stepInd) stepInd.innerText = `0/${maxAssemblyStep}`;
-                }
+                const animBtn = document.getElementById('anim-mode-btn');
 
                 focusOnGlobalModel(true);
                 
@@ -1939,14 +2232,20 @@
                 document.getElementById('loader').style.display = 'none';
                 showUIElements(true);
 
-                // Les boutons de filtre sont des .ui-element : showUIElements les a mis en display:flex.
-                // S'il n'y a aucun matériau, on masque le conteneur.
                 if (uniqueMaterials.size === 0) matContainer.style.display = 'none';
                 
                 if (maxAssemblyStep === 0) {
                     if(asmBtn) asmBtn.style.display = 'none';
                     if(stepCtrl) stepCtrl.style.display = 'none';
+                } else {
+                    if(asmBtn) asmBtn.style.display = 'flex';
+                    if(stepCtrl) stepCtrl.style.display = 'flex';
+                    const stepInd = document.getElementById('step-indicator');
+                    if(stepInd) stepInd.innerText = `0/${maxAssemblyStep}`;
                 }
+
+                // Afficher le bouton d'animation (toujours visible pour tester son .glb)
+                if (animBtn) animBtn.style.display = 'flex';
                 
                 URL.revokeObjectURL(url);
             }, undefined, function (err) {
@@ -2102,19 +2401,23 @@
 
         function animate() {
             requestAnimationFrame(animate);
+            const now = performance.now();
+            const dt = Math.min((now - lastFrameTime) / 1000.0, 0.1);
+            lastFrameTime = now;
+
+            updateAnimations(dt);
             controls.update();
             updateMeasurementLabels();
             renderer.render(scene, camera);
         }
 
         // ==========================================
-        // DÉMARRAGE DE L'HISTORIQUE (après toutes les déclarations ci-dessus)
+        // DÉMARRAGE DE L'HISTORIQUE
         // ==========================================
         setupGalleryViewToggle();
         initDB().then(() => renderRecentGallery())
                 .catch(err => console.error("Erreur DB:", err));
 
-        // Demande au navigateur de ne pas purger l'historique (stockage persistant)
         if (navigator.storage && navigator.storage.persist) {
             navigator.storage.persist().catch(() => {});
         }
