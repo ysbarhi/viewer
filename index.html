@@ -264,6 +264,13 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.2); white-space: nowrap;
         }
 
+        #phase-banner {
+            position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%);
+            background: rgba(37, 99, 235, 0.92); color: #ffffff;
+            padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
+            z-index: 800; pointer-events: none; display: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); white-space: nowrap;
+        }
         #ui-panel {
             top: 20px; left: 50%; transform: translateX(-50%);
             background: #ffffff; border: 2px solid #ff0000; color: #000;
@@ -527,6 +534,7 @@
     </div>
 
     <div id="anim-banner">▶ Mode Animation : cliquez sur une porte ou un tiroir</div>
+    <div id="phase-banner"></div>
 
     <!-- CONTENEUR DES FILTRES DE MATERIAUX -->
     <div id="material-filter-container" class="ui-element"></div>
@@ -680,6 +688,7 @@
         
         let isAssemblyModeOn = false;
         let maxAssemblyStep = 0;
+        let assemblyHierarchy = null; // séquence hiérarchique lue dans le .glb (extras)
 
         // ==========================================
         // ÉTAT DU MODE ANIMATION DES OUVRANTS
@@ -727,6 +736,110 @@
         const edgeMaterial = new THREE.LineBasicMaterial({
             color: 0x000000, transparent: true, opacity: 1.0
         });
+        // ==========================================
+        // LECTURE DE LA SÉQUENCE D'ASSEMBLAGE HIÉRARCHIQUE (extras du .glb)
+        // ==========================================
+        function worldVecToLocal(node, vWorld) {
+            const p = node.parent;
+            if (!p) return vWorld.clone();
+            const a = p.worldToLocal(new THREE.Vector3(0, 0, 0));
+            const b = p.worldToLocal(vWorld.clone());
+            return b.sub(a);
+        }
+
+        function buildAssemblyHierarchy(groupsRaw, partNodes, edgeHost, globalCenter, globalSizeMax) {
+            if (!Array.isArray(groupsRaw) || groupsRaw.length === 0) return null;
+
+            const groups = groupsRaw.map(g => ({
+                id: String(g.id),
+                name: g.name || '',
+                order: Number(g.order) || 0,
+                parent_id: g.parent_id ? String(g.parent_id) : null,
+                final_step: Number(g.final_step) || 0,
+                maxLocal: 0, offset: 0, box: null, center: null, vecWorld: null
+            })).sort((a, b) => a.order - b.order);
+            const byId = new Map(groups.map(g => [g.id, g]));
+
+            const assembled = [];
+            partNodes.forEach(pn => {
+                const a = pn.userData.assembly;
+                if (a && a.group_id != null && byId.has(String(a.group_id))) assembled.push(pn);
+            });
+            if (assembled.length === 0) return null;
+
+            assembled.forEach(pn => {
+                const g = byId.get(String(pn.userData.assembly.group_id));
+                g.maxLocal = Math.max(g.maxLocal, Number(pn.userData.assembly.local_step) || 0);
+            });
+
+            let offset = 0;
+            groups.forEach(g => { g.offset = offset; offset += g.maxLocal; });
+            const finalOffset = offset;
+            const maxFinal = groups.reduce((m, g) => Math.max(m, g.final_step), 0);
+
+            const boxOf = new Map();
+            const getBox = (host) => {
+                let b = boxOf.get(host);
+                if (!b) { b = new THREE.Box3().setFromObject(host); boxOf.set(host, b); }
+                return b;
+            };
+            assembled.forEach(pn => {
+                if (edgeHost.has(pn)) return;
+                const g = byId.get(String(pn.userData.assembly.group_id));
+                if (!g.box) g.box = new THREE.Box3();
+                g.box.union(getBox(pn));
+            });
+            groups.forEach(g => {
+                g.center = g.box ? g.box.getCenter(new THREE.Vector3()) : globalCenter.clone();
+            });
+
+            groups.forEach(g => {
+                const parent = g.parent_id ? byId.get(g.parent_id) : null;
+                let vec;
+                if (!g.parent_id) {
+                    vec = new THREE.Vector3().subVectors(g.center, globalCenter);
+                    if (vec.length() < 2.5e-5) vec.set(0, 0, 0);
+                } else {
+                    vec = new THREE.Vector3().subVectors(g.center, parent ? parent.center : globalCenter);
+                    if (vec.length() < 2.5e-4) vec.set(0, 0, globalSizeMax * 0.45);
+                }
+                g.vecWorld = vec;
+            });
+
+            assembled.forEach(pn => {
+                const a = pn.userData.assembly;
+                const g = byId.get(String(a.group_id));
+                const host = edgeHost.get(pn) || pn;
+                const pc = getBox(host).getCenter(new THREE.Vector3());
+                const vl = new THREE.Vector3().subVectors(pc, g.center);
+                if (vl.length() < 2.5e-5) vl.set(0, globalSizeMax * 0.25, 0);
+                pn.userData.seq = {
+                    group: g,
+                    globalStep: g.offset + (Number(a.local_step) || 0),
+                    localDir: worldVecToLocal(pn, vl),
+                    groupDir: worldVecToLocal(pn, g.vecWorld)
+                };
+            });
+
+            return { groups, byId, finalOffset, maxFinal, total: finalOffset + maxFinal };
+        }
+
+        function assemblyPhaseLabel(val) {
+            const h = assemblyHierarchy;
+            if (!h) return '';
+            if (val <= 0) return 'Début : tout est éclaté';
+            for (const g of h.groups) {
+                if (g.maxLocal > 0 && val > g.offset && val <= g.offset + g.maxLocal) {
+                    return `${g.name} — étape ${val - g.offset}/${g.maxLocal}`;
+                }
+            }
+            if (val > h.finalOffset) {
+                const fs = val - h.finalOffset;
+                const names = h.groups.filter(g => g.final_step === fs).map(g => g.name).join(', ');
+                return `Assemblage final ${fs}/${h.maxFinal}` + (names ? ` : ${names}` : '');
+            }
+            return '';
+        }
 
         // ==========================================
         // MOTEUR MATHÉMATIQUE D'ANIMATION FINJAT
@@ -1275,6 +1388,9 @@
         function resetViewState() {
             isAssemblyModeOn = false;
             maxAssemblyStep = 0;
+            assemblyHierarchy = null;
+            const phaseBanner = document.getElementById('phase-banner');
+            if (phaseBanner) phaseBanner.style.display = 'none';
             const asmBtn = document.getElementById('assembly-mode-btn');
             if(asmBtn) asmBtn.classList.remove('active');
 
@@ -1472,8 +1588,16 @@
                     resetAllAnimations(true);
                 }
                 
+                const phaseBanner = document.getElementById('phase-banner');
                 if (isAssemblyModeOn) {
                     stepInd.innerText = `${val}/${maxAssemblyStep}`;
+                    if (phaseBanner) {
+                        const txt = assemblyPhaseLabel(val);
+                        phaseBanner.innerText = txt;
+                        phaseBanner.style.display = txt ? 'block' : 'none';
+                    }
+                } else if (phaseBanner) {
+                    phaseBanner.style.display = 'none';
                 }
 
                 globalModel.traverse(function (node) {
@@ -1482,7 +1606,15 @@
                         if (node.userData.originalQuaternion) node.quaternion.copy(node.userData.originalQuaternion);
                         if (node.userData.originalScale) node.scale.copy(node.userData.originalScale);
 
-                        if (isAssemblyModeOn) {
+                        if (isAssemblyModeOn && assemblyHierarchy && node.userData.seq) {
+                            // Séquence hiérarchique : éclatement du sous-ensemble + éclatement local de la pièce
+                            const sq = node.userData.seq;
+                            node.position.copy(node.userData.originalPosition);
+                            const parentDone = !(sq.group.final_step > 0) ||
+                                               val >= assemblyHierarchy.finalOffset + sq.group.final_step;
+                            if (!parentDone) node.position.addScaledVector(sq.groupDir, 1.5 * 0.85);
+                            if (val < sq.globalStep) node.position.addScaledVector(sq.localDir, 1.5);
+                        } else if (isAssemblyModeOn) {
                             if (node.userData.assemblyStep > val) {
                                 node.position.copy(node.userData.originalPosition)
                                     .addScaledVector(node.userData.explodeDirection, 1.5);
@@ -2132,6 +2264,7 @@
                     partNode.userData.assemblyStep = 0;
 
                     let foundAnimCfg = null;
+                    let foundAssembly = null;
                     const checkNode = (n) => {
                         const match = n.name && n.name.match(/__STEP(\d+)/i);
                         if (match) {
@@ -2144,9 +2277,14 @@
                         if (!foundAnimCfg && n.userData && n.userData.finjat && n.userData.finjat.animation) {
                             foundAnimCfg = n.userData.finjat.animation;
                         }
+                        // Info d'assemblage hiérarchique (node.extras.finjat.assembly)
+                        if (!foundAssembly && n.userData && n.userData.finjat && n.userData.finjat.assembly) {
+                            foundAssembly = n.userData.finjat.assembly;
+                        }
                     };
                     partNode.traverse(checkNode);
                     for (let a = partNode.parent; a && a !== globalModel; a = a.parent) checkNode(a);
+                        if (foundAssembly) partNode.userData.assembly = foundAssembly;
 
                     if (foundAnimCfg && Array.isArray(foundAnimCfg.steps) && foundAnimCfg.steps.length > 0) {
                         partNode.userData.animationCfg = foundAnimCfg;
@@ -2158,10 +2296,19 @@
                 // Les chants héritent de l'étape de montage ET suivent l'animation de leur panneau hôte
                 edgeHost.forEach((host, ep) => {
                     ep.userData.assemblyStep = host.userData.assemblyStep;
+                    ep.userData.assembly = host.userData.assembly;   // le chant suit l'assemblage de son panneau
                     ep.userData.hostPart = host;
                     if (!host.userData.attachedEdgeParts) host.userData.attachedEdgeParts = [];
                     host.userData.attachedEdgeParts.push(ep);
                 });
+
+                // Séquence d'assemblage hiérarchique lue dans le .glb
+                const asmGroups = (gltf.userData && gltf.userData.finjat) ? gltf.userData.finjat.assembly_groups : null;
+                assemblyHierarchy = buildAssemblyHierarchy(asmGroups, partNodes, edgeHost, globalCenter, globalSizeMax);
+                if (assemblyHierarchy) {
+                    maxAssemblyStep = assemblyHierarchy.total;
+                    console.log(`Finjat: séquence hiérarchique détectée (${assemblyHierarchy.groups.length} niveaux, ${assemblyHierarchy.total} étapes).`);
+                }
 
                 namesToStrip.forEach(n => { n.name = n.name.replace(/__STEP\d+/i, '').trim(); });
 
