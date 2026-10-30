@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.ysbarhi.twa",
+        "sha256_cert_fingerprints": ["F2:A3:96:64:03:2F:10:C9:4B:80:BC:9A:A2:68:6C:1D:16:43:67:4E:5D:8E:D3:B7:82:8D:30:84:2E:58:B0:4D"]
+      }
+    }]
