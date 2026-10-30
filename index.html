@@ -23,142 +23,274 @@
         /* ========================================= */
         /* UI DES MESURES ET INFORMATIONS            */
         /* ========================================= */
-        /* ========================================= */
-        /* UNIFIED UI STYLE (MATCHING MOCKUP)        */
-        /* ========================================= */
-        .ui-element {
-            display: none;
-            position: absolute;
-            z-index: 100;
-            box-sizing: border-box;
-        }
-
-        .pill-btn {
-            background: #9ca3af;
-            border: none;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            transition: transform 0.1s, background 0.2s;
-        }
-        .pill-btn:active { transform: scale(0.95); }
-        .pill-btn.active { background: #2563eb; }
-        .pill-btn svg { pointer-events: none; }
-
-        .square-btn {
-            width: 50px;
-            height: 50px;
-            border-radius: 12px;
-            background: #9ca3af;
-            border: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.1s, background 0.2s;
-        }
-        .square-btn:active { transform: scale(0.95); }
-        .square-btn.active { background: #60d4cf; }
-        .square-btn svg { stroke: #fff; }
-
-        #close-project-btn {
-            top: 15px; left: 15px; width: 44px; height: 44px;
-            background: #9ca3af; border-radius: 8px; border: none; cursor: pointer;
-            display: none; align-items: center; justify-content: center;
-        }
-        
         #top-info-panel {
-            position: absolute; top: 15px; left: 65px; right: 65px;
-            background: #9ca3af; padding: 8px; border-radius: 8px;
-            text-align: center; z-index: 800; display: none;
-            color: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9); padding: 8px 20px; border-radius: 12px;
+            text-align: center; z-index: 800; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            pointer-events: none; display: none; min-width: 200px;
         }
-        #info-title { font-weight: bold; font-size: 16px; }
-        #info-dims { font-size: 12px; margin-top: 2px; }
-        #info-material { font-size: 11px; color: #60d4cf; margin-top: 2px; font-weight: bold; display: none; }
-
         #unit-toggle-btn {
-            top: 15px; right: 15px; width: 44px; height: 44px;
-            background: #9ca3af; color: white; border: none;
-            border-radius: 8px; font-size: 16px; font-weight: bold;
-            cursor: pointer; z-index: 800; display: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: absolute; top: 15px; right: 20px;
+            background: #2563eb; color: white; border: none;
+            border-radius: 8px; padding: 6px 14px; font-size: 16px; font-weight: bold;
+            cursor: pointer; z-index: 800; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
+        #unit-toggle-btn:active { transform: scale(0.95); }
+        #info-title { font-weight: bold; font-size: 16px; color: #111; }
+        #info-dims { font-size: 13px; color: #555; margin-top: 4px; }
+        #info-material { font-size: 13px; color: #2563eb; margin-top: 4px; font-weight: bold; display: none; }
 
+        /* ========================================= */
+        /* FILTRES MATÉRIAUX DYNAMIQUES              */
+        /* ========================================= */
         #material-filter-container {
-            position: absolute; top: 75px; left: 15px; right: 15px;
-            display: flex; flex-direction: row; gap: 8px; z-index: 800;
-            overflow-x: auto; padding-bottom: 5px;
+            position: absolute; top: 65px; right: 20px;
+            display: flex; flex-direction: column; gap: 10px; z-index: 800;
         }
         .mat-filter-btn {
-            width: 50px; height: 50px; border-radius: 8px; border: 2px solid transparent;
+            width: 42px; height: 42px; border-radius: 8px; border: 3px solid #ffffff;
             cursor: pointer; background-size: cover; background-position: center;
-            transition: all 0.2s; padding: 0; position: relative; flex-shrink: 0;
-            background-color: #9ca3af; color: white; font-weight: bold; font-size: 14px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: all 0.2s;
             display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: bold; text-transform: uppercase; overflow: hidden;
+            padding: 0; position: relative;
         }
-        .mat-filter-btn.active { border-color: #60d4cf; transform: scale(1.05); }
+        .mat-filter-btn.active {
+            border-color: #2563eb; transform: scale(1.1); box-shadow: 0 0 10px rgba(37,99,235,0.8);
+        }
 
-        #touch-select-container { top: 35%; right: 15px; display: none; flex-direction: column; align-items: center; }
-        #touch-toggle {
-            width: 32px; height: 56px; background: #9ca3af; border-radius: 16px;
-            position: relative; cursor: pointer; transition: background 0.3s;
+        /* ========================================= */
+        /* BOUTON TACTILE (SÉLECTION 3D)             */
+        /* ========================================= */
+        #touch-select-container {
+            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 800;
         }
-        #touch-toggle.toggle-on { background: #60d4cf; }
+        #touch-toggle {
+            width: 32px; height: 56px; background: #999; border-radius: 16px;
+            position: relative; cursor: pointer; transition: background 0.3s;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+        #touch-toggle.toggle-on { background: #2563eb; }
         .toggle-knob {
             width: 24px; height: 24px; background: white; border-radius: 50%;
-            position: absolute; left: 4px; bottom: 4px; transition: transform 0.3s;
+            position: absolute; left: 4px; bottom: 4px; 
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         #touch-toggle.toggle-on .toggle-knob { transform: translateY(-24px); }
 
-        #edge-btn { top: 25%; right: 15px; display: none; }
-        #toggle-measure-btn { top: 50%; right: 15px; display: none; }
-        #texture-btn { top: 58%; right: 15px; display: none; }
-        #zoom-btn { top: 66%; right: 15px; display: none; }
-        #xray-btn { top: 58%; right: 75px; display: none; }
-
-        #anim-mode-btn { bottom: 120px; left: 15px; display: none; }
-        #assembly-mode-btn { bottom: 65px; left: 15px; display: none; }
-
-        #step-controls-container {
-            bottom: 65px; left: 50%; transform: translateX(-50%); width: 100px; height: 36px;
-            display: none; justify-content: space-between; align-items: center;
-            background: #9ca3af; border-radius: 18px; padding: 0 10px;
-            color: white; font-weight: bold;
+        .floating-label {
+            position: absolute; background: rgba(0, 0, 0, 0.7); color: #fff;
+            padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold;
+            pointer-events: none; transform: translate(-50%, -50%);
+            z-index: 500; display: none; border: 1px solid rgba(255,255,255,0.2);
         }
-        .step-btn { background: none; border: none; color: white; font-size: 18px; cursor: pointer; }
-        .step-btn:disabled { color: rgba(255,255,255,0.4); }
-        #step-indicator { font-size: 13px; }
+        body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; transition: background-color 0.3s ease; }
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+
+        /* SPLASH SCREEN VIDEO */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #000000; z-index: 9999;
+            display: flex; justify-content: center; align-items: center;
+            transition: opacity 0.5s ease-out;
+            cursor: pointer;
+        }
+        #splash-video {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+
+        #start-menu {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #e5e5e5; display: flex; flex-direction: column;
+            align-items: center; z-index: 900;
+            transition: background-color 0.3s ease;
+            padding-top: 8vh; 
+        }
+        #file-btn {
+            background: #2563eb; color: #ffffff; border: none;
+            padding: 15px 30px; border-radius: 10px; font-size: 18px; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 20px;
+        }
+        #file-btn:active { background: #1d4ed8; transform: scale(0.98); }
+
+        /* ========================================= */
+        /* GALERIE DES MEUBLES                       */
+        /* ========================================= */
+        #recent-gallery-container {
+            width: 90%; max-width: 800px; flex-grow: 1; 
+            margin-top: 25px; margin-bottom: 20px;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .gallery-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 10px; padding: 0 5px;
+        }
+        .gallery-header h3 { margin: 0; font-size: 18px; color: #333; }
+        
+        #view-toggle-btn {
+            background: transparent; border: none; padding: 5px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        #view-toggle-btn:active { transform: scale(0.9); }
+
+        #recent-gallery {
+            overflow-y: auto; padding: 5px; display: grid; gap: 12px; flex-grow: 1;
+            align-content: flex-start;
+        }
+
+        .layout-list { grid-template-columns: 1fr; }
+        .layout-grid { grid-template-columns: repeat(2, 1fr); } 
+
+        .recent-item {
+            background: #ffffff; border-radius: 10px; padding: 10px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #ddd;
+            position: relative; transition: transform 0.2s;
+        }
+        .recent-item:active { transform: scale(0.98); }
+
+        #recent-gallery.layout-grid .recent-item {
+            flex-direction: column; padding: 10px; justify-content: flex-start;
+            aspect-ratio: 4 / 5;
+        }
+
+        .recent-thumb {
+            width: 50px; height: 50px; border-radius: 6px; object-fit: cover;
+            background: #f0f0f0; margin-right: 15px; flex-shrink: 0; border: 1px solid #eee;
+        }
+        #recent-gallery.layout-grid .recent-thumb {
+            width: 100%; height: 75%; aspect-ratio: auto; margin-right: 0; margin-bottom: 10px;
+            border-radius: 8px;
+        }
+
+        .recent-info {
+            display: flex; align-items: center; flex-grow: 1; overflow: hidden; width: 100%; cursor: pointer;
+        }
+        #recent-gallery.layout-grid .recent-info { flex-direction: column; justify-content: center; }
+
+        .recent-item span { 
+            font-weight: bold; color: #333; font-size: 14px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
+        }
+        #recent-gallery.layout-grid .recent-item span { text-align: center; font-size: 13px; margin-top: 5px; }
+
+        .recent-delete {
+            background: #ff4444; color: white; border: none; border-radius: 6px;
+            width: 32px; height: 32px; font-weight: bold; cursor: pointer;
+            display: flex; justify-content: center; align-items: center; 
+            box-shadow: 0 2px 4px rgba(255,0,0,0.2); flex-shrink: 0; z-index: 2;
+        }
+        #recent-gallery.layout-grid .recent-delete {
+            position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; font-size: 12px;
+        }
+        
+        #loader {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(229, 229, 229, 0.9); display: none; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 999;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 4px solid #bbb;
+            border-top: 4px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #version-badge { font-weight: bold; font-size: 22px; color: #333; text-align: center; }
+        .author-badge { font-size: 12px; color: #666; margin-top: 5px; }
+
+        .ui-element { display: none; position: absolute; z-index: 100; }
+
+        #close-project-btn {
+            top: 20px; left: 20px; width: 45px; height: 45px;
+            background: #666; border-radius: 50%; border: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); cursor: pointer;
+            display: none; align-items: center; justify-content: center;
+        }
 
         #explode-slider-container {
-            bottom: 20px; left: 15px; right: 15px; height: 36px;
-            display: none; align-items: center; justify-content: center;
-            padding: 0 10px;
+            bottom: 45px; left: 20px; height: 180px; width: 40px;
+            display: none; flex-direction: column; align-items: center;
         }
         #explode-slider {
-            -webkit-appearance: none; width: 100%; height: 6px; background: #9ca3af;
-            border-radius: 3px; outline: none; margin: 0 15px;
-        }
-        #explode-slider::-webkit-slider-thumb {
-            -webkit-appearance: none; width: 20px; height: 20px; background: #60d4cf;
-            border-radius: 4px; cursor: pointer;
+            -webkit-appearance: slider-vertical;
+            width: 8px; height: 180px; margin: 0; background: transparent; cursor: pointer;
         }
 
-        #scan-btn {
-            bottom: 15px; right: 15px; width: 80px; height: 80px;
-            background: #60d4cf; border: none; border-radius: 12px;
-            cursor: pointer; display: none; align-items: center; justify-content: center;
-            box-shadow: 0 4px 10px rgba(96, 212, 207, 0.4); position: absolute; z-index: 100;
+        /* CONTRÔLEUR D'ÉTAPES (FLÈCHES) */
+        #step-controls-container {
+            bottom: 10px; left: 10px; width: 85px; height: 32px;
+            display: none; justify-content: space-between; align-items: center;
+            background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 0 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2); box-sizing: border-box;
         }
-        #scan-btn svg { stroke: #fff; }
+        .step-btn {
+            background: none; border: none; font-size: 16px; font-weight: 900; color: #2563eb;
+            cursor: pointer; padding: 0; margin: 0; line-height: 1; transition: transform 0.1s;
+        }
+        .step-btn:disabled { color: #ccc; cursor: not-allowed; }
+        .step-btn:active:not(:disabled) { transform: scale(0.8); }
+        #step-indicator { font-size: 13px; font-weight: bold; color: #aaa; pointer-events: none; }
+        #step-indicator.active { color: #333; }
 
+        .floating-btn {
+            width: 60px; height: 60px; border-radius: 50%; background: #ffffff;
+            border: none; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .floating-btn.active { background: #dbeafe; border: 2px solid #2563eb; }
+
+        /* BOUTONS FLOTTANTS */
+        #anim-mode-btn { bottom: 295px; left: 15px; width: 50px; height: 50px; }
+        #anim-mode-btn.active {
+            background: #dcfce7; border: 2px solid #16a34a;
+            box-shadow: 0 0 12px rgba(22, 163, 74, 0.6);
+        }
+        #anim-mode-btn.active svg { stroke: #15803d; }
+
+        #assembly-mode-btn { bottom: 235px; left: 15px; width: 50px; height: 50px; }
+        #texture-btn { bottom: 40px; left: calc(50% - 105px); }
+        #xray-btn { bottom: 40px; left: calc(50% - 30px); }
+        #edge-btn { bottom: 40px; left: calc(50% + 45px); }
+        #zoom-btn { bottom: 130px; right: 25px; }
+        #toggle-measure-btn { bottom: 205px; right: 25px; font-size: 24px; }
+
+        /* BANNIÈRE MODE ANIMATION */
+        #anim-banner {
+            position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%);
+            background: rgba(22, 163, 74, 0.92); color: #ffffff;
+            padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
+            z-index: 800; pointer-events: none; display: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); white-space: nowrap;
+        }
+
+        #phase-banner {
+            position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%);
+            background: rgba(37, 99, 235, 0.92); color: #ffffff;
+            padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
+            z-index: 800; pointer-events: none; display: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); white-space: nowrap;
+        }
+        #ui-panel {
+            top: 20px; left: 50%; transform: translateX(-50%);
+            background: #ffffff; border: 2px solid #ff0000; color: #000;
+            padding: 10px 20px; border-radius: 5px; font-weight: bold; font-size: 16px;
+            pointer-events: none; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        #reader-container {
+            display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000000; z-index: 1000;
+        }
+        #close-scan-btn {
+            position: absolute; top: 20px; right: 20px; background: #ff0000; color: white;
+            border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; z-index: 1001;
+        }
+        #reader { width: 100vw; height: 100vh; }
+
+        /* ========================================= */
+        /* PANNEAU LATÉRAL & INDICATEUR VISUEL       */
+        /* ========================================= */
         #sidebar-hint {
             position: fixed; top: 50%; left: 0; transform: translateY(-50%);
             width: 4px; height: 60px; background: rgba(37, 99, 235, 0.8);
@@ -167,18 +299,24 @@
             transition: opacity 0.3s ease;
             animation: pulseHint 2s infinite alternate ease-in-out;
         }
+        
         #sidebar-hint::after {
-            content: ''; position: absolute; top: -50px; bottom: -50px; left: 0; width: 40px;
+            content: ''; position: absolute;
+            top: -50px; bottom: -50px; left: 0; width: 40px;
         }
+
         @keyframes pulseHint {
             0% { opacity: 0.3; transform: translateY(-50%) scaleX(1); }
             100% { opacity: 1; transform: translateY(-50%) scaleX(1.5); }
         }
+
         #sidebar-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.5); z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+            background: rgba(0,0,0,0.5); z-index: 1999;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
         }
         #sidebar-overlay.active { opacity: 1; pointer-events: auto; }
+
         #sidebar {
             position: fixed; top: 0; left: 0; width: 260px; height: 100vh;
             background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(15px);
@@ -187,7 +325,9 @@
             padding: 20px; box-sizing: border-box; display: flex; flex-direction: column;
         }
         #sidebar.active { transform: translateX(0); }
+
         #sidebar h2 { margin: 0 0 20px 0; font-size: 20px; color: #333; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
+        
         .theme-btn {
             background: #fff; border: 1px solid #ddd; border-radius: 8px;
             padding: 12px; margin-bottom: 10px; font-size: 16px; font-weight: bold;
@@ -196,6 +336,7 @@
         }
         .theme-btn:active { transform: scale(0.98); }
         .theme-color-dot { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #aaa; }
+
         .color-picker-wrapper {
             margin-top: 10px; padding: 15px; background: #fff;
             border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
@@ -203,74 +344,66 @@
         }
         .color-picker-wrapper label { font-weight: bold; color: #333; }
         #custom-color-picker { border: none; width: 40px; height: 40px; border-radius: 5px; cursor: pointer; background: none; }
-        
-        /* Keep existing styles for Splash, Menu, Gallery, etc. below this line */
-        #top-info-panel, #splash-screen, #start-menu, #file-btn, #recent-gallery-container, .gallery-header, #view-toggle-btn, #recent-gallery, .layout-list, .layout-grid, .recent-item, .recent-thumb, .recent-info, .recent-delete, #loader, .spinner, #version-badge, .author-badge, #ui-panel, #reader-container, #close-scan-btn, #reader, .floating-label, #confirm-overlay, #confirm-box, .confirm-title, #confirm-name, .confirm-text, .confirm-actions, #confirm-cancel, #confirm-ok, #save-local-btn, .recent-empty, .recent-name, .recent-name-text, #recent-gallery.layout-grid .recent-item, #recent-gallery.layout-grid .recent-info, #recent-gallery.layout-grid .recent-thumb, #recent-gallery.layout-grid .recent-name, #recent-gallery.layout-grid .recent-name-text, .recent-name-text.marquee, @keyframes finjat-marquee, #recent-gallery.layout-grid .recent-delete {
-             /* These will inherit the defaults or keep their own definitions if not overridden here. */
+
+        /* ========================================= */
+        /* BOUTON SCANNER HOLOGRAPHIQUE              */
+        /* ========================================= */
+        #scan-btn {
+            bottom: 40px; right: 20px; width: 80px; height: 80px;
+            background: rgba(0, 191, 255, 0.1); backdrop-filter: blur(5px);
+            border: 1px solid rgba(0, 191, 255, 0.5); border-radius: 15px;
+            box-shadow: 0 0 15px rgba(0, 191, 255, 0.4), inset 0 0 20px rgba(0, 191, 255, 0.2);
+            cursor: pointer; overflow: visible; transition: all 0.2s ease;
+            padding: 0; display: flex; justify-content: center; align-items: center;
+            z-index: 100; position: absolute;
         }
+        #scan-btn:hover { box-shadow: 0 0 25px rgba(0, 191, 255, 0.7), inset 0 0 30px rgba(0, 191, 255, 0.4); transform: scale(1.05); }
         
-        /* We keep the original styles for the gallery, menus, etc. intact */
-        #splash-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #000000; z-index: 9999; display: flex; justify-content: center; align-items: center; transition: opacity 0.5s ease-out; cursor: pointer; }
-        #splash-video { width: 100%; height: 100%; object-fit: cover; }
-        #start-menu { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #e5e5e5; display: flex; flex-direction: column; align-items: center; z-index: 900; transition: background-color 0.3s ease; padding-top: 8vh; }
-        #file-btn { background: #2563eb; color: #ffffff; border: none; padding: 15px 30px; border-radius: 10px; font-size: 18px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 20px; }
-        #file-btn:active { background: #1d4ed8; transform: scale(0.98); }
-        #recent-gallery-container { width: 90%; max-width: 800px; flex-grow: 1; margin-top: 25px; margin-bottom: 20px; display: flex; flex-direction: column; overflow: hidden; }
-        .gallery-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 5px; }
-        .gallery-header h3 { margin: 0; font-size: 18px; color: #333; }
-        #view-toggle-btn { background: transparent; border: none; padding: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        #view-toggle-btn:active { transform: scale(0.9); }
-        #recent-gallery { overflow-y: auto; padding: 5px; display: grid; gap: 12px; flex-grow: 1; align-content: flex-start; }
-        .layout-list { grid-template-columns: 1fr; }
-        .layout-grid { grid-template-columns: repeat(2, 1fr); }
-        .recent-item { background: #ffffff; border-radius: 10px; padding: 10px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #ddd; position: relative; transition: transform 0.2s; }
-        .recent-item:active { transform: scale(0.98); }
-        #recent-gallery.layout-grid .recent-item { flex-direction: column; padding: 10px; justify-content: flex-start; aspect-ratio: 4 / 5; }
-        .recent-thumb { width: 50px; height: 50px; border-radius: 6px; object-fit: cover; background: #f0f0f0; margin-right: 15px; flex-shrink: 0; border: 1px solid #eee; }
-        #recent-gallery.layout-grid .recent-thumb { width: 100%; height: 75%; aspect-ratio: auto; margin-right: 0; margin-bottom: 10px; border-radius: 8px; }
-        .recent-info { display: flex; align-items: center; flex-grow: 1; overflow: hidden; width: 100%; cursor: pointer; }
-        #recent-gallery.layout-grid .recent-info { flex-direction: column; justify-content: center; }
-        .recent-item span { font-weight: bold; color: #333; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-        #recent-gallery.layout-grid .recent-item span { text-align: center; font-size: 13px; margin-top: 5px; }
-        .recent-delete { background: #ff4444; color: white; border: none; border-radius: 6px; width: 32px; height: 32px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(255,0,0,0.2); flex-shrink: 0; z-index: 2; }
-        #recent-gallery.layout-grid .recent-delete { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; font-size: 12px; }
-        #loader { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(229, 229, 229, 0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 999; }
-        .spinner { width: 50px; height: 50px; border: 4px solid #bbb; border-top: 4px solid #ff0000; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #version-badge { font-weight: bold; font-size: 22px; color: #333; text-align: center; }
-        .author-badge { font-size: 12px; color: #666; margin-top: 5px; }
-        #ui-panel { top: 20px; left: 50%; transform: translateX(-50%); background: #ffffff; border: 2px solid #ff0000; color: #000; padding: 10px 20px; border-radius: 5px; font-weight: bold; font-size: 16px; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; position: absolute; z-index: 100; }
-        #reader-container { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: #000000; z-index: 1000; }
-        #close-scan-btn { position: absolute; top: 20px; right: 20px; background: #ff0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; z-index: 1001; }
-        #reader { width: 100vw; height: 100vh; }
-        .floating-label { position: absolute; background: rgba(0, 0, 0, 0.7); color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; pointer-events: none; transform: translate(-50%, -50%); z-index: 500; display: none; border: 1px solid rgba(255,255,255,0.2); }
-        #confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 3000; display: none; align-items: center; justify-content: center; padding: 20px; }
-        #confirm-overlay.active { display: flex; }
-        #confirm-box { background: #fff; border-radius: 14px; padding: 22px 20px 16px; width: 100%; max-width: 340px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); text-align: center; }
-        .confirm-title { font-size: 18px; font-weight: bold; color: #222; margin-bottom: 10px; }
-        #confirm-name { font-weight: bold; color: #2563eb; font-size: 14px; word-break: break-all; margin-bottom: 8px; }
-        .confirm-text { font-size: 14px; color: #666; margin-bottom: 18px; }
-        .confirm-actions { display: flex; gap: 10px; }
-        .confirm-actions button { flex: 1; padding: 12px; border-radius: 8px; border: none; font-size: 15px; font-weight: bold; cursor: pointer; }
-        .confirm-actions button:active { transform: scale(0.97); }
-        #confirm-cancel { background: #e5e7eb; color: #333; }
-        #confirm-ok { background: #dc2626; color: #fff; }
-        #save-local-btn { display: none; align-items: center; justify-content: center; gap: 8px; width: 100%; background: #2563eb; color: #fff; border: none; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4); }
-        #save-local-btn:active { transform: scale(0.98); }
-        .recent-empty { color: #888; font-size: 14px; text-align: center; padding: 20px 0; grid-column: 1 / -1; }
-        .recent-name { flex: 1 1 auto; min-width: 0; overflow: hidden; }
-        .recent-name-text { display: block; font-weight: bold; color: #333; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        #recent-gallery.layout-grid .recent-item { flex-direction: column; align-items: stretch; justify-content: flex-start; padding: 0; aspect-ratio: 1 / 1; overflow: hidden; }
-        #recent-gallery.layout-grid .recent-info { flex-direction: column; align-items: stretch; justify-content: flex-start; height: 100%; width: 100%; }
-        #recent-gallery.layout-grid .recent-thumb { width: 100%; height: auto; flex: 1 1 0; min-height: 0; margin: 0; border: none; border-radius: 0; }
-        #recent-gallery.layout-grid .recent-name { flex: 0 0 auto; height: 38px; padding: 0 10px; box-sizing: border-box; display: flex; align-items: center; background: #fff; border-top: 1px solid #eee; }
-        #recent-gallery.layout-grid .recent-name-text { display: inline-block; overflow: visible; text-overflow: clip; width: auto; font-size: 13px; text-align: left; margin: 0; }
-        .recent-name-text.marquee { animation: finjat-marquee var(--marquee-dur, 6s) ease-in-out infinite alternate; }
-        @keyframes finjat-marquee { 0%, 15% { transform: translateX(0); } 85%, 100% { transform: translateX(var(--marquee-dist, 0px)); } }
-        #recent-gallery.layout-grid .recent-delete { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; font-size: 13px; background: rgba(220, 38, 38, 0.92); box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
+        .holo-bg {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 15px; overflow: hidden;
+            background-image: linear-gradient(rgba(0, 191, 255, 0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 191, 255, 0.3) 1px, transparent 1px);
+            background-size: 12px 12px; opacity: 0.5;
+        }
+        .holo-scanline {
+            position: absolute; top: 0; left: 0; right: 0; height: 2px; background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 10px 3px #00bfff; animation: holoScan 2s infinite linear;
+        }
+        @keyframes holoScan { 0% { transform: translateY(-5px); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(85px); opacity: 0; } }
         
-        body { margin: 0; overflow: hidden; background-color: #e5e5e5; font-family: sans-serif; touch-action: none; transition: background-color 0.3s ease; }
-        #canvas-container { width: 100vw; height: 100vh; display: block; }
+        .holo-content { position: relative; z-index: 5; }
+        .holo-circle {
+            width: 50px; height: 50px; border: 2px solid #00bfff; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 0 10px #00bfff, inset 0 0 10px #00bfff; animation: pulseHolo 2s infinite alternate;
+        }
+        @keyframes pulseHolo { 0% { transform: scale(0.95); opacity: 0.8; } 100% { transform: scale(1.05); opacity: 1; } }
+
+        .burst-flash {
+            position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: #ffffff; border-radius: 50%;
+            transform: translate(-50%, -50%); box-shadow: 0 0 30px 20px #00bfff; opacity: 0; pointer-events: none; z-index: 20;
+        }
+        .burst-active .burst-flash { animation: flashAnim 0.5s ease-out forwards; }
+        @keyframes flashAnim { 0% { width: 0; height: 0; opacity: 1; } 50% { width: 120px; height: 120px; opacity: 0.8; } 100% { width: 180px; height: 180px; opacity: 0; } }
+        .burst-particle {
+            position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; background: #00bfff; border-radius: 50%;
+            box-shadow: 0 0 10px 2px #00bfff; opacity: 0; pointer-events: none; z-index: 15;
+        }
+        .burst-active .bp1 { animation: shoot1 0.6s ease-out forwards; }
+        .burst-active .bp2 { animation: shoot2 0.6s ease-out forwards; }
+        .burst-active .bp3 { animation: shoot3 0.6s ease-out forwards; }
+        .burst-active .bp4 { animation: shoot4 0.6s ease-out forwards; }
+        .burst-active .bp5 { animation: shoot5 0.6s ease-out forwards; }
+        .burst-active .bp6 { animation: shoot6 0.6s ease-out forwards; }
+        @keyframes shoot1 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-80px, -80px) scale(0); opacity: 0; } }
+        @keyframes shoot2 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(80px, -80px) scale(0); opacity: 0; } }
+        @keyframes shoot3 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-80px, 80px) scale(0); opacity: 0; } }
+        @keyframes shoot4 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(80px, 80px) scale(0); opacity: 0; } }
+        @keyframes shoot5 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(0px, -100px) scale(0); opacity: 0; } }
+        @keyframes shoot6 { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(0px, 100px) scale(0); opacity: 0; } }
+    
+        /* ========================================= */
+        /* HISTORIQUE : liste / grandes vignettes    */
+        /* ========================================= */
         #view-toggle-btn {
             background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 6px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
@@ -365,35 +498,6 @@
     </script>
 </head>
 <body>
-        <div id="start-menu">
-        <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">by Yassine Sbarhi</div>
-        <input type="file" id="file-input" accept=".glb,model/gltf-binary" style="display:none">
-        <button id="file-btn">Ouvrir un fichier .glb</button>
-        <div id="recent-gallery-container">
-            <div class="gallery-header">
-                <h3>Récents</h3>
-                <button id="view-toggle-btn" title="Changer la vue">
-                    <svg id="view-icon" viewBox="0 0 24 24" width="20" height="20" stroke="#333" stroke-width="2" fill="none"></svg>
-                </button>
-            </div>
-            <div id="recent-gallery" class="layout-list"></div>
-        </div>
-        <div id="loader">
-            <div class="spinner"></div>
-        </div>
-    </div>
-
-    <button id="close-project-btn" class="ui-element">
-        <svg viewBox="0 0 24 24" width="22" height="22" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-
-    <div id="anim-banner"></div>
-    <div id="phase-banner"></div>
-
-    <div id="label-x" class="floating-label"></div>
-    <div id="label-y" class="floating-label"></div>
-    <div id="label-z" class="floating-label"></div>
     <div id="splash-screen">
         <video id="splash-video" src="splash-cgi.mp4" autoplay muted playsinline disablePictureInPicture></video>
     </div>
@@ -429,64 +533,81 @@
         <div id="info-material"></div> 
     </div>
 
-            <!-- CONTENEUR DES FILTRES DE MATERIAUX -->
-    <div id="material-filter-container" class="ui-element"></div>
-    <button id="unit-toggle-btn" class="ui-element">mm</button>
+    <div id="anim-banner">▶ Mode Animation : cliquez sur une porte ou un tiroir</div>
+    <div id="phase-banner"></div>
 
-    <!-- RIGHT SIDE TOGGLES -->
-    <button id="edge-btn" class="square-btn ui-element" title="Voir les chants">
-        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="5" y="4" width="14" height="16" rx="1"></rect>
-            <path d="M19 4v16" stroke="currentColor" stroke-width="4"></path>
-        </svg>
-    </button>
+    <!-- CONTENEUR DES FILTRES DE MATERIAUX -->
+    <div id="material-filter-container" class="ui-element"></div>
+
+    <button id="unit-toggle-btn" class="ui-element">mm</button>
+    
+    <button id="toggle-measure-btn" class="floating-btn ui-element" title="Afficher/Masquer les dimensions">📏</button>
 
     <div id="touch-select-container" class="ui-element">
         <div id="touch-toggle">
             <div class="toggle-knob"></div>
         </div>
+        <svg class="touch-icon" viewBox="0 0 24 24" width="28" height="28" stroke="#555" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11V4a2 2 0 0 1 4 0v6M13 11a2 2 0 0 1 4 0v4a6 6 0 0 1-6 6H7a8 8 0 0 1-8-8v-2a2 2 0 0 1 4 0v2"></path>
+        </svg>
     </div>
 
-    <button id="toggle-measure-btn" class="square-btn ui-element" title="Dimensions">
-        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z"/>
-            <path d="M12 22L12 13"/><path d="M12 13L3 8.5"/><path d="M12 13L21 8.5"/>
-        </svg>
+    <div id="label-x" class="floating-label"></div>
+    <div id="label-y" class="floating-label"></div>
+    <div id="label-z" class="floating-label"></div>
+
+    <div id="start-menu">
+        <div id="version-badge">Finjat 3D Viewer</div>
+        <div class="author-badge">v1.26.0</div> 
+        <div class="author-badge">© Yassine Sbarhi 2026</div>
+        <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
+        <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
+        
+        <div id="recent-gallery-container">
+            <div class="gallery-header">
+                <h3>Historique</h3>
+                <button id="view-toggle-btn" aria-label="Changer l'affichage">
+                    <svg id="view-icon" viewBox="0 0 24 24" width="24" height="24" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></svg>
+                </button>
+            </div>
+            <div id="recent-gallery" class="layout-list"></div>
+        </div>
+    </div>
+
+    <div id="confirm-overlay">
+        <div id="confirm-box" role="dialog" aria-modal="true">
+            <div class="confirm-title">Supprimer ce fichier ?</div>
+            <div id="confirm-name"></div>
+            <div class="confirm-text">Il sera retiré de votre historique.</div>
+            <div class="confirm-actions">
+                <button id="confirm-cancel" type="button">Annuler</button>
+                <button id="confirm-ok" type="button">Supprimer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loader">
+        <div class="spinner"></div>
+        <div style="font-weight: bold; color: #333;">Préparation de la 3D...</div>
+    </div>
+
+    <div id="ui-panel" class="ui-element">PIÈCE : ...</div>
+
+    <button id="close-project-btn" class="ui-element">
+        <svg viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
     </button>
 
-    <button id="texture-btn" class="square-btn ui-element">
-        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z"/>
-            <path d="M12 22l9-4.5v-9L12 13l-9-4.5v9L12 22z"/>
-            <path d="M12 13L3 8.5l9-4.5 9 4.5L12 13z"/>
-        </svg>
-    </button>
-    
-    <button id="xray-btn" class="square-btn ui-element">
-        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="8" stroke-dasharray="4 4"/>
-            <path d="M12 4v16M4 12h16"/>
-        </svg>
-    </button>
-
-    <button id="zoom-btn" class="square-btn ui-element">
-        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-    </button>
-
-    <!-- LEFT SIDE BOTTOM CONTROLS -->
-    <button id="anim-mode-btn" class="square-btn ui-element">
-        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- BOUTON MODE ANIMATION DES OUVRANTS -->
+    <button id="anim-mode-btn" class="floating-btn ui-element" title="Mode Animation : cliquer sur les ouvrants (portes, tiroirs)">
+        <svg viewBox="0 0 24 24" width="26" height="26" stroke="#555" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <path d="M5 3v18l11-3V6L5 3z"></path>
             <path d="M16 5h3a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-3"></path>
             <circle cx="13" cy="12" r="1"></circle>
         </svg>
     </button>
-    
-    <button id="assembly-mode-btn" class="square-btn ui-element">
-        <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+
+    <button id="assembly-mode-btn" class="floating-btn ui-element" title="Mode Assemblage (Étapes)">
+        <svg viewBox="0 0 24 24" width="28" height="28" stroke="#555" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="8" y1="6" x2="21" y2="6"></line>
             <line x1="8" y1="12" x2="21" y2="12"></line>
             <line x1="8" y1="18" x2="21" y2="18"></line>
@@ -496,44 +617,63 @@
         </svg>
     </button>
 
-    <!-- BOTTOM CENTER CONTROLS -->
+    <div id="explode-slider-container" class="ui-element">
+        <input type="range" id="explode-slider" min="0" max="100" step="1" value="0" orient="vertical">
+    </div>
+
+    <!-- CONTRÔLEUR D'ÉTAPES -->
     <div id="step-controls-container" class="ui-element">
         <button id="step-prev-btn" class="step-btn" disabled>&lt;</button>
         <span id="step-indicator">0/0</span>
         <button id="step-next-btn" class="step-btn" disabled>&gt;</button>
     </div>
 
-    <div id="explode-slider-container" class="ui-element">
-        <input type="range" id="explode-slider" min="0" max="100" step="1" value="0">
-    </div>
+    <button id="texture-btn" class="floating-btn ui-element">
+        <svg viewBox="0 0 24 24" width="35" height="35">
+            <path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z" fill="#555"/>
+            <path d="M12 22l9-4.5v-9L12 13l-9-4.5v9L12 22z" fill="#333"/>
+            <path d="M12 13L3 8.5l9-4.5 9 4.5L12 13z" fill="#777"/>
+        </svg>
+    </button>
+    <button id="xray-btn" class="floating-btn ui-element">
+        <svg viewBox="0 0 24 24" width="35" height="35" fill="none" stroke="#555" stroke-width="2.5">
+            <path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z"/><path d="M12 22L12 13"/><path d="M12 13L3 8.5"/><path d="M12 13L21 8.5"/>
+        </svg>
+    </button>
+    <button id="edge-btn" class="floating-btn ui-element" title="Voir les chants">
+        <svg viewBox="0 0 24 24" width="30" height="30" stroke="#555" stroke-width="2" fill="none">
+            <rect x="5" y="4" width="14" height="16" rx="1"></rect>
+            <path d="M19 4v16" stroke="#ff8c00" stroke-width="4"></path>
+        </svg>
+    </button>
 
-    <!-- BOTTOM RIGHT SCAN -->
     <button id="scan-btn" class="ui-element">
-        <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 7V5a2 2 0 0 1 2-2h2M19 5a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M5 21a2 2 0 0 1-2-2v-2"/>
-            <circle cx="12" cy="12" r="3" fill="currentColor"/>
+        <div class="holo-bg"><div class="holo-scanline"></div></div>
+        <div class="holo-content">
+            <div class="holo-circle">
+                <svg viewBox="0 0 24 24" width="28" height="28" stroke="#00bfff" stroke-width="2" fill="none">
+                    <path d="M3 7V5a2 2 0 0 1 2-2h2M19 5a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M5 21a2 2 0 0 1-2-2v-2"/>
+                    <circle cx="12" cy="12" r="2" fill="#00bfff"/>
+                </svg>
+            </div>
+        </div>
+        <div class="burst-flash"></div>
+        <div class="burst-particle bp1"></div><div class="burst-particle bp2"></div><div class="burst-particle bp3"></div>
+        <div class="burst-particle bp4"></div><div class="burst-particle bp5"></div><div class="burst-particle bp6"></div>
+    </button>
+
+    <button id="zoom-btn" class="floating-btn ui-element">
+        <svg viewBox="0 0 24 24" width="30" height="30" stroke="#555" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
     </button>
 
     <div id="canvas-container"></div>
 
-    <div id="ui-panel"></div>
-
     <div id="reader-container">
         <button id="close-scan-btn">Annuler</button>
         <div id="reader"></div>
-    </div>
-
-    <div id="confirm-overlay">
-        <div id="confirm-box">
-            <div class="confirm-title">Supprimer ce fichier ?</div>
-            <div id="confirm-name"></div>
-            <div class="confirm-text">Cette action est irréversible.</div>
-            <div class="confirm-actions">
-                <button id="confirm-cancel">Annuler</button>
-                <button id="confirm-ok">Supprimer</button>
-            </div>
-        </div>
     </div>
 
     <script type="module">
@@ -1016,10 +1156,11 @@
             let isHidden = false;
             
             function hideSplash() {
-                if (isHidden) return;
-                isHidden = true;
-                splash.style.opacity = '0';
-                setTimeout(() => { splash.style.display = 'none'; }, 500);
+                if (!isHidden && splash.style.display !== 'none') {
+                    isHidden = true;
+                    splash.style.opacity = '0';
+                    setTimeout(() => { splash.style.display = 'none'; }, 500);
+                }
             }
 
             if (splashVideo) {
@@ -1635,40 +1776,33 @@
         async function saveModelToDB(file) {
             if (!db) await initDB();
             if (!file.name) return;
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, 'readwrite');
-                const store = tx.objectStore(STORE_NAME);
-                const request = store.get(file.name);
-                request.onsuccess = (e) => {
-                    const existing = e.target.result;
-                    store.put({
-                        name: file.name,
-                        fileBlob: file,
-                        date: Date.now(),
-                        thumbnail: existing ? existing.thumbnail : null
-                    });
-                };
-                tx.oncomplete = () => resolve();
-                tx.onerror = () => reject(tx.error);
-            });
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            
+            const request = store.get(file.name);
+            request.onsuccess = (e) => {
+                const existing = e.target.result;
+                store.put({ 
+                    name: file.name, 
+                    fileBlob: file, 
+                    date: Date.now(),
+                    thumbnail: existing ? existing.thumbnail : null 
+                });
+            };
         }
 
         async function updateModelThumbnailInDB(name, dataUrl) {
             if (!db) await initDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, 'readwrite');
-                const store = tx.objectStore(STORE_NAME);
-                const request = store.get(name);
-                request.onsuccess = (e) => {
-                    const data = e.target.result;
-                    if (data) {
-                        data.thumbnail = dataUrl;
-                        store.put(data);
-                    }
-                };
-                tx.oncomplete = () => resolve();
-                tx.onerror = () => reject(tx.error);
-            });
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.get(name);
+            request.onsuccess = (e) => {
+                const data = e.target.result;
+                if (data) {
+                    data.thumbnail = dataUrl;
+                    store.put(data);
+                }
+            };
         }
 
         async function getRecentModels() {
@@ -1892,8 +2026,7 @@
                 if (!response) return;
                 const blob = await response.blob();
                 await cache.delete(key);
-                const sharedFile = new File([blob], 'shared-model.glb', { type: 'model/gltf-binary' });
-                loadFile(sharedFile);
+                loadFile(blob);
             } catch (e) {
                 console.error('Lecture du fichier partagé impossible :', e);
             } finally {
@@ -1932,7 +2065,7 @@
                 if (file) loadFile(file);
             });
 
-            if (closeProjectBtn) closeProjectBtn.addEventListener('click', () => {
+            closeProjectBtn.addEventListener('click', () => {
                 removeCurrentModel();
                 document.getElementById('start-menu').style.display = 'flex';
                 showUIElements(false);
@@ -2254,6 +2387,8 @@
                 } else {
                     if(asmBtn) asmBtn.style.display = 'flex';
                     if(stepCtrl) stepCtrl.style.display = 'flex';
+                    const stepInd = document.getElementById('step-indicator');
+                    if(stepInd) stepInd.innerText = `0/${maxAssemblyStep}`;
                 }
 
                 // Afficher le bouton d'animation (toujours visible pour tester son .glb)
