@@ -1,6 +1,6 @@
 {
-  "name": "Finjat 3D Viewer",
-  "short_name": "Finjat 3D",
+  "name": "Assembly Part Finder",
+  "short_name": "APF",
   "description": "Visionneuse de modèles 3D GLB",
   "start_url": "/viewer/",
   "scope": "/viewer/",
@@ -13,12 +13,12 @@
   },
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "logo-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "icon-512.png",
+      "src": "logo.png",
       "sizes": "512x512",
       "type": "image/png"
     }
