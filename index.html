@@ -23,62 +23,76 @@
         /* ========================================= */
         /* UI DES MESURES ET INFORMATIONS            */
         /* ========================================= */
-        #top-info-panel {
-            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9); padding: 8px 20px; border-radius: 12px;
-            text-align: center; z-index: 800; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            pointer-events: none; display: none; min-width: 200px;
-        }
-        #unit-toggle-btn {
-            position: absolute; top: 15px; right: 20px;
-            background: #2563eb; color: white; border: none;
-            border-radius: 8px; padding: 6px 14px; font-size: 16px; font-weight: bold;
-            cursor: pointer; z-index: 800; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        #unit-toggle-btn:active { transform: scale(0.95); }
-        #info-title { font-weight: bold; font-size: 16px; color: #111; }
-        #info-dims { font-size: 13px; color: #555; margin-top: 4px; }
-        #info-material { font-size: 13px; color: #2563eb; margin-top: 4px; font-weight: bold; display: none; }
+        :root { --accent: #14b8a6; --accent-dark: #0d9488; --accent-soft: #ccfbf1; }
 
         /* ========================================= */
-        /* FILTRES MATÉRIAUX DYNAMIQUES              */
+        /* BARRE DU HAUT : Home | Nom + infos | mm    */
+        /* ========================================= */
+        #top-info-panel {
+            position: absolute; top: 14px; left: 62px; right: 62px; height: 58px;
+            background: rgba(255, 255, 255, 0.92); padding: 6px 10px; border-radius: 12px;
+            text-align: center; z-index: 800; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            pointer-events: none; display: none; box-sizing: border-box; overflow: hidden;
+        }
+        #unit-toggle-btn {
+            position: absolute; top: 14px; right: 14px; width: 40px; height: 58px; padding: 0;
+            background: #2563eb; color: white; border: none; border-radius: 12px;
+            font-size: 15px; font-weight: bold; cursor: pointer; z-index: 800;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        #unit-toggle-btn:active { transform: scale(0.95); }
+        #info-title { font-weight: bold; font-size: 15px; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #info-dims { font-size: 12px; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #info-material { font-size: 12px; color: var(--accent-dark); margin-top: 2px; font-weight: bold; display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* ========================================= */
+        /* LISTE DES MATÉRIAUX (bandeau horizontal)  */
         /* ========================================= */
         #material-filter-container {
-            position: absolute; top: 65px; right: 20px;
-            display: flex; flex-direction: column; gap: 10px; z-index: 800;
+            position: absolute; top: 80px; left: 62px; right: 62px; height: 48px;
+            display: flex; flex-direction: row; align-items: center; gap: 8px; z-index: 800;
+            box-sizing: border-box; padding: 0 6px; overflow-x: auto; overflow-y: hidden;
+            border: 2px solid var(--accent); border-radius: 10px; background: rgba(255, 255, 255, 0.85);
+            scrollbar-width: none;
         }
+        #material-filter-container::-webkit-scrollbar { display: none; }
+        #material-filter-container .mat-filter-btn:first-child { margin-left: auto; }
+        #material-filter-container .mat-filter-btn:last-child { margin-right: auto; }
         .mat-filter-btn {
-            width: 42px; height: 42px; border-radius: 8px; border: 3px solid #ffffff;
+            flex: 0 0 auto; width: 34px; height: 34px; border-radius: 8px; border: 2px solid #ffffff;
             cursor: pointer; background-size: cover; background-position: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.25); transition: all 0.2s;
             display: flex; align-items: center; justify-content: center;
-            font-size: 13px; font-weight: bold; text-transform: uppercase; overflow: hidden;
+            font-size: 12px; font-weight: bold; text-transform: uppercase; overflow: hidden;
             padding: 0; position: relative;
         }
         .mat-filter-btn.active {
-            border-color: #2563eb; transform: scale(1.1); box-shadow: 0 0 10px rgba(37,99,235,0.8);
+            border-color: var(--accent); transform: scale(1.08); box-shadow: 0 0 6px var(--accent);
         }
 
         /* ========================================= */
-        /* BOUTON TACTILE (SÉLECTION 3D)             */
+        /* COLONNE DE DROITE : interrupteurs + boutons */
         /* ========================================= */
-        #touch-select-container {
-            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
-            display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 800;
+        #right-controls {
+            right: 18px; bottom: 205px;
+            flex-direction: column; align-items: center; gap: 12px;
         }
-        #touch-toggle {
-            width: 32px; height: 56px; background: #999; border-radius: 16px;
+        .switch-group { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .switch-icon { width: 22px; height: 22px; }
+
+        #touch-toggle, #edge-btn {
+            width: 30px; height: 52px; background: #999; border-radius: 15px; border: none; padding: 0;
             position: relative; cursor: pointer; transition: background 0.3s;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
         }
-        #touch-toggle.toggle-on { background: #2563eb; }
+        #touch-toggle.toggle-on, #edge-btn.active { background: var(--accent); }
         .toggle-knob {
-            width: 24px; height: 24px; background: white; border-radius: 50%;
-            position: absolute; left: 4px; bottom: 4px; 
+            width: 22px; height: 22px; background: white; border-radius: 50%;
+            position: absolute; left: 4px; bottom: 4px;
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
-        #touch-toggle.toggle-on .toggle-knob { transform: translateY(-24px); }
+        #touch-toggle.toggle-on .toggle-knob, #edge-btn.active .toggle-knob { transform: translateY(-22px); }
 
         .floating-label {
             position: absolute; background: rgba(0, 0, 0, 0.7); color: #fff;
@@ -202,75 +216,98 @@
         .ui-element { display: none; position: absolute; z-index: 100; }
 
         #close-project-btn {
-            top: 20px; left: 20px; width: 45px; height: 45px;
-            background: #666; border-radius: 50%; border: none;
+            top: 14px; left: 14px; width: 40px; height: 58px;
+            background: #666; border-radius: 12px; border: none;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2); cursor: pointer;
-            display: none; align-items: center; justify-content: center;
+            display: none; align-items: center; justify-content: center; z-index: 800;
         }
 
+        /* SLIDER D'ÉCLATEMENT HORIZONTAL (en bas) */
         #explode-slider-container {
-            bottom: 45px; left: 20px; height: 180px; width: 40px;
-            display: none; flex-direction: column; align-items: center;
+            left: 40px; right: 40px; bottom: 22px; height: 44px;
+            display: none; flex-direction: row; align-items: center;
         }
         #explode-slider {
-            -webkit-appearance: slider-vertical;
-            width: 8px; height: 180px; margin: 0; background: transparent; cursor: pointer;
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 44px; margin: 0; background: transparent; cursor: pointer;
+            position: relative; z-index: 2;
+        }
+        #explode-slider::-webkit-slider-runnable-track { height: 4px; background: #9ca3af; border-radius: 2px; }
+        #explode-slider::-moz-range-track { height: 4px; background: #9ca3af; border-radius: 2px; }
+        #explode-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 30px; height: 30px; margin-top: -13px;
+            border-radius: 7px; background: var(--accent); border: none; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        #explode-slider::-moz-range-thumb {
+            width: 30px; height: 30px; border-radius: 7px; background: var(--accent); border: none;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        /* Repères = fin de chaque phase d'assemblage */
+        #slider-ticks { position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; z-index: 1; }
+        .slider-tick {
+            position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px;
+            left: calc(15px + (100% - 30px) * var(--f, 0));
+            background: #9ca3af; border-radius: 3px;
         }
 
-        /* CONTRÔLEUR D'ÉTAPES (FLÈCHES) */
+        /* ÉTAPES : flèches aux extrémités + compteurs au centre */
         #step-controls-container {
-            bottom: 10px; left: 10px; width: 85px; height: 32px;
+            left: 0; right: 0; bottom: 16px; height: 56px;
             display: none; justify-content: space-between; align-items: center;
-            background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 0 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2); box-sizing: border-box;
+            pointer-events: none;
         }
         .step-btn {
-            background: none; border: none; font-size: 16px; font-weight: 900; color: #2563eb;
-            cursor: pointer; padding: 0; margin: 0; line-height: 1; transition: transform 0.1s;
+            width: 30px; height: 56px; border: none; padding: 0; margin: 0;
+            background: #d1d5db; color: #ffffff; font-size: 26px; font-weight: 900; line-height: 1;
+            cursor: pointer; pointer-events: auto; transition: transform 0.1s, background 0.2s;
         }
-        .step-btn:disabled { color: #ccc; cursor: not-allowed; }
-        .step-btn:active:not(:disabled) { transform: scale(0.8); }
-        #step-indicator { font-size: 13px; font-weight: bold; color: #aaa; pointer-events: none; }
-        #step-indicator.active { color: #333; }
+        #step-prev-btn { border-radius: 0 28px 28px 0; }
+        #step-next-btn { border-radius: 28px 0 0 28px; }
+        .step-btn:not(:disabled) { background: var(--accent); }
+        .step-btn:disabled { cursor: not-allowed; }
+        .step-btn:active:not(:disabled) { transform: scale(0.9); }
+        #step-counters {
+            position: absolute; left: 50%; bottom: 62px; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none;
+        }
+        #phase-indicator {
+            display: none; background: #e5e7eb; color: #374151;
+            font-size: 12px; font-weight: bold; padding: 2px 14px; border-radius: 6px;
+        }
+        #step-indicator {
+            display: none; background: #9ca3af; color: #ffffff;
+            font-size: 12px; font-weight: bold; padding: 2px 14px; border-radius: 6px;
+        }
+        #step-indicator.active { display: block; }
 
         .floating-btn {
-            width: 60px; height: 60px; border-radius: 50%; background: #ffffff;
+            width: 44px; height: 44px; border-radius: 12px; background: #ffffff;
             border: none; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer;
             display: flex; align-items: center; justify-content: center; transition: all 0.2s;
         }
-        .floating-btn.active { background: #dbeafe; border: 2px solid #2563eb; }
+        .floating-btn.active { background: var(--accent-soft); border: 2px solid var(--accent); }
 
-        /* BOUTONS FLOTTANTS */
-        #anim-mode-btn { bottom: 295px; left: 15px; width: 50px; height: 50px; }
+        /* BOUTONS DU BAS-GAUCHE */
+        #assembly-mode-btn { bottom: 74px; left: 20px; width: 44px; height: 44px; }
+        #anim-mode-btn { bottom: 128px; left: 20px; width: 44px; height: 44px; }
         #anim-mode-btn.active {
             background: #dcfce7; border: 2px solid #16a34a;
             box-shadow: 0 0 12px rgba(22, 163, 74, 0.6);
         }
         #anim-mode-btn.active svg { stroke: #15803d; }
+        #toggle-measure-btn { font-size: 22px; }
 
-        #assembly-mode-btn { bottom: 235px; left: 15px; width: 50px; height: 50px; }
-        #texture-btn { bottom: 40px; left: calc(50% - 105px); }
-        #xray-btn { bottom: 40px; left: calc(50% - 30px); }
-        #edge-btn { bottom: 40px; left: calc(50% + 45px); }
-        #zoom-btn { bottom: 130px; right: 25px; }
-        #toggle-measure-btn { bottom: 205px; right: 25px; font-size: 24px; }
-
-        /* BANNIÈRE MODE ANIMATION */
-        #anim-banner {
-            position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%);
-            background: rgba(22, 163, 74, 0.92); color: #ffffff;
-            padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
+        /* BANNIÈRES (animation / phase) : sous le bandeau des matériaux */
+        #anim-banner, #phase-banner {
+            position: absolute; top: 138px; left: 50%; transform: translateX(-50%);
+            max-width: calc(100% - 40px); text-align: center; white-space: normal;
+            color: #ffffff; padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
             z-index: 800; pointer-events: none; display: none;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2); white-space: nowrap;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
+        #anim-banner { background: rgba(22, 163, 74, 0.92); }
+        #phase-banner { background: rgba(37, 99, 235, 0.92); }
 
-        #phase-banner {
-            position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%);
-            background: rgba(37, 99, 235, 0.92); color: #ffffff;
-            padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
-            z-index: 800; pointer-events: none; display: none;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2); white-space: nowrap;
-        }
         #ui-panel {
             top: 20px; left: 50%; transform: translateX(-50%);
             background: #ffffff; border: 2px solid #ff0000; color: #000;
@@ -293,21 +330,21 @@
         /* ========================================= */
         #sidebar-hint {
             position: fixed; top: 50%; left: 0; transform: translateY(-50%);
-            width: 4px; height: 60px; background: rgba(37, 99, 235, 0.8);
-            border-radius: 0 4px 4px 0; z-index: 1500; cursor: pointer;
-            box-shadow: 2px 0 8px rgba(37, 99, 235, 0.6);
+            width: 12px; height: 88px; background: rgba(107, 114, 128, 0.7);
+            border-radius: 0 8px 8px 0; z-index: 1500; cursor: pointer;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.25);
             transition: opacity 0.3s ease;
-            animation: pulseHint 2s infinite alternate ease-in-out;
+            animation: pulseHint 2.4s infinite alternate ease-in-out;
         }
         
         #sidebar-hint::after {
             content: ''; position: absolute;
-            top: -50px; bottom: -50px; left: 0; width: 40px;
+            top: -40px; bottom: -40px; left: 0; width: 44px;
         }
 
         @keyframes pulseHint {
-            0% { opacity: 0.3; transform: translateY(-50%) scaleX(1); }
-            100% { opacity: 1; transform: translateY(-50%) scaleX(1.5); }
+            0% { opacity: 0.45; }
+            100% { opacity: 1; }
         }
 
         #sidebar-overlay {
@@ -349,7 +386,7 @@
         /* BOUTON SCANNER HOLOGRAPHIQUE              */
         /* ========================================= */
         #scan-btn {
-            bottom: 40px; right: 20px; width: 80px; height: 80px;
+            bottom: 74px; right: 20px; width: 88px; height: 88px;
             background: rgba(0, 191, 255, 0.1); backdrop-filter: blur(5px);
             border: 1px solid rgba(0, 191, 255, 0.5); border-radius: 15px;
             box-shadow: 0 0 15px rgba(0, 191, 255, 0.4), inset 0 0 20px rgba(0, 191, 255, 0.2);
@@ -541,16 +578,6 @@
 
     <button id="unit-toggle-btn" class="ui-element">mm</button>
     
-    <button id="toggle-measure-btn" class="floating-btn ui-element" title="Afficher/Masquer les dimensions">📏</button>
-
-    <div id="touch-select-container" class="ui-element">
-        <div id="touch-toggle">
-            <div class="toggle-knob"></div>
-        </div>
-        <svg class="touch-icon" viewBox="0 0 24 24" width="28" height="28" stroke="#555" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 11V4a2 2 0 0 1 4 0v6M13 11a2 2 0 0 1 4 0v4a6 6 0 0 1-6 6H7a8 8 0 0 1-8-8v-2a2 2 0 0 1 4 0v2"></path>
-        </svg>
-    </div>
 
     <div id="label-x" class="floating-label"></div>
     <div id="label-y" class="floating-label"></div>
@@ -617,35 +644,52 @@
         </svg>
     </button>
 
+    <!-- SLIDER D'ÉCLATEMENT (horizontal) -->
     <div id="explode-slider-container" class="ui-element">
-        <input type="range" id="explode-slider" min="0" max="100" step="1" value="0" orient="vertical">
+        <div id="slider-ticks"></div>
+        <input type="range" id="explode-slider" min="0" max="100" step="1" value="0">
     </div>
 
-    <!-- CONTRÔLEUR D'ÉTAPES -->
+    <!-- ÉTAPES : flèches précédent / suivant + compteurs (phase puis étape) -->
     <div id="step-controls-container" class="ui-element">
         <button id="step-prev-btn" class="step-btn" disabled>&lt;</button>
-        <span id="step-indicator">0/0</span>
+        <div id="step-counters">
+            <span id="phase-indicator"></span>
+            <span id="step-indicator">0/0</span>
+        </div>
         <button id="step-next-btn" class="step-btn" disabled>&gt;</button>
     </div>
 
-    <button id="texture-btn" class="floating-btn ui-element">
-        <svg viewBox="0 0 24 24" width="35" height="35">
-            <path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z" fill="#555"/>
-            <path d="M12 22l9-4.5v-9L12 13l-9-4.5v9L12 22z" fill="#333"/>
-            <path d="M12 13L3 8.5l9-4.5 9 4.5L12 13z" fill="#777"/>
-        </svg>
-    </button>
-    <button id="xray-btn" class="floating-btn ui-element">
-        <svg viewBox="0 0 24 24" width="35" height="35" fill="none" stroke="#555" stroke-width="2.5">
-            <path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z"/><path d="M12 22L12 13"/><path d="M12 13L3 8.5"/><path d="M12 13L21 8.5"/>
-        </svg>
-    </button>
-    <button id="edge-btn" class="floating-btn ui-element" title="Voir les chants">
-        <svg viewBox="0 0 24 24" width="30" height="30" stroke="#555" stroke-width="2" fill="none">
-            <rect x="5" y="4" width="14" height="16" rx="1"></rect>
-            <path d="M19 4v16" stroke="#ff8c00" stroke-width="4"></path>
-        </svg>
-    </button>
+    <!-- COLONNE DE DROITE : chants ON/OFF, tactile ON/OFF, mesures, styles, zoom -->
+    <div id="right-controls" class="ui-element">
+        <div class="switch-group">
+            <button id="edge-btn" title="Voir les chants (ON/OFF)"><div class="toggle-knob"></div></button>
+            <svg class="switch-icon" viewBox="0 0 24 24" stroke="#555" stroke-width="2" fill="none">
+                <rect x="5" y="4" width="14" height="16" rx="1"></rect>
+                <path d="M19 4v16" stroke="#ff8c00" stroke-width="4"></path>
+            </svg>
+        </div>
+
+        <div class="switch-group" id="touch-select-container">
+            <div id="touch-toggle" title="Sélection tactile (ON/OFF)"><div class="toggle-knob"></div></div>
+            <svg class="switch-icon touch-icon" viewBox="0 0 24 24" stroke="#555" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 11V4a2 2 0 0 1 4 0v6M13 11a2 2 0 0 1 4 0v4a6 6 0 0 1-6 6H7a8 8 0 0 1-8-8v-2a2 2 0 0 1 4 0v2"></path>
+            </svg>
+        </div>
+
+        <button id="toggle-measure-btn" class="floating-btn active" title="Afficher/Masquer les dimensions">📏</button>
+
+        <button id="style-btn" class="floating-btn" title="Style : Gris">
+            <svg viewBox="0 0 24 24" width="30" height="30"><path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z" fill="#9ca3af" stroke="#555" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 22V13M12 13L3 8.5M12 13l9-4.5" fill="none" stroke="#555" stroke-width="1.5"/></svg>
+        </button>
+
+        <button id="zoom-btn" class="floating-btn" title="Zoom">
+            <svg viewBox="0 0 24 24" width="28" height="28" stroke="#555" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+        </button>
+    </div>
 
     <button id="scan-btn" class="ui-element">
         <div class="holo-bg"><div class="holo-scanline"></div></div>
@@ -662,12 +706,6 @@
         <div class="burst-particle bp4"></div><div class="burst-particle bp5"></div><div class="burst-particle bp6"></div>
     </button>
 
-    <button id="zoom-btn" class="floating-btn ui-element">
-        <svg viewBox="0 0 24 24" width="30" height="30" stroke="#555" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-    </button>
 
     <div id="canvas-container"></div>
 
@@ -706,6 +744,29 @@
         let isTouchSelectOn = false;
 
         let showMeasurements = true;
+        // ===== Styles d'affichage : Gris -> Rayons X -> Texturé (un seul bouton) =====
+        const STYLE_MODES = [
+            { name: 'Gris', xray: false, texture: false,
+              svg: '<svg viewBox="0 0 24 24" width="30" height="30"><path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z" fill="#9ca3af" stroke="#555" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 22V13M12 13L3 8.5M12 13l9-4.5" fill="none" stroke="#555" stroke-width="1.5"/></svg>' },
+            { name: 'Rayons X', xray: true, texture: false,
+              svg: '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#555" stroke-width="2.5"><path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z"/><path d="M12 22L12 13"/><path d="M12 13L3 8.5"/><path d="M12 13L21 8.5"/></svg>' },
+            { name: 'Texturé', xray: false, texture: true,
+              svg: '<svg viewBox="0 0 24 24" width="30" height="30"><path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z" fill="#555"/><path d="M12 22l9-4.5v-9L12 13l-9-4.5v9L12 22z" fill="#333"/><path d="M12 13L3 8.5l9-4.5 9 4.5L12 13z" fill="#777"/></svg>' }
+        ];
+        let styleModeIndex = 0;
+        function setStyleMode(i) {
+            styleModeIndex = i;
+            const m = STYLE_MODES[i];
+            isXrayOn = m.xray;
+            isTextureOn = m.texture;
+            const btn = document.getElementById('style-btn');
+            if (btn) {
+                btn.innerHTML = m.svg;
+                btn.title = 'Style : ' + m.name;
+                btn.classList.toggle('active', i !== 0);
+            }
+            if (globalModel) updateMaterials();
+        }
         let currentUnit = 'mm';
         let globalBox = null;
         let activeBox = null;
@@ -839,6 +900,40 @@
                 return `Assemblage final ${fs}/${h.maxFinal}` + (names ? ` : ${names}` : '');
             }
             return '';
+        }
+
+        
+        // ===== Phases d'assemblage : repères du slider + compteur "phase courante / total" =====
+        function getAssemblyPhases() {
+            const h = assemblyHierarchy;
+            if (!h) return [];
+            const phases = [];
+            h.groups.forEach(g => {
+                if (g.maxLocal > 0) phases.push({ start: g.offset, end: g.offset + g.maxLocal });
+            });
+            if (h.maxFinal > 0) phases.push({ start: h.finalOffset, end: h.total });
+            return phases;
+        }
+
+        function renderSliderTicks() {
+            const box = document.getElementById('slider-ticks');
+            if (!box) return;
+            box.innerHTML = '';
+            if (!isAssemblyModeOn || maxAssemblyStep <= 0) return;
+            getAssemblyPhases().forEach(p => {
+                const t = document.createElement('div');
+                t.className = 'slider-tick';
+                t.style.setProperty('--f', p.end / maxAssemblyStep);
+                box.appendChild(t);
+            });
+        }
+
+        function assemblyPhaseCounter(val) {
+            const phases = getAssemblyPhases();
+            if (phases.length === 0) return '';
+            let idx = 0;
+            phases.forEach((p, i) => { if (val > p.start) idx = i + 1; });
+            return `${idx}/${phases.length}`;
         }
 
         // ==========================================
@@ -1414,6 +1509,10 @@
                 stepInd.innerText = "0/0";
                 stepInd.classList.remove('active');
             }
+            const phaseInd = document.getElementById('phase-indicator');
+            if (phaseInd) { phaseInd.innerText = ""; phaseInd.style.display = 'none'; }
+            const sliderTicks = document.getElementById('slider-ticks');
+            if (sliderTicks) sliderTicks.innerHTML = '';
             const prevBtn = document.getElementById('step-prev-btn');
             if (prevBtn) prevBtn.disabled = true;
             const nextBtn = document.getElementById('step-next-btn');
@@ -1422,8 +1521,7 @@
             activeMaterialFilters.clear();
             document.getElementById('material-filter-container').innerHTML = '';
 
-            document.getElementById('texture-btn').classList.remove('active');
-            document.getElementById('xray-btn').classList.remove('active');
+            setStyleMode(0);
             document.getElementById('edge-btn').classList.remove('active');
             isTextureOn = false;
             isXrayOn = false;
@@ -1502,6 +1600,7 @@
                         prevBtn.disabled = true;
                         nextBtn.disabled = true;
                         stepInd.classList.remove('active');
+                        renderSliderTicks();
                     }
                     slider.min = "0";
                     slider.max = "100";
@@ -1555,6 +1654,7 @@
                     stepInd.classList.remove('active');
                 }
                 
+                renderSliderTicks();
                 slider.dispatchEvent(new Event('input'));
             });
 
@@ -1589,6 +1689,7 @@
                 }
                 
                 const phaseBanner = document.getElementById('phase-banner');
+                const phaseInd = document.getElementById('phase-indicator');
                 if (isAssemblyModeOn) {
                     stepInd.innerText = `${val}/${maxAssemblyStep}`;
                     if (phaseBanner) {
@@ -1596,8 +1697,14 @@
                         phaseBanner.innerText = txt;
                         phaseBanner.style.display = txt ? 'block' : 'none';
                     }
-                } else if (phaseBanner) {
-                    phaseBanner.style.display = 'none';
+                    if (phaseInd) {
+                        const counter = assemblyPhaseCounter(val);
+                        phaseInd.innerText = counter;
+                        phaseInd.style.display = counter ? 'block' : 'none';
+                    }
+                } else {
+                    if (phaseBanner) phaseBanner.style.display = 'none';
+                    if (phaseInd) phaseInd.style.display = 'none';
                 }
 
                 globalModel.traverse(function (node) {
@@ -1724,18 +1831,9 @@
                 }
             });
 
-            const textureBtn = document.getElementById('texture-btn');
-            textureBtn.addEventListener('click', () => {
-                isTextureOn = !isTextureOn;
-                textureBtn.classList.toggle('active', isTextureOn);
-                updateMaterials();
-            });
-
-            const xrayBtn = document.getElementById('xray-btn');
-            xrayBtn.addEventListener('click', () => {
-                isXrayOn = !isXrayOn;
-                xrayBtn.classList.toggle('active', isXrayOn);
-                updateMaterials();
+            // Bouton unique des 3 styles : Gris -> Rayons X -> Texturé
+            document.getElementById('style-btn').addEventListener('click', () => {
+                setStyleMode((styleModeIndex + 1) % STYLE_MODES.length);
             });
 
             const edgeBtn = document.getElementById('edge-btn');
@@ -1747,6 +1845,7 @@
 
             document.getElementById('toggle-measure-btn').addEventListener('click', () => {
                 showMeasurements = !showMeasurements;
+                document.getElementById('toggle-measure-btn').classList.toggle('active', showMeasurements);
                 updateMeasurementLabels(); 
             });
         }
