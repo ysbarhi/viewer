@@ -34,13 +34,14 @@
             text-align: center; z-index: 800; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             pointer-events: none; display: none; box-sizing: border-box; overflow: hidden;
         }
-        #unit-toggle-btn {
+        #measure-toggle-btn {
             position: absolute; top: 14px; right: 14px; width: 40px; height: 58px; padding: 0;
-            background: #2563eb; color: white; border: none; border-radius: 12px;
-            font-size: 15px; font-weight: bold; cursor: pointer; z-index: 800;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background: #2563eb; border: none; border-radius: 12px;
+            cursor: pointer; z-index: 800; align-items: center; justify-content: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: background 0.2s, opacity 0.2s;
         }
-        #unit-toggle-btn:active { transform: scale(0.95); }
+        #measure-toggle-btn.off { background: #9ca3af; }
+        #measure-toggle-btn:active { transform: scale(0.95); }
         #info-title { font-weight: bold; font-size: 15px; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         #info-dims { font-size: 12px; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         #info-material { font-size: 12px; color: var(--accent-dark); margin-top: 2px; font-weight: bold; display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -50,11 +51,25 @@
         /* ========================================= */
         #material-filter-container {
             position: absolute; top: 80px; left: 62px; right: 62px; height: 48px;
-            display: flex; flex-direction: row; align-items: center; gap: 8px; z-index: 800;
+            display: flex; flex-direction: row; align-items: center; gap: 8px; z-index: 799;
             box-sizing: border-box; padding: 0 6px; overflow-x: auto; overflow-y: hidden;
             border: 2px solid var(--accent); border-radius: 10px; background: rgba(255, 255, 255, 0.25);
             scrollbar-width: none;
+            transition: transform 0.3s ease, opacity 0.3s ease;
         }
+        body.mats-collapsed #material-filter-container {
+            transform: translateY(-58px); opacity: 0; pointer-events: none;
+        }
+        #mat-toggle-btn {
+            position: absolute; top: 128px; left: 50%; transform: translateX(-50%);
+            width: 40px; height: 16px; padding: 0; border: none; border-radius: 0 0 8px 8px;
+            background: rgba(255, 255, 255, 0.85); box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            cursor: pointer; z-index: 800; align-items: center; justify-content: center;
+            transition: top 0.3s ease;
+        }
+        #mat-toggle-btn svg { transition: transform 0.3s ease; }
+        body.mats-collapsed #mat-toggle-btn { top: 72px; }
+        body.mats-collapsed #mat-toggle-btn svg { transform: rotate(180deg); }
         #material-filter-container::-webkit-scrollbar { display: none; }
         #material-filter-container .mat-filter-btn:first-child { margin-left: auto; }
         #material-filter-container .mat-filter-btn:last-child { margin-right: auto; }
@@ -298,8 +313,22 @@
         #toggle-measure-btn { font-size: 22px; }
 
         /* BANNIÈRES (animation / phase) : sous le bandeau des matériaux */
+        #anim-pips { position: fixed; inset: 0; pointer-events: none; z-index: 500; display: none; }
+        #anim-pips.visible { display: block; }
+        .anim-pip {
+            position: absolute; width: 14px; height: 14px; margin: -9px 0 0 -9px;
+            border-radius: 50%; background: #16a34a; border: 2px solid #fff;
+            box-shadow: 0 0 0 2px rgba(22,163,74,0.35), 0 2px 4px rgba(0,0,0,0.3);
+            pointer-events: auto; cursor: pointer; transition: background 0.2s, border-color 0.2s;
+        }
+        .anim-pip::after { content: ''; position: absolute; inset: -10px; }
+        .anim-pip.open { background: #fff; border-color: #16a34a; }
+        .anim-pip.hidden { display: none; }
+
+        body.mats-collapsed #anim-banner, body.mats-collapsed #phase-banner { top: 94px; }
         #anim-banner, #phase-banner {
-            position: absolute; top: 138px; left: 50%; transform: translateX(-50%);
+            transition: top 0.3s ease;
+            position: absolute; top: 150px; left: 50%; transform: translateX(-50%);
             max-width: calc(100% - 40px); text-align: center; white-space: normal;
             color: #ffffff; padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
             z-index: 800; pointer-events: none; display: none;
@@ -365,22 +394,16 @@
 
         #sidebar h2 { margin: 0 0 20px 0; font-size: 20px; color: #333; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
         
-        .theme-btn {
-            background: #fff; border: 1px solid #ddd; border-radius: 8px;
-            padding: 12px; margin-bottom: 10px; font-size: 16px; font-weight: bold;
-            color: #333; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: all 0.2s;
+        .unit-switch {
+            display: flex; gap: 4px; padding: 4px; background: #fff;
+            border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        .theme-btn:active { transform: scale(0.98); }
-        .theme-color-dot { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #aaa; }
-
-        .color-picker-wrapper {
-            margin-top: 10px; padding: 15px; background: #fff;
-            border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            display: flex; justify-content: space-between; align-items: center;
+        .unit-opt {
+            flex: 1; padding: 10px 0; border: none; border-radius: 7px; background: transparent;
+            font-size: 16px; font-weight: bold; color: #555; cursor: pointer; transition: all 0.2s;
         }
-        .color-picker-wrapper label { font-weight: bold; color: #333; }
-        #custom-color-picker { border: none; width: 40px; height: 40px; border-radius: 5px; cursor: pointer; background: none; }
+        .unit-opt.active { background: #2563eb; color: #fff; box-shadow: 0 2px 6px rgba(37,99,235,0.35); }
+        .unit-opt:active { transform: scale(0.97); }
 
         /* ========================================= */
         /* BOUTON SCANNER HOLOGRAPHIQUE              */
@@ -547,20 +570,10 @@
             <svg viewBox="0 0 24 24" width="20" height="20" stroke="white" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             <span id="save-local-label">Enregistrer sur l'appareil</span>
         </button>
-        <h2>Apparence</h2>
-        <button class="theme-btn" data-color="#e5e5e5">
-            <div class="theme-color-dot" style="background: #e5e5e5;"></div> Thème Clair
-        </button>
-        <button class="theme-btn" data-color="#1a1a1a">
-            <div class="theme-color-dot" style="background: #1a1a1a;"></div> Thème Sombre
-        </button>
-        <button class="theme-btn" data-color="#1e3a8a">
-            <div class="theme-color-dot" style="background: #1e3a8a;"></div> Thème Blueprint
-        </button>
-        
-        <div class="color-picker-wrapper">
-            <label for="custom-color-picker">Personnalisé</label>
-            <input type="color" id="custom-color-picker" value="#e5e5e5">
+        <h2>Unités</h2>
+        <div class="unit-switch" role="radiogroup" aria-label="Unité de mesure">
+            <button class="unit-opt active" data-unit="mm" type="button">mm</button>
+            <button class="unit-opt" data-unit="cm" type="button">cm</button>
         </div>
     </div>
 
@@ -572,11 +585,21 @@
 
     <div id="anim-banner">▶ Mode Animation : cliquez sur une porte ou un tiroir</div>
     <div id="phase-banner"></div>
+    <div id="anim-pips"></div>
 
     <!-- CONTENEUR DES FILTRES DE MATERIAUX -->
     <div id="material-filter-container" class="ui-element"></div>
+    <button id="mat-toggle-btn" class="ui-element" type="button" title="Masquer les matériaux">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="#555" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"></polyline></svg>
+    </button>
 
-    <button id="unit-toggle-btn" class="ui-element">mm</button>
+    <button id="measure-toggle-btn" class="ui-element" type="button" title="Masquer les cotes">
+        <svg viewBox="0 0 24 24" width="22" height="22" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="8" y="2" width="8" height="20" rx="1.5"></rect>
+            <line x1="8" y1="6" x2="11" y2="6"></line><line x1="8" y1="10" x2="12" y2="10"></line>
+            <line x1="8" y1="14" x2="11" y2="14"></line><line x1="8" y1="18" x2="12" y2="18"></line>
+        </svg>
+    </button>
     
 
     <div id="label-x" class="floating-label"></div>
@@ -677,7 +700,6 @@
             </svg>
         </div>
 
-        <button id="toggle-measure-btn" class="floating-btn active" title="Afficher/Masquer les dimensions">📏</button>
 
         <button id="style-btn" class="floating-btn" title="Style : Gris">
             <svg viewBox="0 0 24 24" width="30" height="30"><path d="M21 16.5l-9 4.5-9-4.5v-9l9-4.5 9 4.5v9z" fill="#9ca3af" stroke="#555" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 22V13M12 13L3 8.5M12 13l9-4.5" fill="none" stroke="#555" stroke-width="1.5"/></svg>
@@ -1114,6 +1136,59 @@
         }
 
         // ==========================================
+        // PASTILLES VERTES DES OUVRANTS (mode animation)
+        // ==========================================
+        let animPipEls = [];
+        const _pipVec = new THREE.Vector3();
+
+        function buildAnimPips() {
+            const box = document.getElementById('anim-pips');
+            if (!box) return;
+            box.innerHTML = '';
+            animPipEls = [];
+            animatedPartNodes.forEach(pn => {
+                const wb = new THREE.Box3().setFromObject(pn);
+                if (wb.isEmpty()) return;
+                pn.updateWorldMatrix(true, false);
+                const local = pn.worldToLocal(wb.getCenter(new THREE.Vector3()));
+                const el = document.createElement('div');
+                el.className = 'anim-pip';
+                el.title = (pn.name || 'Ouvrant').replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!isAnimationModeOn) return;
+                    if (togglePartOpenClose(pn)) {
+                        const opening = pn.userData.animState.target > 0.5;
+                        document.getElementById('anim-banner').innerText =
+                            `${opening ? '🔓 Ouverture' : '🔒 Fermeture'} : ${el.title}`;
+                    }
+                });
+                box.appendChild(el);
+                animPipEls.push({ el, node: pn, local });
+            });
+        }
+
+        function setAnimPipsVisible(show) {
+            const box = document.getElementById('anim-pips');
+            if (box) box.classList.toggle('visible', show && animPipEls.length > 0);
+        }
+
+        function updateAnimPips() {
+            if (!isAnimationModeOn || animPipEls.length === 0) return;
+            const w = window.innerWidth, h = window.innerHeight;
+            animPipEls.forEach(p => {
+                p.node.updateWorldMatrix(true, false);
+                _pipVec.copy(p.local).applyMatrix4(p.node.matrixWorld).project(camera);
+                if (_pipVec.z >= 1) { p.el.classList.add('hidden'); return; }
+                p.el.classList.remove('hidden');
+                p.el.style.left = ((_pipVec.x * 0.5 + 0.5) * w) + 'px';
+                p.el.style.top = ((-_pipVec.y * 0.5 + 0.5) * h) + 'px';
+                const st = p.node.userData.animState;
+                p.el.classList.toggle('open', !!(st && st.target > 0.5));
+            });
+        }
+
+        // ==========================================
         // OUTILS MATÉRIAUX
         // ==========================================
         function normMatName(mat) {
@@ -1272,7 +1347,6 @@
         function setupSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
-            const colorPicker = document.getElementById('custom-color-picker');
             const hint = document.getElementById('sidebar-hint'); 
             const saveBtn = document.getElementById('save-local-btn');
             const saveLabel = document.getElementById('save-local-label');
@@ -1306,23 +1380,19 @@
                 });
             }
 
-            function changeBackgroundColor(hex) {
-                document.body.style.backgroundColor = hex;
-                document.getElementById('start-menu').style.backgroundColor = hex;
-                if (scene) scene.background = new THREE.Color(hex);
+            const unitBtns = document.querySelectorAll('.unit-opt');
+            function setUnit(u) {
+                currentUnit = (u === 'cm') ? 'cm' : 'mm';
+                unitBtns.forEach(b => b.classList.toggle('active', b.dataset.unit === currentUnit));
+                try { localStorage.setItem('finjatUnit', currentUnit); } catch (e) {}
+                if (activeBox) {
+                    document.getElementById('info-dims').innerText = getFormattedDims(activeOriginalSize);
+                }
             }
-
-            document.querySelectorAll('.theme-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const color = btn.getAttribute('data-color');
-                    changeBackgroundColor(color);
-                    colorPicker.value = color;
-                });
-            });
-
-            colorPicker.addEventListener('input', (e) => {
-                changeBackgroundColor(e.target.value);
-            });
+            unitBtns.forEach(b => b.addEventListener('click', () => setUnit(b.dataset.unit)));
+            let savedUnit = null;
+            try { savedUnit = localStorage.getItem('finjatUnit'); } catch (e) {}
+            setUnit(savedUnit || 'mm');
 
             let touchStartX = 0;
             let touchEndX = 0;
@@ -1495,6 +1565,10 @@
             if (animBtn) animBtn.classList.remove('active');
             const animBanner = document.getElementById('anim-banner');
             if (animBanner) animBanner.style.display = 'none';
+            setAnimPipsVisible(false);
+            animPipEls = [];
+            const pipBox = document.getElementById('anim-pips');
+            if (pipBox) pipBox.innerHTML = '';
             
             const slider = document.getElementById('explode-slider');
             if(slider) {
@@ -1614,8 +1688,10 @@
                         animBanner.innerText = "▶ Mode Animation : aucune animation Finjat détectée dans ce .glb";
                     }
                     animBanner.style.display = 'block';
+                    setAnimPipsVisible(true);
                 } else {
                     animBanner.style.display = 'none';
+                    setAnimPipsVisible(false);
                     resetAllAnimations(false);
                 }
             });
@@ -1628,6 +1704,7 @@
                     isAnimationModeOn = false;
                     animBtn.classList.remove('active');
                     animBanner.style.display = 'none';
+                    setAnimPipsVisible(false);
                     resetAllAnimations(true);
                 }
                 
@@ -1638,7 +1715,7 @@
                     slider.min = "0";
                     slider.max = maxAssemblyStep.toString();
                     slider.step = "1";
-                    slider.value = maxAssemblyStep.toString(); 
+                    slider.value = "0"; 
                     
                     prevBtn.disabled = false;
                     nextBtn.disabled = false;
@@ -1685,6 +1762,7 @@
                     isAnimationModeOn = false;
                     animBtn.classList.remove('active');
                     animBanner.style.display = 'none';
+                    setAnimPipsVisible(false);
                     resetAllAnimations(true);
                 }
                 
@@ -1808,12 +1886,22 @@
                 }
             });
 
-            document.getElementById('unit-toggle-btn').addEventListener('click', (e) => {
-                currentUnit = currentUnit === 'mm' ? 'cm' : 'mm';
-                e.target.innerText = currentUnit;
-                if (activeBox) {
-                    document.getElementById('info-dims').innerText = getFormattedDims(activeOriginalSize);
-                }
+            const measureBtn = document.getElementById('measure-toggle-btn');
+            const syncMeasureBtn = () => {
+                measureBtn.classList.toggle('off', !showMeasurements);
+                measureBtn.title = showMeasurements ? 'Masquer les cotes' : 'Afficher les cotes';
+            };
+            measureBtn.addEventListener('click', () => {
+                showMeasurements = !showMeasurements;
+                syncMeasureBtn();
+                updateMeasurementLabels();
+            });
+            syncMeasureBtn();
+
+            const matToggleBtn = document.getElementById('mat-toggle-btn');
+            matToggleBtn.addEventListener('click', () => {
+                const collapsed = document.body.classList.toggle('mats-collapsed');
+                matToggleBtn.title = collapsed ? 'Afficher les matériaux' : 'Masquer les matériaux';
             });
 
             document.getElementById('zoom-btn').addEventListener('click', () => {
@@ -1841,12 +1929,6 @@
                 isEdgeBandingOn = !isEdgeBandingOn;
                 edgeBtn.classList.toggle('active', isEdgeBandingOn);
                 updateMaterials();
-            });
-
-            document.getElementById('toggle-measure-btn').addEventListener('click', () => {
-                showMeasurements = !showMeasurements;
-                document.getElementById('toggle-measure-btn').classList.toggle('active', showMeasurements);
-                updateMeasurementLabels(); 
             });
         }
 
@@ -2412,6 +2494,7 @@
                 namesToStrip.forEach(n => { n.name = n.name.replace(/__STEP\d+/i, '').trim(); });
 
                 console.log(`Finjat: ${animatedPartNodes.length} pièce(s) animée(s) détectée(s).`);
+                buildAnimPips();
 
                 // GÉNÉRATION DES BOUTONS FILTRES DE MATÉRIAUX
                 const matContainer = document.getElementById('material-filter-container');
@@ -2478,8 +2561,10 @@
                 document.getElementById('loader').style.display = 'none';
                 showUIElements(true);
 
-                if (uniqueMaterials.size === 0) matContainer.style.display = 'none';
-                
+                if (uniqueMaterials.size === 0) {
+                    matContainer.style.display = 'none';
+                    document.getElementById('mat-toggle-btn').style.display = 'none';
+                }                
                 if (maxAssemblyStep === 0) {
                     if(asmBtn) asmBtn.style.display = 'none';
                     if(stepCtrl) stepCtrl.style.display = 'none';
@@ -2654,6 +2739,7 @@
             updateAnimations(dt);
             controls.update();
             updateMeasurementLabels();
+            updateAnimPips();
             renderer.render(scene, camera);
         }
 
