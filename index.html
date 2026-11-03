@@ -740,6 +740,9 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+        import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+        import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
         let scene, camera, renderer, controls, globalModel;
         let isTextureOn = false;
@@ -800,6 +803,8 @@
         let currentModelSourceUrl = null;   // URL distante du modèle ouvert (liens ?model=)
         let highlightedMeshes = []; 
         let isZoomedOnPart = false;
+        let gltfAssociations = null;   // objet Three -> index de noeud glTF (pour retrouver la pièce SketchUp)
+        let selectionOutlines = [];    // contours rouges de la pièce sélectionnée
 
         let labelsCached = false;
         let domLabels = {};
@@ -819,6 +824,13 @@
         const edgeMaterial = new THREE.LineBasicMaterial({
             color: 0x000000, transparent: true, opacity: 1.0
         });
+        // Contour de sélection : trait épais visible + trait fin translucide à travers les autres pièces
+        const outlineFrontMat = new LineMaterial({ color: 0xff0000, linewidth: 4, depthTest: true });
+        const outlineGhostMat = new LineMaterial({
+            color: 0xff0000, linewidth: 2, transparent: true, opacity: 0.35, depthTest: false, depthWrite: false
+        });
+        outlineFrontMat.resolution.set(window.innerWidth, window.innerHeight);
+        outlineGhostMat.resolution.set(window.innerWidth, window.innerHeight);
         // ==========================================
         // LECTURE DE LA SÉQUENCE D'ASSEMBLAGE HIÉRARCHIQUE (extras du .glb)
         // ==========================================
@@ -1217,11 +1229,103 @@
             }
         }
         
+        // ==========================================
+        // SÉLECTION : PIÈCE ENTIÈRE + CONTOUR ROUGE ÉPAIS
+        // ==========================================
+        // Remonte au noeud glTF propriétaire (= groupe/composant SketchUp), pas à une primitive (face/matériau)
+        function getOwnerNode(obj) {
+            if (gltfAssociations) {
+                for (let o = obj; o && o !== globalModel; o = o.parent) {
+                    const a = gltfAssociations.get(o);
+                    if (a && a.nodes !== undefined) return o;
+                }
+            }
+            return obj.userData.partRoot || obj;
+        }
+
+        function isEdgeOnlyNode(node) {
+            let any = false, all = true;
+            node.traverse(n => {
+                if (n.isMesh && n.userData.isOriginalMesh) { any = true; if (!n.userData.isEdgeBand) all = false; }
+            });
+            return any && all;
+        }
+
+        function ownsPanelGeometry(node) {
+            let found = false;
+            node.traverse(n => {
+                if (!found && n.isMesh && n.userData.isOriginalMesh && !n.userData.isEdgeBand &&
+                    getOwnerNode(n) === node) found = true;
+            });
+            return found;
+        }
+
+        // Un chant touché -> on sélectionne son panneau hôte
+        function getSelectionRoot(mesh) {
+            let root = getOwnerNode(mesh);
+            if (isEdgeOnlyNode(root)) {
+                const pr = mesh.userData.partRoot;
+                if (pr && pr.userData.hostPart) {
+                    root = getOwnerNode(pr.userData.hostPart);
+                } else if (root.parent && root.parent !== globalModel) {
+                    const up = getOwnerNode(root.parent);
+                    if (up && up !== globalModel && ownsPanelGeometry(up)) root = up;
+                }
+            }
+            return root;
+        }
+
+        // Toutes les faces de la pièce + ses chants rattachés
+        function getPartMeshes(root) {
+            const set = new Set();
+            const add = (obj) => obj.traverse(n => { if (n.isMesh && n.userData.isOriginalMesh) set.add(n); });
+            add(root);
+            root.traverse(n => { if (n.userData.attachedEdgeParts) n.userData.attachedEdgeParts.forEach(add); });
+            return Array.from(set);
+        }
+
+        function getPartDisplayName(root, mesh) {
+            for (let o = root; o && o !== globalModel; o = o.parent) if (o.name) return o.name;
+            return mesh.name || 'Pièce';
+        }
+
+        function addPartOutline(mesh) {
+            if (!mesh.userData.outlineGeo) {
+                const eg = new THREE.EdgesGeometry(mesh.geometry, 30);
+                mesh.userData.outlineGeo = new LineSegmentsGeometry().fromEdgesGeometry(eg);
+                eg.dispose();
+            }
+            const front = new LineSegments2(mesh.userData.outlineGeo, outlineFrontMat);
+            const ghost = new LineSegments2(mesh.userData.outlineGeo, outlineGhostMat);
+            ghost.renderOrder = 999;
+            [front, ghost].forEach(l => {
+                l.raycast = () => {};
+                l.userData.isSelectionOutline = true;
+                mesh.add(l);
+                selectionOutlines.push(l);
+            });
+        }
+
+        function clearPartOutlines() {
+            selectionOutlines.forEach(l => { if (l.parent) l.parent.remove(l); });
+            selectionOutlines = [];
+        }
+
+        // Efface sélection (contour) ET scan (remplissage rouge)
+        function resetHighlightFlags() {
+            clearPartOutlines();
+            if (!globalModel) return;
+            globalModel.traverse(n => {
+                if (n.isMesh && n.userData.isOriginalMesh) {
+                    n.userData.isHighlighted = false;
+                    n.userData.isSelected = false;
+                }
+            });
+        }
+
         function clearSelection() {
             if (highlightedMeshes && highlightedMeshes.length > 0) {
-                highlightedMeshes.forEach(mesh => {
-                    mesh.userData.isHighlighted = false;
-                });
+                resetHighlightFlags();
                 highlightedMeshes = [];
                 updateMaterials();
             }
@@ -1604,6 +1708,7 @@
             edgeMaterial.opacity = 1.0;
             document.getElementById('ui-panel').style.display = 'none';
             highlightedMeshes = [];
+            selectionOutlines = [];
             isZoomedOnPart = false;
 
             document.getElementById('top-info-panel').style.display = 'none';
@@ -1614,24 +1719,19 @@
         }
 
         function selectPartByMesh(mesh) {
-            if (highlightedMeshes && highlightedMeshes.length > 0) {
-                highlightedMeshes.forEach(m => m.userData.isHighlighted = false);
-            }
+            resetHighlightFlags();
 
-            let partGroup = mesh.userData.partRoot || mesh;
-
-            let targetMeshes = [];
-            partGroup.traverse((node) => {
-                if (node.isMesh && node.userData.isOriginalMesh) {
-                    node.userData.isHighlighted = true;
-                    targetMeshes.push(node);
-                }
+            const partGroup = getSelectionRoot(mesh);
+            const targetMeshes = getPartMeshes(partGroup);
+            targetMeshes.forEach(m => {
+                m.userData.isSelected = true;   // pas de remplissage : matériau normal conservé
+                addPartOutline(m);
             });
 
             highlightedMeshes = targetMeshes;
             updateMaterials();
 
-            const cleanPartName = (partGroup.name || mesh.name || "Pièce").replace(/[^a-zA-Z0-9_-]/g, ' ').trim();
+            const cleanPartName = getPartDisplayName(partGroup, mesh).replace(/[^a-zA-Z0-9_-]/g, ' ').trim() || 'Pièce';
 
             const box = new THREE.Box3();
             highlightedMeshes.forEach(m => box.union(new THREE.Box3().setFromObject(m)));
@@ -1815,7 +1915,8 @@
                 });
 
                 if (highlightedMeshes && highlightedMeshes.length > 0) {
-                    activeBox = new THREE.Box3().setFromObject(highlightedMeshes[0]);
+                    activeBox = new THREE.Box3();
+                    highlightedMeshes.forEach(m => activeBox.union(new THREE.Box3().setFromObject(m)));
                 } else {
                     activeBox = new THREE.Box3().setFromObject(globalModel);
                 }
@@ -2278,6 +2379,7 @@
             const loader = new GLTFLoader();
             loader.load(url, function (gltf) {
                 globalModel = gltf.scene;
+                gltfAssociations = (gltf.parser && gltf.parser.associations) ? gltf.parser.associations : null;
                 scene.add(globalModel);
                 scene.updateMatrixWorld(true);
 
@@ -2591,11 +2693,7 @@
         function highlightScannedPart(scannedText) {
             let targetMeshes = [];
 
-            globalModel.traverse(function (node) {
-                if (node.isMesh && node.userData.isOriginalMesh) {
-                    node.userData.isHighlighted = false;
-                }
-            });
+            resetHighlightFlags();
 
             globalModel.traverse(function (node) {
                 if (node.isMesh && node.userData.isOriginalMesh) {
@@ -2728,6 +2826,8 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            outlineFrontMat.resolution.set(window.innerWidth, window.innerHeight);
+            outlineGhostMat.resolution.set(window.innerWidth, window.innerHeight);
         }
 
         function animate() {
