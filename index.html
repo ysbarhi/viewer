@@ -143,6 +143,12 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 20px;
         }
         #file-btn:active { background: #1d4ed8; transform: scale(0.98); }
+        #home-scan-btn {
+            background: #fff; color: #2563eb; border: 2px solid #2563eb;
+            padding: 13px 30px; border-radius: 10px; font-size: 18px; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 12px;
+        }
+        #home-scan-btn:active { background: #eff6ff; transform: scale(0.98); }
 
         /* ========================================= */
         /* GALERIE DES MEUBLES                       */
@@ -612,6 +618,7 @@
         <div class="author-badge">© Yassine Sbarhi 2026</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
+        <button id="home-scan-btn" type="button">📷 SCANNER UNE ÉTIQUETTE</button>
         
         <div id="recent-gallery-container">
             <div class="gallery-header">
@@ -2899,8 +2906,12 @@
         }
 
         function highlightScannedPart(scannedText) {
-            const link = parseFinjatLink(scannedText);
+            const link = parseFinjatLink(scannedText);   // accepte "4,https://…" (ID ABF en préfixe)
             if (link) { openFinjatLink(link); return; }
+            if (!globalModel) {
+                alert("Ce code QR ne contient pas de lien Finjat.\nCode lu : " + scannedText);
+                return;
+            }
 
             let targetMeshes = [];
 
@@ -2984,21 +2995,26 @@
                 if (isScannerOpen) stopAndHideScanner();
             });
 
-            scanBtn.addEventListener('click', () => {
-                scanBtn.classList.remove('burst-active');
-                void scanBtn.offsetWidth; 
-                scanBtn.classList.add('burst-active');
-
+            function openScanner() {
+                if (isScannerOpen) return;
                 isScannerOpen = true;
                 container.style.display = 'block';
-                
+
                 window.history.pushState({ scannerOpen: true }, "");
 
-                html5QrCode = new Html5Qrcode("reader");
+                let handled = false;   // évite un double chargement si le QR est lu plusieurs fois
+                html5QrCode = new Html5Qrcode("reader", {
+                    experimentalFeatures: { useBarCodeDetectorIfSupported: true }   // lecteur natif Android : meilleur sur petits QR
+                });
                 html5QrCode.start(
                     { facingMode: "environment" },
-                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    {
+                        fps: 15,
+                        qrbox: (w, h) => { const s = Math.floor(Math.min(w, h) * 0.75); return { width: s, height: s }; }
+                    },
                     (decodedText) => {
+                        if (handled) return;
+                        handled = true;
                         window.history.back();
                         highlightScannedPart(decodedText);
                     },
@@ -3007,7 +3023,17 @@
                     alert("Impossible d'accéder à la caméra.");
                     window.history.back();
                 });
+            }
+
+            scanBtn.addEventListener('click', () => {
+                scanBtn.classList.remove('burst-active');
+                void scanBtn.offsetWidth;
+                scanBtn.classList.add('burst-active');
+                openScanner();
             });
+
+            const homeScanBtn = document.getElementById('home-scan-btn');
+            if (homeScanBtn) homeScanBtn.addEventListener('click', openScanner);
 
             closeBtn.addEventListener('click', () => {
                 window.history.back();
