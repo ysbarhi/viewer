@@ -811,6 +811,9 @@
         let selectionOutline = null;   // LineSegments2 de la silhouette
         let silhouetteData = null;     // topologie soudée de la pièce sélectionnée
         const _silCam = new THREE.Vector3();
+        const SUPABASE_MODELS_URL = 'https://bromdunqmghqzgufgquz.supabase.co/storage/v1/object/public/finjat-models/';
+        let currentModelUid = null;   // id court du meuble (lien ?m=)
+        let pendingPartPid = null;    // pièce à surligner après chargement (lien ?p=)
 
         let labelsCached = false;
         let domLabels = {};
@@ -2442,8 +2445,15 @@
 
             const urlParams = new URLSearchParams(window.location.search);
             
-            if (urlParams.has('model')) {
+            if (urlParams.has('m')) {
+                currentModelUid = urlParams.get('m');
+                pendingPartPid = urlParams.get('p');
+                document.getElementById('start-menu').style.display = 'none';
+                loadModelFromUrl(modelUrlFromUid(currentModelUid));
+            }
+            else if (urlParams.has('model')) {
                 const cloudModelUrl = urlParams.get('model');
+                pendingPartPid = urlParams.get('p');
                 document.getElementById('start-menu').style.display = 'none';
                 loadModelFromUrl(cloudModelUrl);
             } 
@@ -2486,6 +2496,7 @@
         function loadModelFromUrl(url) {
             if (String(url).startsWith('blob:')) {
                 currentModelSourceUrl = null;
+                currentModelUid = null;
             } else {
                 currentModelSourceUrl = url;
                 currentModelBlob = null;
@@ -2499,6 +2510,8 @@
             loader.load(url, function (gltf) {
                 globalModel = gltf.scene;
                 gltfAssociations = (gltf.parser && gltf.parser.associations) ? gltf.parser.associations : null;
+                const fjRoot = gltf.userData && gltf.userData.finjat;
+                if (fjRoot && fjRoot.model_uid) currentModelUid = String(fjRoot.model_uid);
                 scene.add(globalModel);
                 scene.updateMatrixWorld(true);
 
@@ -2798,10 +2811,17 @@
 
                 // Afficher le bouton d'animation (toujours visible pour tester son .glb)
                 if (animBtn) animBtn.style.display = 'flex';
+
+                if (pendingPartPid) {
+                    const pid = pendingPartPid;
+                    pendingPartPid = null;
+                    setTimeout(() => highlightPartByPid(pid), 50);
+                }
                 
                 URL.revokeObjectURL(url);
             }, undefined, function (err) {
                 console.error(err);
+                pendingPartPid = null;
                 URL.revokeObjectURL(url);
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('start-menu').style.display = 'flex';
@@ -2809,7 +2829,79 @@
             });
         }
 
+        // ==========================================
+        // LIENS FINJAT (QR des étiquettes) : ?m=<meuble>&p=<pièce>
+        // ==========================================
+        function modelUrlFromUid(uid) {
+            return SUPABASE_MODELS_URL + encodeURIComponent(uid) + '.glb?t=' + Date.now();
+        }
+
+        function parseFinjatLink(text) {
+            const match = String(text || '').match(/https?:\/\/\S+/i);   // tolère "ID Nom URL" dans le QR
+            if (!match) return null;
+            let u;
+            try { u = new URL(match[0]); } catch (e) { return null; }
+            const uid = u.searchParams.get('m');
+            const modelUrl = u.searchParams.get('model');
+            const pid = u.searchParams.get('p');
+            if (!uid && !modelUrl && !pid) return null;
+            return { uid, modelUrl, pid };
+        }
+
+        function openFinjatLink(link) {
+            const sameModel = globalModel && (
+                (link.uid && link.uid === currentModelUid) ||
+                (!link.uid && link.modelUrl && link.modelUrl === currentModelSourceUrl) ||
+                (!link.uid && !link.modelUrl));
+            if (sameModel) {
+                if (link.pid) highlightPartByPid(link.pid);
+                return;
+            }
+            pendingPartPid = link.pid || null;
+            currentLoadedFileName = null;
+            currentModelBlob = null;
+            if (link.uid) {
+                currentModelUid = link.uid;
+                loadModelFromUrl(modelUrlFromUid(link.uid));
+            } else {
+                currentModelUid = null;
+                loadModelFromUrl(link.modelUrl);
+            }
+        }
+
+        function applyScanHighlight(meshes, title) {
+            clearScanHighlight();
+            meshes.forEach(m => { m.userData.isHighlighted = true; });
+            scannedMeshes = meshes;
+            scannedTitle = title;
+            updateMaterials();
+            showTargetInfo(scannedMeshes, scannedTitle, "Défaut");
+            isZoomedOnPart = true;
+            focusOnHighlightedPart();
+        }
+
+        function highlightPartByPid(pid) {
+            if (!globalModel) return;
+            const key = String(pid).toLowerCase();
+            const nodes = [];
+            globalModel.traverse(n => {
+                const f = n.userData && n.userData.finjat;
+                if (f && f.pid && String(f.pid).toLowerCase() === key) nodes.push(n);
+            });
+            const meshes = [];
+            nodes.forEach(n => getPartMeshes(n).forEach(m => { if (!meshes.includes(m)) meshes.push(m); }));
+            if (meshes.length === 0) {
+                alert("Pièce introuvable dans ce meuble.\nRéf : " + pid);
+                return;
+            }
+            const title = (nodes[0].name || 'Pièce').replace(/[^a-zA-Z0-9_-]/g, ' ').trim() || 'Pièce';
+            applyScanHighlight(meshes, title);
+        }
+
         function highlightScannedPart(scannedText) {
+            const link = parseFinjatLink(scannedText);
+            if (link) { openFinjatLink(link); return; }
+
             let targetMeshes = [];
 
             globalModel.traverse(function (node) {
