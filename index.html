@@ -433,7 +433,7 @@
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: top 0.2s ease;
         }
-        body:not(.viewer-open) #settings-btn { top: 14px; }   /* accueil : en haut à gauche */
+        body:not(.viewer-open) #settings-btn { display: none; }   /* accueil : pas de paramètres */
         #settings-btn:active { transform: scale(0.95); }
 
         @keyframes pulseHint {
@@ -628,6 +628,24 @@
             box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
         }
         #save-local-btn:active { transform: scale(0.98); }
+
+        /* ========================================= */
+        /* GALERIE VIGNETTES : hauteur pilotée par l'image (plus de chevauchement) */
+        /* ========================================= */
+        #recent-gallery { min-height: 0; }
+        #recent-gallery.layout-grid { grid-auto-rows: max-content; align-items: start; }
+        #recent-gallery.layout-grid .recent-item {
+            aspect-ratio: auto; height: auto; padding: 0; overflow: hidden;
+        }
+        #recent-gallery.layout-grid .recent-info { height: auto; }
+        #recent-gallery.layout-grid .recent-thumb {
+            flex: 0 0 auto; width: 100%; height: auto; aspect-ratio: 1 / 1;
+            object-fit: cover; display: block;
+        }
+        #recent-gallery.layout-grid .recent-name { flex: 0 0 auto; }
+
+        /* Accueil : version au-dessus du titre */
+        .app-version { margin: 0 0 4px; }
     </style>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -719,9 +737,9 @@
     <div id="label-z" class="floating-label"></div>
 
     <div id="start-menu">
-        <div id="version-badge">Finjat 3D Viewer</div>
-        <div class="author-badge">v1.26.0</div> 
-        <div class="author-badge">© Yassine Sbarhi 2026</div>
+        <div class="author-badge app-version">v1.26.0</div>
+        <div id="version-badge">Assembly Part Finder</div>
+        <div class="author-badge">© 2026 Yassine Sbarhi</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
         <button id="home-scan-btn" type="button">📷 SCANNER UNE ÉTIQUETTE</button>
