@@ -42,6 +42,36 @@
         }
         #measure-toggle-btn.off { background: #9ca3af; }
         #measure-toggle-btn:active { transform: scale(0.95); }
+
+        /* ===== MÈTRE RUBAN ===== */
+        #tape-btn {
+            position: absolute; top: 80px; right: 14px; width: 40px; height: 48px; padding: 0;
+            background: #9ca3af; border: none; border-radius: 12px; cursor: pointer; z-index: 800;
+            align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        #tape-btn.active { background: #f59e0b; box-shadow: 0 0 10px rgba(245, 158, 11, 0.6); }
+        #tape-btn:active { transform: scale(0.95); }
+
+        #tape-layer { position: fixed; inset: 0; pointer-events: none; z-index: 600; display: none; }
+        #tape-layer.visible { display: block; }
+        .tape-pip {
+            position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px;
+            pointer-events: auto; touch-action: none; cursor: grab;
+        }
+        .tape-pip::before {
+            content: ''; position: absolute; left: 50%; top: 50%; width: 12px; height: 12px; margin: -8px 0 0 -8px;
+            border-radius: 50%; background: #fff; border: 2px solid #f59e0b;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.4); transition: transform 0.15s, background 0.15s;
+        }
+        .tape-pip.snap-vertex::before { background: #16a34a; border-color: #fff; }
+        .tape-pip.snap-edge::before { background: #e11d48; border-color: #fff; }
+        .tape-pip.dragging::before { transform: scale(1.35); }
+        #tape-label {
+            position: absolute; transform: translate(-50%, -50%); pointer-events: none; white-space: nowrap;
+            background: rgba(17, 17, 17, 0.85); color: #fff; font-size: 12px; font-weight: bold;
+            padding: 3px 9px; border-radius: 10px; border: 2px solid #f59e0b;
+        }
         #info-title { font-weight: bold; font-size: 15px; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         #info-dims { font-size: 12px; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         #info-material { font-size: 12px; color: var(--accent-dark); margin-top: 2px; font-weight: bold; display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -617,6 +647,20 @@
     </button>
     
 
+    <button id="tape-btn" class="ui-element" type="button" title="Mètre ruban">
+        <svg viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="5" width="14" height="14" rx="3"></rect>
+            <circle cx="9" cy="12" r="2.5"></circle>
+            <path d="M16 16h6v-3"></path>
+        </svg>
+    </button>
+
+    <div id="tape-layer">
+        <div id="tape-label"></div>
+        <div id="tape-pip-a" class="tape-pip"></div>
+        <div id="tape-pip-b" class="tape-pip"></div>
+    </div>
+
     <div id="label-x" class="floating-label"></div>
     <div id="label-y" class="floating-label"></div>
     <div id="label-z" class="floating-label"></div>
@@ -830,6 +874,25 @@
         const SUPABASE_MODELS_URL = 'https://bromdunqmghqzgufgquz.supabase.co/storage/v1/object/public/finjat-models/';
         let currentModelUid = null;   // id court du meuble (lien ?m=)
         let pendingPartPid = null;    // pièce à surligner après chargement (lien ?p=)
+
+        // ===== Mètre ruban =====
+        const TAPE_COLOR = '#f59e0b';
+        const TAPE_AXIS_COLORS = { x: '#ef4444', y: '#3b82f6', z: '#22c55e' };   // X rouge / vertical bleu / profondeur vert
+        const TAPE_SNAP_VERTEX_PX = 16, TAPE_SNAP_EDGE_PX = 10, TAPE_SNAP_AXIS_PX = 12;
+        let isTapeModeOn = false;
+        let tape = null;              // { a, b, kindA, kindB, axis } — mémorisé même quand le mode est coupé
+        let tapeDrag = null;
+        let tapeLine = null, tapeBuf = null, tapeEls = null;
+        let tapeMeshes = [];
+        let tapeEdgeCache = new Map();
+        const tapeLineMat = new LineMaterial({ color: TAPE_COLOR, linewidth: 3, depthTest: false, depthWrite: false, transparent: true });
+        tapeLineMat.resolution.set(window.innerWidth, window.innerHeight);
+        const _tRay = new THREE.Raycaster();
+        const _tPlane = new THREE.Plane();
+        const _tp = new THREE.Vector3(), _tc = new THREE.Vector3(), _tm = new THREE.Vector3(), _al = new THREE.Vector3();
+        const _e0 = new THREE.Vector3(), _e1 = new THREE.Vector3(), _ep = new THREE.Vector3();
+        const _a0 = new THREE.Vector3(), _a1 = new THREE.Vector3(), _ap = new THREE.Vector3(), _ad = new THREE.Vector3();
+        const _s0 = { x: 0, y: 0 }, _s1 = { x: 0, y: 0 }, _sA = { x: 0, y: 0 };
 
         let labelsCached = false;
         let domLabels = {};
@@ -1622,6 +1685,7 @@
         init();
         animate();
         setupUI();
+        setupTape();
         setupScanner();
         setupFileUploader();
         setupSplashScreen();
@@ -1876,6 +1940,12 @@
             animPipEls = [];
             const pipBox = document.getElementById('anim-pips');
             if (pipBox) pipBox.innerHTML = '';
+
+            tape = null;
+            tapeDrag = null;
+            tapeMeshes = [];
+            tapeEdgeCache = new Map();
+            setTapeMode(false);
             
             const slider = document.getElementById('explode-slider');
             if(slider) {
@@ -2142,6 +2212,7 @@
 
             canvasEl.addEventListener('pointerup', (e) => {
                 if (!globalModel) return;
+                if (isTapeModeOn) return;   // le mètre ruban gère ses propres clics
                 // Ignorer si l'utilisateur a fait tourner la caméra (glisser > 10px)
                 if (Math.abs(e.clientX - touchPointerDown.x) > 10 || Math.abs(e.clientY - touchPointerDown.y) > 10) return;
 
@@ -2233,6 +2304,323 @@
                 edgeBtn.classList.toggle('active', isEdgeBandingOn);
                 updateMaterials();
             });
+        }
+
+        // ==========================================
+        // MÈTRE RUBAN : mesure dynamique 3D avec accrochage souple
+        // ==========================================
+        function setupTape() {
+            tapeEls = {
+                btn: document.getElementById('tape-btn'),
+                layer: document.getElementById('tape-layer'),
+                label: document.getElementById('tape-label'),
+                a: document.getElementById('tape-pip-a'),
+                b: document.getElementById('tape-pip-b')
+            };
+            tapeEls.btn.addEventListener('click', () => setTapeMode(!isTapeModeOn));
+
+            const canvasEl = renderer.domElement;
+
+            // Nouveau ruban : appui + glisser
+            canvasEl.addEventListener('pointerdown', (e) => {
+                if (!isTapeModeOn || !globalModel) return;
+                if (!e.isPrimary) { cancelTapeDrag(); return; }          // 2e doigt = navigation
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                const p = pickTapePoint(e.clientX, e.clientY, null);
+                if (!p) return;
+                tapeDrag = { which: 'b', pointerId: e.pointerId, backup: tape ? cloneTape(tape) : null,
+                             sx: e.clientX, sy: e.clientY, ox: 0, oy: 0, moved: false, fromPip: false };
+                tape = { a: p.point.clone(), b: p.point.clone(), kindA: p.kind, kindB: p.kind, axis: null };
+                refreshTape();
+            });
+            canvasEl.addEventListener('pointermove', (e) => {
+                if (tapeDrag && !tapeDrag.fromPip && e.pointerId === tapeDrag.pointerId) moveTapeEnd(e);
+            });
+            canvasEl.addEventListener('pointerup', (e) => {
+                if (tapeDrag && !tapeDrag.fromPip && e.pointerId === tapeDrag.pointerId) finishTapeDrag();
+            });
+            canvasEl.addEventListener('pointercancel', (e) => {
+                if (tapeDrag && e.pointerId === tapeDrag.pointerId) cancelTapeDrag();
+            });
+
+            // Ajustement : glisser une extrémité
+            ['a', 'b'].forEach(which => {
+                const pip = tapeEls[which];
+                pip.addEventListener('pointerdown', (e) => {
+                    if (!isTapeModeOn || !tape) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    pip.setPointerCapture(e.pointerId);
+                    const rect = renderer.domElement.getBoundingClientRect();
+                    _tp.copy(tape[which]).project(camera);
+                    const px = rect.left + (_tp.x * 0.5 + 0.5) * rect.width;
+                    const py = rect.top + (-_tp.y * 0.5 + 0.5) * rect.height;
+                    tapeDrag = { which, pointerId: e.pointerId, backup: cloneTape(tape),
+                                 sx: e.clientX, sy: e.clientY, ox: px - e.clientX, oy: py - e.clientY,
+                                 moved: false, fromPip: true };
+                    refreshTape();
+                });
+                pip.addEventListener('pointermove', (e) => {
+                    if (tapeDrag && tapeDrag.fromPip && e.pointerId === tapeDrag.pointerId) moveTapeEnd(e);
+                });
+                pip.addEventListener('pointerup', (e) => {
+                    if (tapeDrag && tapeDrag.fromPip && e.pointerId === tapeDrag.pointerId) finishTapeDrag();
+                });
+                pip.addEventListener('pointercancel', (e) => {
+                    if (tapeDrag && e.pointerId === tapeDrag.pointerId) cancelTapeDrag();
+                });
+            });
+        }
+
+        // 1er appui = actif (réaffiche le dernier ruban), 2e appui = masqué mais mémorisé
+        function setTapeMode(on) {
+            isTapeModeOn = !!on && !!globalModel;
+            if (tapeEls) tapeEls.btn.classList.toggle('active', isTapeModeOn);
+            if (isTapeModeOn) {
+                controls.touches.ONE = null;                          // 1 doigt = ruban
+                controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;      // 2 doigts = zoom + rotation
+                controls.mouseButtons.LEFT = null;                    // clic gauche = ruban
+                controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
+                controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+            } else {
+                tapeDrag = null;
+                controls.touches.ONE = THREE.TOUCH.ROTATE;
+                controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+                controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+                controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
+                controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+            }
+            refreshTape();
+        }
+
+        function rebuildTapeTargets() {
+            tapeMeshes = [];
+            tapeEdgeCache = new Map();
+            if (!globalModel) return;
+            globalModel.traverse(n => { if (n.isMesh && n.userData.isOriginalMesh) tapeMeshes.push(n); });
+        }
+
+        function cloneTape(t) {
+            return { a: t.a.clone(), b: t.b.clone(), kindA: t.kindA, kindB: t.kindB, axis: t.axis };
+        }
+
+        function ensureTapeLine() {
+            if (tapeLine) return;
+            const geo = new LineSegmentsGeometry();
+            geo.setPositions(new Float32Array(6));
+            tapeBuf = geo.attributes.instanceStart.data;
+            tapeLine = new LineSegments2(geo, tapeLineMat);
+            tapeLine.frustumCulled = false;
+            tapeLine.renderOrder = 1000;
+            tapeLine.raycast = () => {};
+            tapeLine.visible = false;
+            scene.add(tapeLine);
+        }
+
+        // Arêtes réelles de chaque pièce (celles des traits noirs, pas la triangulation)
+        function getEdgeLocal(mesh) {
+            let arr = tapeEdgeCache.get(mesh);
+            if (arr === undefined) {
+                const ls = mesh.children.find(c => c.isLineSegments && c.geometry && c.geometry.attributes.position);
+                arr = ls ? ls.geometry.attributes.position.array : null;
+                tapeEdgeCache.set(mesh, arr);
+            }
+            return arr;
+        }
+
+        function distPointSeg2D(px, py, a, b) {
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const L2 = dx * dx + dy * dy;
+            let t = L2 > 0 ? ((px - a.x) * dx + (py - a.y) * dy) / L2 : 0;
+            t = Math.max(0, Math.min(1, t));
+            return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
+        }
+
+        // Point du ruban sous le doigt. Priorité : sommet > arête > axe (depuis l'autre bout) > surface > plan écran.
+        // Accrochage uniquement dans un rayon en pixels => s'éloigner suffit à le relâcher.
+        function pickTapePoint(cx, cy, anchor) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            const W = rect.width, H = rect.height;
+            const sx = cx - rect.left, sy = cy - rect.top;
+            _tRay.setFromCamera(new THREE.Vector2((sx / W) * 2 - 1, -(sy / H) * 2 + 1), camera);
+            const ray = _tRay.ray;
+
+            const proj = (v, out) => {
+                _tp.copy(v).project(camera);
+                if (_tp.z > 1 || _tp.z < -1) return false;
+                out.x = (_tp.x * 0.5 + 0.5) * W;
+                out.y = (-_tp.y * 0.5 + 0.5) * H;
+                return true;
+            };
+
+            const hits = _tRay.intersectObjects(tapeMeshes, false);
+            const hit = hits.length ? hits[0] : null;
+            const maxDist = hit ? hit.distance * 1.02 + 0.003 : Infinity;   // pas d'accrochage derrière la surface visée
+            const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+
+            let bestV = null, bestVd = TAPE_SNAP_VERTEX_PX;
+            let bestE = null, bestEd = TAPE_SNAP_EDGE_PX;
+
+            for (const mesh of tapeMeshes) {
+                const g = mesh.geometry;
+                if (!g) continue;
+                if (!g.boundingSphere) g.computeBoundingSphere();
+                _tc.copy(g.boundingSphere.center).applyMatrix4(mesh.matrixWorld);
+                const rWorld = g.boundingSphere.radius * mesh.matrixWorld.getMaxScaleOnAxis();
+                const dist = _tc.distanceTo(camera.position);
+                if (dist - rWorld > maxDist) continue;
+                if (dist > rWorld && proj(_tc, _s0)) {
+                    const rPx = rWorld / (dist * tanHalf) * (H / 2);
+                    if (Math.hypot(_s0.x - sx, _s0.y - sy) > rPx + TAPE_SNAP_VERTEX_PX) continue;
+                }
+                const arr = getEdgeLocal(mesh);
+                if (!arr) continue;
+                for (let i = 0; i + 5 < arr.length; i += 6) {
+                    _e0.set(arr[i], arr[i + 1], arr[i + 2]).applyMatrix4(mesh.matrixWorld);
+                    _e1.set(arr[i + 3], arr[i + 4], arr[i + 5]).applyMatrix4(mesh.matrixWorld);
+                    const ok0 = proj(_e0, _s0);
+                    const ok1 = proj(_e1, _s1);
+                    if (ok0) {
+                        const d = Math.hypot(_s0.x - sx, _s0.y - sy);
+                        if (d < bestVd && camera.position.distanceTo(_e0) <= maxDist) { bestVd = d; bestV = _e0.clone(); }
+                    }
+                    if (ok1) {
+                        const d = Math.hypot(_s1.x - sx, _s1.y - sy);
+                        if (d < bestVd && camera.position.distanceTo(_e1) <= maxDist) { bestVd = d; bestV = _e1.clone(); }
+                    }
+                    if (ok0 && ok1) {
+                        const d = distPointSeg2D(sx, sy, _s0, _s1);
+                        if (d < bestEd) {
+                            ray.distanceSqToSegment(_e0, _e1, undefined, _ep);
+                            if (camera.position.distanceTo(_ep) <= maxDist) { bestEd = d; bestE = _ep.clone(); }
+                        }
+                    }
+                }
+            }
+            if (bestV) return { point: bestV, kind: 'vertex', axis: null };
+            if (bestE) return { point: bestE, kind: 'edge', axis: null };
+
+            // Verrouillage sur les axes du modèle à partir de l'autre extrémité
+            if (anchor && proj(anchor, _sA) && Math.hypot(sx - _sA.x, sy - _sA.y) > 24) {
+                let bestA = null, bestAd = TAPE_SNAP_AXIS_PX;
+                for (const ax of ['x', 'y', 'z']) {
+                    _ad.set(ax === 'x' ? 1 : 0, ax === 'y' ? 1 : 0, ax === 'z' ? 1 : 0);
+                    _a0.copy(anchor).addScaledVector(_ad, -1000);
+                    _a1.copy(anchor).addScaledVector(_ad, 1000);
+                    ray.distanceSqToSegment(_a0, _a1, undefined, _ap);
+                    if (!proj(_ap, _s0)) continue;
+                    const d = Math.hypot(_s0.x - sx, _s0.y - sy);
+                    if (d < bestAd) { bestAd = d; bestA = { point: _ap.clone(), kind: 'axis', axis: ax }; }
+                }
+                if (bestA) return bestA;
+            }
+
+            if (hit) return { point: hit.point.clone(), kind: 'surface', axis: null };
+
+            // Dans le vide : plan face caméra passant par l'autre extrémité
+            if (anchor) {
+                _tPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(_tm), anchor);
+                if (ray.intersectPlane(_tPlane, _ap)) return { point: _ap.clone(), kind: 'free', axis: null };
+            }
+            return null;
+        }
+
+        function alignedAxis(a, b) {
+            _al.subVectors(b, a);
+            const L = _al.length();
+            if (L < 1e-6) return null;
+            _al.divideScalar(L);
+            if (Math.abs(_al.x) > 0.99995) return 'x';
+            if (Math.abs(_al.y) > 0.99995) return 'y';
+            if (Math.abs(_al.z) > 0.99995) return 'z';
+            return null;
+        }
+
+        function moveTapeEnd(e) {
+            const d = tapeDrag;
+            if (!d || !tape) return;
+            if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 4) return;
+            d.moved = true;
+            const anchor = d.which === 'b' ? tape.a : tape.b;
+            const p = pickTapePoint(e.clientX + d.ox, e.clientY + d.oy, anchor);
+            if (!p) return;
+            tape[d.which].copy(p.point);
+            if (d.which === 'a') tape.kindA = p.kind; else tape.kindB = p.kind;
+            tape.axis = p.kind === 'axis' ? p.axis : alignedAxis(tape.a, tape.b);
+            refreshTape();
+        }
+
+        function tapeScreenLength(t) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            _tp.copy(t.a).project(camera);
+            const ax = _tp.x * rect.width / 2, ay = _tp.y * rect.height / 2;
+            _tp.copy(t.b).project(camera);
+            return Math.hypot(_tp.x * rect.width / 2 - ax, _tp.y * rect.height / 2 - ay);
+        }
+
+        function finishTapeDrag() {
+            const d = tapeDrag;
+            tapeDrag = null;
+            if (!d) return;
+            // Simple tap (sans glisser) ou ruban minuscule : on garde l'ancien ruban
+            if (!d.fromPip && (!d.moved || !tape || tapeScreenLength(tape) < 8)) tape = d.backup;
+            refreshTape();
+        }
+
+        function cancelTapeDrag() {
+            if (!tapeDrag) return;
+            tape = tapeDrag.backup;
+            tapeDrag = null;
+            refreshTape();
+        }
+
+        function formatTapeLength(m) {
+            if (currentUnit === 'cm') return (m * 100).toFixed(2).replace(/\.?0+$/, '') + ' cm';
+            return (m * 1000).toFixed(1).replace(/\.0$/, '') + ' mm';
+        }
+
+        function tapePipClass(kind, dragging) {
+            return 'tape-pip' + (kind === 'vertex' ? ' snap-vertex' : kind === 'edge' ? ' snap-edge' : '') + (dragging ? ' dragging' : '');
+        }
+
+        function refreshTape() {
+            ensureTapeLine();
+            const show = isTapeModeOn && !!tape;
+            tapeLine.visible = show;
+            if (tapeEls) tapeEls.layer.classList.toggle('visible', show);
+            if (!show) return;
+
+            const arr = tapeBuf.array;
+            arr[0] = tape.a.x; arr[1] = tape.a.y; arr[2] = tape.a.z;
+            arr[3] = tape.b.x; arr[4] = tape.b.y; arr[5] = tape.b.z;
+            tapeBuf.needsUpdate = true;
+
+            const col = TAPE_AXIS_COLORS[tape.axis] || TAPE_COLOR;
+            tapeLineMat.color.set(col);
+            tapeEls.label.style.borderColor = col;
+            tapeEls.a.className = tapePipClass(tape.kindA, tapeDrag && tapeDrag.which === 'a');
+            tapeEls.b.className = tapePipClass(tape.kindB, tapeDrag && tapeDrag.which === 'b');
+            updateTapeOverlay();
+        }
+
+        function placeTapeEl(el, v, rect) {
+            _tp.copy(v).project(camera);
+            if (_tp.z > 1) { el.style.display = 'none'; return; }
+            el.style.display = 'block';
+            el.style.left = (rect.left + (_tp.x * 0.5 + 0.5) * rect.width) + 'px';
+            el.style.top = (rect.top + (-_tp.y * 0.5 + 0.5) * rect.height) + 'px';
+        }
+
+        // Chaque image : pips + compteur suivent la perspective (orbite, zoom)
+        function updateTapeOverlay() {
+            if (!isTapeModeOn || !tape || !tapeEls) return;
+            const rect = renderer.domElement.getBoundingClientRect();
+            placeTapeEl(tapeEls.a, tape.a, rect);
+            placeTapeEl(tapeEls.b, tape.b, rect);
+            _tm.addVectors(tape.a, tape.b).multiplyScalar(0.5);
+            placeTapeEl(tapeEls.label, _tm, rect);
+            const txt = formatTapeLength(tape.a.distanceTo(tape.b));
+            if (tapeEls.label.textContent !== txt) tapeEls.label.textContent = txt;
         }
 
         // ==========================================
@@ -2809,6 +3197,7 @@
 
                 console.log(`Finjat: ${animatedPartNodes.length} pièce(s) animée(s) détectée(s).`);
                 buildAnimPips();
+                rebuildTapeTargets();
 
                 // ÉPAISSEURS PAR MATÉRIAU (extraites de la géométrie)
                 const matThickness = computeMaterialThicknesses(uniqueMaterials);
@@ -3139,6 +3528,7 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             outlineMat.resolution.set(window.innerWidth, window.innerHeight);
+            tapeLineMat.resolution.set(window.innerWidth, window.innerHeight);
         }
 
         function animate() {
@@ -3152,6 +3542,7 @@
             updateMeasurementLabels();
             updateAnimPips();
             updateSelectionOutline();
+            updateTapeOverlay();
             renderer.render(scene, camera);
         }
 
