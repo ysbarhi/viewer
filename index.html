@@ -969,13 +969,7 @@
             mesh.children.forEach(c => { if (!(c.isMesh && c.userData.isOriginalMesh)) c.layers.set(layer); });
         }
 
-        function toggleIsolation() {
-            if (!globalModel) return;
-            if (isolatedMeshes) { exitIsolation(); return; }
-
-            const target = selectedMeshes.length > 0 ? selectedMeshes : scannedMeshes;
-            if (target.length === 0) { showToast("Choisissez un élément à isoler"); return; }
-
+        function applyIsolation(target, focus = true) {
             isolatedMeshes = new Set(target);
             globalModel.traverse(n => {
                 if (n.isMesh && n.userData.isOriginalMesh) setMeshShown(n, isolatedMeshes.has(n));
@@ -989,9 +983,162 @@
             document.getElementById('isolate-btn').classList.add('active');
             document.getElementById('iso-banner').style.display = 'block';
 
-            const box = new THREE.Box3();
-            target.forEach(m => box.union(new THREE.Box3().setFromObject(m)));
-            focusCameraOnBox(box, 1.6);
+            if (focus) {
+                const box = new THREE.Box3();
+                target.forEach(m => box.union(new THREE.Box3().setFromObject(m)));
+                focusCameraOnBox(box, 1.6);
+            }
+        }
+
+        function toggleIsolation() {
+            if (!globalModel) return;
+            if (isolatedMeshes) { exitIsolation(); return; }
+            const target = selectedMeshes.length > 0 ? selectedMeshes : scannedMeshes;
+            if (target.length === 0) { showToast("Choisissez un élément à isoler"); return; }
+            applyIsolation(target, true);
+        }
+
+        // ==========================================
+        // SESSION : reprendre là où on s'était arrêté (app tuée en arrière-plan)
+        // ==========================================
+        const SESSION_KEY = 'finjatSession';
+        let pendingSession = null;
+
+        function readSession() {
+            try {
+                const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+                return (s && s.v === 1) ? s : null;
+            } catch (e) { return null; }
+        }
+
+        function clearSession() {
+            try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+        }
+
+        function skipSplash() {
+            const s = document.getElementById('splash-screen');
+            if (s) s.style.display = 'none';
+            const v = document.getElementById('splash-video');
+            if (v) { try { v.pause(); } catch (e) {} }
+        }
+
+        function saveSession() {
+            if (!globalModel) return;
+            let src = null;
+            if (currentLoadedFileName) src = { type: 'db', name: currentLoadedFileName };
+            else if (currentModelUid) src = { type: 'url', uid: currentModelUid };
+            else if (currentModelSourceUrl) src = { type: 'url', url: currentModelSourceUrl };
+            if (!src) return;
+
+            const slider = document.getElementById('explode-slider');
+            const st = {
+                v: 1, t: Date.now(), src,
+                qs: window.location.search,
+                cam: { p: camera.position.toArray(), t: controls.target.toArray() },
+                style: styleModeIndex,
+                edge: isEdgeBandingOn,
+                measures: showMeasurements,
+                touch: isTouchSelectOn,
+                matsCollapsed: document.body.classList.contains('mats-collapsed'),
+                matFilter: Array.from(activeMaterialFilters)[0] || null,
+                assembly: isAssemblyModeOn,
+                slider: slider ? Number(slider.value) : 0,
+                sel: selectedParts.map(p => p.root.userData.sid),
+                scan: scannedMeshes.map(m => m.userData.sid),
+                scanTitle: scannedTitle,
+                iso: isolatedMeshes ? Array.from(isolatedMeshes).map(m => m.userData.sid) : null,
+                tapeOn: isTapeModeOn,
+                tape: tape ? { a: tape.a.toArray(), b: tape.b.toArray(), kindA: tape.kindA, kindB: tape.kindB, axis: tape.axis } : null
+            };
+            try { localStorage.setItem(SESSION_KEY, JSON.stringify(st)); } catch (e) {}
+        }
+
+        async function restoreSession(saved) {
+            try {
+                pendingSession = saved;
+                if (saved.src.type === 'db') {
+                    const rec = (await getRecentModels()).find(r => r.name === saved.src.name);
+                    if (!rec) throw new Error('modèle absent de l\'historique');
+                    currentLoadedFileName = rec.name;
+                    currentModelBlob = rec.fileBlob;
+                    loadModelFromUrl(URL.createObjectURL(rec.fileBlob));
+                } else if (saved.src.uid) {
+                    currentModelUid = saved.src.uid;
+                    loadModelFromUrl(modelUrlFromUid(saved.src.uid));
+                } else if (saved.src.url) {
+                    loadModelFromUrl(saved.src.url);
+                } else {
+                    throw new Error('source inconnue');
+                }
+            } catch (e) {
+                console.warn('Finjat: reprise impossible', e);
+                pendingSession = null;
+                clearSession();
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('start-menu').style.display = 'flex';
+            }
+        }
+
+        function applySessionState(st) {
+            if (!globalModel || !st) return;
+            const bySid = new Map();
+            globalModel.traverse(o => { if (o.userData.sid !== undefined) bySid.set(o.userData.sid, o); });
+            const meshesOf = (sids) => (sids || []).map(s => bySid.get(s))
+                .filter(m => m && m.isMesh && m.userData.isOriginalMesh);
+
+            // Affichage
+            if (typeof st.style === 'number') setStyleMode(st.style);
+            if (!!st.edge !== isEdgeBandingOn) document.getElementById('edge-btn').click();
+            if (typeof st.measures === 'boolean' && st.measures !== showMeasurements) document.getElementById('measure-toggle-btn').click();
+            if (typeof st.touch === 'boolean' && st.touch !== isTouchSelectOn) document.getElementById('touch-toggle').click();
+            if (!!st.matsCollapsed !== document.body.classList.contains('mats-collapsed')) document.getElementById('mat-toggle-btn').click();
+            if (st.matFilter) {
+                const b = Array.from(document.querySelectorAll('.mat-filter-btn')).find(x => x.dataset.matKey === st.matFilter);
+                if (b) b.click();
+            }
+
+            // Éclatement / assemblage
+            const slider = document.getElementById('explode-slider');
+            if (st.assembly && maxAssemblyStep > 0 && !isAssemblyModeOn) document.getElementById('assembly-mode-btn').click();
+            slider.value = String(st.slider || 0);
+            slider.dispatchEvent(new Event('input'));
+
+            // Scan + sélection (simple ou multiple)
+            const scan = meshesOf(st.scan);
+            if (scan.length) {
+                scan.forEach(m => { m.userData.isHighlighted = true; });
+                scannedMeshes = scan;
+                scannedTitle = st.scanTitle || 'Pièce';
+            }
+            (st.sel || []).forEach(sid => {
+                const root = bySid.get(sid);
+                if (!root) return;
+                const meshes = getPartMeshes(root);
+                if (meshes.length) selectedParts.push(createPartSelection(root, meshes));
+            });
+            syncSelectedMeshes();
+            updateMaterials();
+            refreshSelectionInfo();
+
+            // Isolation
+            const iso = meshesOf(st.iso);
+            if (iso.length) applyIsolation(iso, false);
+
+            // Mètre ruban
+            if (st.tape) {
+                tape = {
+                    a: new THREE.Vector3().fromArray(st.tape.a), b: new THREE.Vector3().fromArray(st.tape.b),
+                    kindA: st.tape.kindA, kindB: st.tape.kindB, axis: st.tape.axis || null
+                };
+            }
+            if (st.tapeOn) setTapeMode(true); else refreshTape();
+
+            // Caméra en dernier
+            if (st.cam) {
+                camera.position.fromArray(st.cam.p);
+                controls.target.fromArray(st.cam.t);
+                controls.update();
+            }
         }
 
         function exitIsolation() {
@@ -3099,7 +3246,18 @@
 
             const urlParams = new URLSearchParams(window.location.search);
             
-            if (urlParams.has('m')) {
+            const saved = readSession();
+            const hasLink = urlParams.has('m') || urlParams.has('model') || urlParams.has('shared');
+            // Relance depuis l'icône (pas de lien) OU rechargement de la même page => reprise de session
+            const resume = saved && saved.src && (!hasLink || saved.qs === window.location.search);
+
+            if (resume) {
+                skipSplash();
+                document.getElementById('start-menu').style.display = 'none';
+                document.getElementById('loader').style.display = 'flex';
+                setTimeout(() => restoreSession(saved), 0);
+            }
+            else if (urlParams.has('m')) {
                 currentModelUid = urlParams.get('m');
                 pendingPartPid = urlParams.get('p');
                 document.getElementById('start-menu').style.display = 'none';
@@ -3131,6 +3289,7 @@
             });
 
             closeProjectBtn.addEventListener('click', () => {
+                clearSession();
                 removeCurrentModel();
                 document.getElementById('start-menu').style.display = 'flex';
                 showUIElements(false);
@@ -3164,6 +3323,8 @@
             loader.load(url, function (gltf) {
                 globalModel = gltf.scene;
                 gltfAssociations = (gltf.parser && gltf.parser.associations) ? gltf.parser.associations : null;
+                let sidCounter = 0;
+                globalModel.traverse(o => { o.userData.sid = sidCounter++; });   // avant tout ajout (traits, contours)
                 const fjRoot = gltf.userData && gltf.userData.finjat;
                 if (fjRoot && fjRoot.model_uid) currentModelUid = String(fjRoot.model_uid);
                 scene.add(globalModel);
@@ -3397,6 +3558,7 @@
                     const mName = entry.name;
                     const btn = document.createElement('button');
                     btn.className = 'mat-filter-btn';
+                    btn.dataset.matKey = matKey;
                     btn.title = mName;
 
                     const thumb = mat.map ? makeTextureThumb(mat.map) : null;
@@ -3490,7 +3652,12 @@
                 // Afficher le bouton d'animation (toujours visible pour tester son .glb)
                 if (animBtn) animBtn.style.display = 'flex';
 
-                if (pendingPartPid) {
+                if (pendingSession) {
+                    const st = pendingSession;
+                    pendingSession = null;
+                    pendingPartPid = null;
+                    try { applySessionState(st); } catch (e) { console.warn('Finjat: reprise partielle', e); }
+                } else if (pendingPartPid) {
                     const pid = pendingPartPid;
                     pendingPartPid = null;
                     setTimeout(() => highlightPartByPid(pid), 50);
@@ -3500,6 +3667,7 @@
             }, undefined, function (err) {
                 console.error(err);
                 pendingPartPid = null;
+                if (pendingSession) { pendingSession = null; clearSession(); }
                 URL.revokeObjectURL(url);
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('start-menu').style.display = 'flex';
@@ -3745,6 +3913,12 @@
             navigator.storage.persist().catch(() => {});
         }
         window.addEventListener('resize', () => applyGalleryMarquees());
+
+        // Sauvegarde dès que l'app passe en arrière-plan (accueil, autre app, verrouillage)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') saveSession();
+        });
+        window.addEventListener('pagehide', saveSession);
     </script>
 </body>
 </html>
