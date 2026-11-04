@@ -831,7 +831,7 @@
             color: 0x000000, transparent: true, opacity: 1.0
         });
         // Contour de sélection : silhouette cyan vif, masquée par les pièces placées devant
-        const outlineMat = new LineMaterial({ color: 0x00e5ff, linewidth: 4, depthTest: true });
+        const outlineMat = new LineMaterial({ color: 0x00e5ff, linewidth: 20, depthTest: true });
         outlineMat.resolution.set(window.innerWidth, window.innerHeight);
         // ==========================================
         // LECTURE DE LA SÉQUENCE D'ASSEMBLAGE HIÉRARCHIQUE (extras du .glb)
