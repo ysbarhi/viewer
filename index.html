@@ -3430,10 +3430,12 @@
                     btn.title = th ? `${mName} — ${th} mm` : mName;
 
                     btn.onclick = () => {
-                        if (activeMaterialFilters.has(matKey)) {
-                            activeMaterialFilters.delete(matKey);
-                            btn.classList.remove('active');
-                        } else {
+                        // Sélection exclusive : un seul matériau actif à la fois
+                        const wasActive = activeMaterialFilters.has(matKey);
+                        activeMaterialFilters.clear();
+                        matContainer.querySelectorAll('.mat-filter-btn.active')
+                            .forEach(b => b.classList.remove('active'));
+                        if (!wasActive) {
                             activeMaterialFilters.add(matKey);
                             btn.classList.add('active');
                         }
