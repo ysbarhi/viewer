@@ -920,6 +920,16 @@
         let scannedTitle = '';
         let selectedParts = [];        // sélection tactile : [{ root, meshes, sil, outline }]
         let isMultiHold = false;       // bouton multisélection maintenu
+
+        // Remplissage de la sélection : même cyan que le contour, 10 % d'opacité, posé sur tous les styles
+        const selectFillMat = new THREE.MeshBasicMaterial({
+            color: 0x00e5ff, transparent: true, opacity: 0.10, depthWrite: false,
+            polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1
+        });
+
+        // Tap / double tap / triple tap : pièce -> sous-ensemble -> ensemble
+        let lastTap = null;
+        const MULTI_TAP_MS = 400, MULTI_TAP_PX = 30;
         const _silCam = new THREE.Vector3();
         const SUPABASE_MODELS_URL = 'https://bromdunqmghqzgufgquz.supabase.co/storage/v1/object/public/finjat-models/';
         let currentModelUid = null;   // id court du meuble (lien ?m=)
@@ -1831,12 +1841,89 @@
             part.outline.geometry.dispose();
         }
 
+        function setSelectFill(mesh, on) {
+            if (on && !mesh.userData.selFill) {
+                const f = new THREE.Mesh(mesh.geometry, selectFillMat);
+                f.raycast = () => {};
+                f.userData.isSelectFill = true;
+                f.renderOrder = 2;
+                f.layers.mask = mesh.layers.mask;
+                mesh.add(f);
+                mesh.userData.selFill = f;
+            } else if (!on && mesh.userData.selFill) {
+                mesh.remove(mesh.userData.selFill);
+                mesh.userData.selFill = null;
+            }
+        }
+
         function syncSelectedMeshes() {
-            selectedMeshes.forEach(m => { m.userData.isSelected = false; });
             const set = new Set();
             selectedParts.forEach(p => p.meshes.forEach(m => set.add(m)));
+            selectedMeshes.forEach(m => {
+                if (!set.has(m)) { m.userData.isSelected = false; setSelectFill(m, false); }
+            });
             selectedMeshes = Array.from(set);
-            selectedMeshes.forEach(m => { m.userData.isSelected = true; });
+            selectedMeshes.forEach(m => { m.userData.isSelected = true; setSelectFill(m, true); });
+        }
+
+        // Niveau supérieur : premier groupe/composant parent qui contient PLUS de géométrie que la pièce
+        function getAncestorPart(root) {
+            const baseCount = getPartMeshes(root).length;
+            let o = root.parent;
+            while (o && o !== globalModel) {
+                const owner = getOwnerNode(o);
+                if (!owner || owner === globalModel) return null;
+                if (getPartMeshes(owner).length > baseCount) return owner;
+                o = owner.parent;
+            }
+            return null;
+        }
+
+        // level 1 = panneau, 2 = son groupe (ex : tiroir), 3 = le groupe au-dessus (ex : caisson)
+        function getSelectionRootAtLevel(mesh, level) {
+            let root = getSelectionRoot(mesh);
+            for (let i = 1; i < level; i++) {
+                const up = getAncestorPart(root);
+                if (!up) break;   // déjà au sommet : on reste au plus haut niveau
+                root = up;
+            }
+            return root;
+        }
+
+        function registerTap(e, hitMesh) {
+            const now = performance.now();
+            if (lastTap && now - lastTap.time < MULTI_TAP_MS &&
+                Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < MULTI_TAP_PX &&
+                lastTap.count < 3) {
+                lastTap = { time: now, x: e.clientX, y: e.clientY, count: lastTap.count + 1, mesh: lastTap.mesh };
+            } else {
+                lastTap = { time: now, x: e.clientX, y: e.clientY, count: 1, mesh: hitMesh };
+            }
+            return lastTap;
+        }
+
+        // Chaque tap fait monter d'un niveau, en remplaçant la sélection du tap précédent
+        function selectPartAtLevel(mesh, level, additive) {
+            if (level <= 1) { selectPartByMesh(mesh, additive); return; }
+            const root = getSelectionRootAtLevel(mesh, level);
+            const isInside = (r) => { for (let o = r; o; o = o.parent) if (o === root) return true; return false; };
+
+            if (additive) {
+                for (let i = selectedParts.length - 1; i >= 0; i--) {
+                    if (isInside(selectedParts[i].root)) {
+                        disposePartSelection(selectedParts[i]);
+                        selectedParts.splice(i, 1);
+                    }
+                }
+            } else {
+                clearTouchSelection();
+            }
+
+            const meshes = getPartMeshes(root).filter(m => m.layers.test(camera.layers));   // ignore les pièces masquées (isolation)
+            if (meshes.length === 0) { syncSelectedMeshes(); refreshSelectionInfo(); return; }
+            selectedParts.push(createPartSelection(root, meshes));
+            syncSelectedMeshes();
+            refreshSelectionInfo();
         }
 
         function showGlobalInfo() {
@@ -1868,7 +1955,7 @@
         function clearTouchSelection() {
             selectedParts.forEach(disposePartSelection);
             selectedParts = [];
-            selectedMeshes.forEach(m => { m.userData.isSelected = false; });
+            selectedMeshes.forEach(m => { m.userData.isSelected = false; setSelectFill(m, false); });
             selectedMeshes = [];
             selectedTitle = '';
         }
@@ -2327,7 +2414,7 @@
                 clearTouchSelection();   // le scan QR n'est PAS touché
             }
 
-            const meshes = getPartMeshes(root);
+            const meshes = getPartMeshes(root).filter(m => m.layers.test(camera.layers));
             if (meshes.length === 0) return;
             selectedParts.push(createPartSelection(root, meshes));
             syncSelectedMeshes();
@@ -2581,12 +2668,14 @@
                         return;
                     }
 
-                    // 2. MODE SÉLECTION TACTILE (simple ou multisélection)
+                    // 2. MODE SÉLECTION TACTILE : 1 tap = pièce, 2 taps = sous-ensemble, 3 taps = ensemble
                     if (isTouchSelectOn) {
-                        selectPartByMesh(hitMesh, additive);
+                        const tap = registerTap(e, hitMesh);
+                        selectPartAtLevel(tap.mesh, tap.count, additive);
                     }
-                } else if (isTouchSelectOn && !isAnimationModeOn && !additive) {
-                    clearSelection();   // même comportement en mode isolé ou non
+                } else if (isTouchSelectOn && !isAnimationModeOn) {
+                    lastTap = null;
+                    if (!additive) clearSelection();   // même comportement en mode isolé ou non
                 }
             });
 
