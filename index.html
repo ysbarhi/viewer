@@ -74,12 +74,21 @@
         #material-filter-container .mat-filter-btn:first-child { margin-left: auto; }
         #material-filter-container .mat-filter-btn:last-child { margin-right: auto; }
         .mat-filter-btn {
-            flex: 0 0 auto; width: 34px; height: 34px; border-radius: 8px; border: 2px solid #ffffff;
+            flex: 0 0 auto; width: 38px; height: 38px; border-radius: 8px; border: 2px solid #ffffff;
             cursor: pointer; background-size: cover; background-position: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.45); transition: all 0.2s;
             display: flex; align-items: center; justify-content: center;
             font-size: 12px; font-weight: bold; text-transform: uppercase; overflow: hidden;
             padding: 0; position: relative;
+        }
+        .mat-ini {
+            font-size: 11px; font-weight: 800; letter-spacing: 0.3px; line-height: 1;
+            margin-top: -5px; pointer-events: none;
+        }
+        .mat-th {
+            position: absolute; right: 0; bottom: 0; padding: 1px 3px 1px 3px;
+            font-size: 9px; font-weight: bold; line-height: 1.1; color: #fff;
+            background: rgba(0, 0, 0, 0.65); border-top-left-radius: 5px; pointer-events: none;
         }
         .mat-filter-btn.active {
             border-color: var(--accent); transform: scale(1.08); box-shadow: 0 0 6px var(--accent);
@@ -1221,6 +1230,70 @@
 
         function isEdgeMatName(key) {
             return key.includes("chant") || key.includes("edge") || key.includes("abf");
+        }
+
+        // Initiales du matériau : "Glossy" -> GLO, "High_Lam" -> HL, "Wood_Veneer_15_1K" -> WV
+        function materialInitials(name) {
+            const clean = String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const words = clean.replace(/([a-z])([A-Z])/g, '$1 $2')
+                .split(/[^A-Za-z0-9]+/)
+                .filter(w => w && !/^\d+(k|mm)?$/i.test(w));   // ignore 01, 15, 1K, 18mm...
+            if (words.length === 0) return (clean.replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || '?').toUpperCase();
+            if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+            return words.slice(0, 3).map(w => w[0]).join('').toUpperCase();
+        }
+
+        // Épaisseur d'une pièce = plus petite dimension de sa boîte dans SON repère (panneaux tournés OK)
+        function partThicknessMeters(root) {
+            root.updateWorldMatrix(true, true);
+            const inv = root.matrixWorld.clone().invert();
+            const M = new THREE.Matrix4();
+            const box = new THREE.Box3();
+            root.traverse(n => {
+                if (!n.isMesh || !n.userData.isOriginalMesh || !n.geometry) return;
+                if (!n.geometry.boundingBox) n.geometry.computeBoundingBox();
+                M.multiplyMatrices(inv, n.matrixWorld);
+                box.union(n.geometry.boundingBox.clone().applyMatrix4(M));
+            });
+            if (box.isEmpty()) return 0;
+            const size = box.getSize(new THREE.Vector3());
+            const s = new THREE.Vector3();
+            root.matrixWorld.decompose(new THREE.Vector3(), new THREE.Quaternion(), s);
+            return Math.min(size.x * Math.abs(s.x), size.y * Math.abs(s.y), size.z * Math.abs(s.z));
+        }
+
+        // Épaisseur (mm) la plus fréquente parmi les pièces qui utilisent chaque matériau
+        function computeMaterialThicknesses(uniqueMaterials) {
+            const votes = new Map();       // matKey -> Map(épaisseur -> nb de pièces)
+            const rootT = new Map();       // pièce -> épaisseur mm
+            const counted = new Set();     // une voix par pièce et par matériau
+            globalModel.traverse(n => {
+                if (!n.isMesh || !n.userData.isOriginalMesh || n.userData.isEdgeBand) return;
+                const keys = (n.userData.originalMaterialKeys || []).filter(k => uniqueMaterials.has(k));
+                if (keys.length === 0) return;
+                const root = getSelectionRoot(n);
+                let t = rootT.get(root);
+                if (t === undefined) {
+                    t = Math.round(partThicknessMeters(root) * 10000) / 10;   // mm, au dixième
+                    rootT.set(root, t);
+                }
+                if (!(t > 0)) return;
+                keys.forEach(k => {
+                    const id = root.uuid + '|' + k;
+                    if (counted.has(id)) return;
+                    counted.add(id);
+                    let m = votes.get(k);
+                    if (!m) { m = new Map(); votes.set(k, m); }
+                    m.set(t, (m.get(t) || 0) + 1);
+                });
+            });
+            const result = new Map();
+            votes.forEach((m, k) => {
+                let best = 0, bestN = 0;
+                m.forEach((n, t) => { if (n > bestN || (n === bestN && t > best)) { best = t; bestN = n; } });
+                if (best > 0) result.set(k, String(best));   // 18 -> "18", 0.8 -> "0.8"
+            });
+            return result;
         }
 
         function makeTextureThumb(map, size = 64) {
@@ -2737,6 +2810,9 @@
                 console.log(`Finjat: ${animatedPartNodes.length} pièce(s) animée(s) détectée(s).`);
                 buildAnimPips();
 
+                // ÉPAISSEURS PAR MATÉRIAU (extraites de la géométrie)
+                const matThickness = computeMaterialThicknesses(uniqueMaterials);
+
                 // GÉNÉRATION DES BOUTONS FILTRES DE MATÉRIAUX
                 const matContainer = document.getElementById('material-filter-container');
                 matContainer.innerHTML = '';
@@ -2749,16 +2825,34 @@
                     btn.title = mName;
 
                     const thumb = mat.map ? makeTextureThumb(mat.map) : null;
-                    
+
+                    let darkBg = true;   // texture => texte blanc + ombre
                     if (thumb) {
                         btn.style.backgroundImage = `url(${thumb})`;
                     } else {
                         const col = mat.color ? mat.color : new THREE.Color(0xcccccc);
                         btn.style.backgroundColor = '#' + col.getHexString();
-                        btn.innerText = mName.substring(0, 2).toUpperCase();
                         const hsl = {}; col.getHSL(hsl);
-                        btn.style.color = hsl.l < 0.5 ? '#ffffff' : '#000000';
+                        darkBg = hsl.l < 0.5;
                     }
+
+                    const ini = document.createElement('span');
+                    ini.className = 'mat-ini';
+                    ini.textContent = materialInitials(mName);
+                    ini.style.color = darkBg ? '#ffffff' : '#111111';
+                    ini.style.textShadow = darkBg
+                        ? '0 0 3px rgba(0,0,0,0.9), 0 0 1px #000'
+                        : '0 0 3px rgba(255,255,255,0.9)';
+                    btn.appendChild(ini);
+
+                    const th = matThickness.get(matKey);
+                    if (th) {
+                        const badge = document.createElement('span');
+                        badge.className = 'mat-th';
+                        badge.textContent = th;
+                        btn.appendChild(badge);
+                    }
+                    btn.title = th ? `${mName} — ${th} mm` : mName;
 
                     btn.onclick = () => {
                         if (activeMaterialFilters.has(matKey)) {
