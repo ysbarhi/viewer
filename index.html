@@ -355,6 +355,17 @@
             touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
         }
         #multi-select-btn.disabled { opacity: 0.4; }
+        #lasso-btn { bottom: 236px; left: 20px; width: 44px; height: 44px; }
+        #lasso-btn.disabled { opacity: 0.4; }
+        #lasso-btn.active {
+            background: #cffafe; border: 2px solid #06b6d4;
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.6);
+        }
+        #lasso-canvas {
+            position: fixed; inset: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 550; display: none;
+        }
+        #lasso-canvas.visible { display: block; }
         #multi-select-btn.active {
             background: #cffafe; border: 2px solid #06b6d4;
             box-shadow: 0 0 12px rgba(6, 182, 212, 0.6); transform: scale(1.08);
@@ -416,19 +427,14 @@
         /* ========================================= */
         /* PANNEAU LATÉRAL & INDICATEUR VISUEL       */
         /* ========================================= */
-        #sidebar-hint {
-            position: fixed; top: 50%; left: 0; transform: translateY(-50%);
-            width: 5px; height: 72px; background: rgba(107, 114, 128, 0.7);
-            border-radius: 0 5px 5px 0; z-index: 1500; cursor: pointer;
-            box-shadow: 1px 0 4px rgba(0, 0, 0, 0.25);
-            transition: opacity 0.3s ease;
-            animation: pulseHint 2.4s infinite alternate ease-in-out;
+        #settings-btn {
+            position: absolute; top: 80px; left: 14px; width: 40px; height: 48px; padding: 0;
+            background: #666; border: none; border-radius: 12px; cursor: pointer; z-index: 950;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: top 0.2s ease;
         }
-
-        #sidebar-hint::after {
-            content: ''; position: absolute;
-            top: -16px; bottom: -16px; left: 0; width: 10px;
-        }
+        body:not(.viewer-open) #settings-btn { top: 14px; }   /* accueil : en haut à gauche */
+        #settings-btn:active { transform: scale(0.95); }
 
         @keyframes pulseHint {
             0% { opacity: 0.45; }
@@ -639,7 +645,12 @@
         <video id="splash-video" src="splash-cgi.mp4" autoplay muted playsinline disablePictureInPicture></video>
     </div>
 
-    <div id="sidebar-hint"></div>
+    <button id="settings-btn" type="button" title="Paramètres">
+        <svg viewBox="0 0 24 24" width="22" height="22" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+    </button>
 
     <div id="sidebar-overlay"></div>
     <div id="sidebar">
@@ -748,6 +759,16 @@
     <button id="close-project-btn" class="ui-element">
         <svg viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
     </button>
+
+    <!-- BOUTON LASSO (sélection à main levée) -->
+    <button id="lasso-btn" class="floating-btn ui-element disabled" type="button" title="Lasso : entourer les pièces à sélectionner">
+        <svg viewBox="0 0 24 24" width="26" height="26" stroke="#555" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 16.5C3.8 15 2.8 12.3 4 9.8 5.6 6.5 10 4.3 14.8 4.8c4.4.5 6.9 3.3 5.9 6.3-.9 2.9-4.7 4.9-9.2 4.9" stroke-dasharray="2.6 2.6"></path>
+            <circle cx="8.5" cy="17.5" r="2"></circle>
+            <path d="M8.8 19.5 8 22"></path>
+        </svg>
+    </button>
+    <canvas id="lasso-canvas"></canvas>
 
     <!-- BOUTON MULTISÉLECTION (maintenir + toucher les pièces) -->
     <button id="multi-select-btn" class="floating-btn ui-element disabled" type="button" title="Maintenir pour sélectionner plusieurs pièces">
@@ -930,6 +951,12 @@
         // Tap / double tap / triple tap : pièce -> sous-ensemble -> ensemble
         let lastTap = null;
         const MULTI_TAP_MS = 400, MULTI_TAP_PX = 30;
+
+        // Lasso
+        let isLassoModeOn = false;
+        let lassoPts = null;          // points écran (px CSS) du tracé en cours
+        let lassoPointerId = null;
+        let lassoRT = null;           // cible de rendu "identifiants" (modes Gris / Texturé)
         const _silCam = new THREE.Vector3();
         const SUPABASE_MODELS_URL = 'https://bromdunqmghqzgufgquz.supabase.co/storage/v1/object/public/finjat-models/';
         let currentModelUid = null;   // id court du meuble (lien ?m=)
@@ -2084,6 +2111,7 @@
         animate();
         setupUI();
         setupTape();
+        setupLasso();
         setupScanner();
         setupFileUploader();
         setupSplashScreen();
@@ -2120,9 +2148,8 @@
             const saveBtn = document.getElementById('save-local-btn');
             const saveLabel = document.getElementById('save-local-label');
 
-            if (hint) {
-                hint.addEventListener('click', openSidebar);
-            }
+            const settingsBtn = document.getElementById('settings-btn');
+            if (settingsBtn) settingsBtn.addEventListener('click', openSidebar);
             
             function openSidebar() {
                 if (saveBtn) saveBtn.style.display = globalModel ? 'flex' : 'none';
@@ -2173,9 +2200,6 @@
             document.addEventListener('touchend', e => {
                 touchEndX = e.changedTouches[0].screenX;
                 
-                if (touchStartX <= 12 && touchEndX > touchStartX + 50) {
-                    openSidebar();
-                }
                 
                 if (sidebar.classList.contains('active') && touchStartX > touchEndX + 50) {
                     closeSidebar();
@@ -2310,6 +2334,7 @@
         }
 
         function showUIElements(show) {
+            document.body.classList.toggle('viewer-open', show);
             document.querySelectorAll('.ui-element:not(#ui-panel)')
                 .forEach(el => el.style.display = show ? 'flex' : 'none');
             if (!show) {
@@ -2343,6 +2368,7 @@
             tapeMeshes = [];
             tapeEdgeCache = new Map();
             setTapeMode(false);
+            setLassoMode(false);
             
             const slider = document.getElementById('explode-slider');
             if(slider) {
@@ -2598,6 +2624,8 @@
                 isTouchSelectOn = !isTouchSelectOn;
                 touchSelectToggle.classList.toggle('toggle-on', isTouchSelectOn);
                 multiBtn.classList.toggle('disabled', !isTouchSelectOn);
+                document.getElementById('lasso-btn').classList.toggle('disabled', !isTouchSelectOn);
+                if (!isTouchSelectOn && isLassoModeOn) setLassoMode(false);
             });
 
             // Multisélection : maintenir (pouce gauche) + toucher les pièces (pouce droit). Relâcher = retour sélection simple.
@@ -2738,7 +2766,10 @@
                 a: document.getElementById('tape-pip-a'),
                 b: document.getElementById('tape-pip-b')
             };
-            tapeEls.btn.addEventListener('click', () => setTapeMode(!isTapeModeOn));
+            tapeEls.btn.addEventListener('click', () => {
+                if (isLassoModeOn) setLassoMode(false);
+                setTapeMode(!isTapeModeOn);
+            });
 
             const canvasEl = renderer.domElement;
 
@@ -3043,6 +3074,280 @@
             placeTapeEl(tapeEls.label, _tm, rect);
             const txt = formatTapeLength(tape.a.distanceTo(tape.b));
             if (tapeEls.label.textContent !== txt) tapeEls.label.textContent = txt;
+        }
+
+        // ==========================================
+        // LASSO : sélection à main levée
+        // Gris / Texturé : seules les pièces VUES par la caméra (rendu d'identifiants GPU)
+        // Rayons X : toutes les pièces sous le lasso, y compris celles de derrière
+        // ==========================================
+        function setupLasso() {
+            document.getElementById('lasso-btn').addEventListener('click', () => {
+                if (!isTouchSelectOn) { showToast("Activez la sélection tactile"); return; }
+                setLassoMode(!isLassoModeOn);
+            });
+
+            const canvasEl = renderer.domElement;
+            canvasEl.addEventListener('pointerdown', (e) => {
+                if (!isLassoModeOn || !globalModel) return;
+                if (!e.isPrimary) { cancelLasso(); return; }   // 2e doigt = navigation
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                lassoPointerId = e.pointerId;
+                lassoPts = [{ x: e.clientX, y: e.clientY }];
+            });
+            canvasEl.addEventListener('pointermove', (e) => {
+                if (!lassoPts || e.pointerId !== lassoPointerId) return;
+                const last = lassoPts[lassoPts.length - 1];
+                if (Math.hypot(e.clientX - last.x, e.clientY - last.y) < 3) return;
+                lassoPts.push({ x: e.clientX, y: e.clientY });
+                drawLasso();
+            });
+            canvasEl.addEventListener('pointerup', (e) => {
+                if (!lassoPts || e.pointerId !== lassoPointerId) return;
+                const pts = lassoPts;
+                const additive = isMultiHold || e.ctrlKey || e.metaKey || e.shiftKey;
+                cancelLasso();
+                if (lassoPathLength(pts) < 12) return;   // simple tap : géré par la sélection normale
+                applyLassoSelection(pts, additive);
+            });
+            canvasEl.addEventListener('pointercancel', (e) => {
+                if (e.pointerId === lassoPointerId) cancelLasso();
+            });
+        }
+
+        function setLassoMode(on) {
+            isLassoModeOn = !!on && !!globalModel && isTouchSelectOn;
+            const btn = document.getElementById('lasso-btn');
+            if (btn) btn.classList.toggle('active', isLassoModeOn);
+            if (isLassoModeOn) {
+                if (isTapeModeOn) setTapeMode(false);
+                controls.touches.ONE = null;                          // 1 doigt = lasso
+                controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;      // 2 doigts = zoom + rotation
+                controls.mouseButtons.LEFT = null;
+                controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
+                controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+            } else {
+                cancelLasso();
+                if (!isTapeModeOn) {
+                    controls.touches.ONE = THREE.TOUCH.ROTATE;
+                    controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+                    controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+                    controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
+                    controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+                }
+            }
+        }
+
+        function lassoPathLength(pts) {
+            let L = 0;
+            for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+            return L;
+        }
+
+        function drawLasso() {
+            const cv = document.getElementById('lasso-canvas');
+            if (!cv) return;
+            const dpr = window.devicePixelRatio || 1;
+            const w = window.innerWidth, h = window.innerHeight;
+            if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+                cv.width = Math.round(w * dpr);
+                cv.height = Math.round(h * dpr);
+            }
+            const ctx = cv.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            cv.classList.add('visible');
+            if (!lassoPts || lassoPts.length < 2) return;
+            ctx.beginPath();
+            ctx.moveTo(lassoPts[0].x, lassoPts[0].y);
+            for (const p of lassoPts) ctx.lineTo(p.x, p.y);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(0, 229, 255, 0.10)';
+            ctx.fill();
+            ctx.setLineDash([6, 4]);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#00e5ff';
+            ctx.stroke();
+        }
+
+        function cancelLasso() {
+            lassoPts = null;
+            lassoPointerId = null;
+            const cv = document.getElementById('lasso-canvas');
+            if (cv) {
+                cv.classList.remove('visible');
+                const ctx = cv.getContext('2d');
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, cv.width, cv.height);
+            }
+        }
+
+        function applyLassoSelection(pts, additive) {
+            if (!globalModel || pts.length < 2) return;
+            const rect = renderer.domElement.getBoundingClientRect();
+            const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+            const local = pts.map(p => ({ x: p.x - rect.left, y: p.y - rect.top }));
+
+            // Masque du lasso : zone fermée + trait épais (un lasso "ligne" sélectionne ce qu'il traverse)
+            const mc = document.createElement('canvas');
+            mc.width = W; mc.height = H;
+            const mx = mc.getContext('2d', { willReadFrequently: true });
+            mx.beginPath();
+            local.forEach((p, i) => (i ? mx.lineTo(p.x, p.y) : mx.moveTo(p.x, p.y)));
+            mx.closePath();
+            mx.fillStyle = '#fff';
+            mx.fill();
+            mx.lineWidth = 8; mx.lineJoin = 'round'; mx.lineCap = 'round'; mx.strokeStyle = '#fff';
+            mx.stroke();
+            const mask = mx.getImageData(0, 0, W, H).data;
+            const inMask = (x, y) => {
+                x = Math.floor(x); y = Math.floor(y);
+                if (x < 0 || y < 0 || x >= W || y >= H) return false;
+                return mask[(y * W + x) * 4 + 3] > 0;
+            };
+            const bb = { minX: W, minY: H, maxX: 0, maxY: 0 };
+            local.forEach(p => {
+                bb.minX = Math.min(bb.minX, p.x); bb.minY = Math.min(bb.minY, p.y);
+                bb.maxX = Math.max(bb.maxX, p.x); bb.maxY = Math.max(bb.maxY, p.y);
+            });
+            bb.minX = Math.max(0, Math.floor(bb.minX - 6));
+            bb.minY = Math.max(0, Math.floor(bb.minY - 6));
+            bb.maxX = Math.min(W - 1, Math.ceil(bb.maxX + 6));
+            bb.maxY = Math.min(H - 1, Math.ceil(bb.maxY + 6));
+
+            const hitMeshes = isXrayOn
+                ? lassoMeshesXray(W, H, inMask, bb, local[0])
+                : lassoMeshesSolid(W, H, inMask, bb);
+
+            // Faces touchées -> pièces entières (un chant renvoie à son panneau)
+            const roots = new Set();
+            hitMeshes.forEach(m => roots.add(getSelectionRoot(m)));
+
+            if (!additive) clearTouchSelection();
+            roots.forEach(root => {
+                if (selectedParts.some(p => p.root === root)) return;
+                const meshes = getPartMeshes(root).filter(m => m.layers.test(camera.layers));
+                if (meshes.length) selectedParts.push(createPartSelection(root, meshes));
+            });
+            lastTap = null;
+            syncSelectedMeshes();
+            refreshSelectionInfo();
+            if (roots.size === 0) showToast("Aucune pièce dans le lasso");
+        }
+
+        // Gris / Texturé : rendu hors écran où chaque face porte la couleur-identifiant de sa pièce
+        function lassoMeshesSolid(W, H, inMask, bb) {
+            const ids = [];
+            const swapped = [];
+            const hidden = [];
+            const prevBg = scene.background;
+            const tapeWasVisible = tapeLine ? tapeLine.visible : false;
+            const found = new Set();
+            try {
+                globalModel.traverse(o => {
+                    if (o.isMesh && o.userData.isOriginalMesh) {
+                        if (!o.layers.test(camera.layers)) return;
+                        ids.push(o);
+                        const id = ids.length;
+                        if (!o.userData.idMat) o.userData.idMat = new THREE.MeshBasicMaterial();
+                        const cur = Array.isArray(o.material) ? o.material[0] : o.material;
+                        o.userData.idMat.side = cur ? cur.side : THREE.FrontSide;
+                        o.userData.idMat.color.setRGB(((id >> 16) & 255) / 255, ((id >> 8) & 255) / 255, (id & 255) / 255,
+                                                      THREE.LinearSRGBColorSpace);
+                        swapped.push([o, o.material]);
+                        o.material = o.userData.idMat;
+                    } else if (o !== globalModel && o.visible && (o.isMesh || o.isLine || o.isLineSegments || o.isPoints)) {
+                        hidden.push(o);       // traits, contours, remplissages : hors du rendu d'identifiants
+                        o.visible = false;
+                    }
+                });
+                if (tapeLine) tapeLine.visible = false;
+                scene.background = new THREE.Color(0x000000);
+
+                if (!lassoRT || lassoRT.width !== W || lassoRT.height !== H) {
+                    if (lassoRT) lassoRT.dispose();
+                    lassoRT = new THREE.WebGLRenderTarget(W, H);
+                }
+                renderer.setRenderTarget(lassoRT);
+                renderer.render(scene, camera);
+                renderer.setRenderTarget(null);
+
+                const buf = new Uint8Array(W * H * 4);
+                renderer.readRenderTargetPixels(lassoRT, 0, 0, W, H, buf);
+                for (let y = bb.minY; y <= bb.maxY; y++) {
+                    for (let x = bb.minX; x <= bb.maxX; x++) {
+                        if (!inMask(x, y)) continue;
+                        const i = ((H - 1 - y) * W + x) * 4;
+                        const id = (buf[i] << 16) | (buf[i + 1] << 8) | buf[i + 2];
+                        if (id > 0 && id <= ids.length) found.add(ids[id - 1]);
+                    }
+                }
+            } finally {
+                renderer.setRenderTarget(null);
+                swapped.forEach(([o, m]) => { o.material = m; });
+                hidden.forEach(o => { o.visible = true; });
+                scene.background = prevBg;
+                if (tapeLine) tapeLine.visible = tapeWasVisible;
+            }
+            return found;
+        }
+
+        // Rayons X : test géométrique écran (triangles projetés vs masque), sans occultation
+        function lassoMeshesXray(W, H, inMask, bb, first) {
+            const found = new Set();
+            const v = new THREE.Vector3();
+            const pointInTri = (px, py, ax, ay, bx, by, cx, cy) => {
+                const d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by);
+                const d2 = (px - cx) * (by - cy) - (bx - cx) * (py - cy);
+                const d3 = (px - ax) * (cy - ay) - (cx - ax) * (py - ay);
+                const neg = d1 < 0 || d2 < 0 || d3 < 0, pos = d1 > 0 || d2 > 0 || d3 > 0;
+                return !(neg && pos);
+            };
+            const edgeHits = (x0, y0, x1, y1) => {
+                const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 3));
+                for (let k = 0; k <= n; k++) {
+                    const t = k / n;
+                    if (inMask(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)) return true;
+                }
+                return false;
+            };
+
+            globalModel.traverse(o => {
+                if (!o.isMesh || !o.userData.isOriginalMesh || !o.layers.test(camera.layers)) return;
+                const g = o.geometry, pos = g && g.attributes.position;
+                if (!pos) return;
+                const n = pos.count;
+                const xs = new Float32Array(n), ys = new Float32Array(n), ok = new Uint8Array(n);
+                let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+                for (let i = 0; i < n; i++) {
+                    v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).project(camera);
+                    if (v.z > 1 || v.z < -1) continue;
+                    ok[i] = 1;
+                    xs[i] = (v.x * 0.5 + 0.5) * W;
+                    ys[i] = (-v.y * 0.5 + 0.5) * H;
+                    if (xs[i] < x0) x0 = xs[i]; if (xs[i] > x1) x1 = xs[i];
+                    if (ys[i] < y0) y0 = ys[i]; if (ys[i] > y1) y1 = ys[i];
+                }
+                if (x1 < bb.minX || x0 > bb.maxX || y1 < bb.minY || y0 > bb.maxY) return;
+
+                const idx = g.index;
+                const triCount = Math.floor((idx ? idx.count : n) / 3);
+                for (let t = 0; t < triCount; t++) {
+                    const a = idx ? idx.getX(t * 3) : t * 3;
+                    const b = idx ? idx.getX(t * 3 + 1) : t * 3 + 1;
+                    const c = idx ? idx.getX(t * 3 + 2) : t * 3 + 2;
+                    if (!ok[a] || !ok[b] || !ok[c]) continue;
+                    if (inMask(xs[a], ys[a]) || inMask(xs[b], ys[b]) || inMask(xs[c], ys[c]) ||
+                        pointInTri(first.x, first.y, xs[a], ys[a], xs[b], ys[b], xs[c], ys[c]) ||
+                        edgeHits(xs[a], ys[a], xs[b], ys[b]) ||
+                        edgeHits(xs[b], ys[b], xs[c], ys[c]) ||
+                        edgeHits(xs[c], ys[c], xs[a], ys[a])) {
+                        found.add(o);
+                        return;
+                    }
+                }
+            });
+            return found;
         }
 
         // ==========================================
