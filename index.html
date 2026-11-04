@@ -134,19 +134,19 @@
         .switch-group { display: flex; flex-direction: column; align-items: center; gap: 5px; }
         .switch-icon { width: 22px; height: 22px; }
 
-        #touch-toggle, #edge-btn {
+        #touch-toggle {
             width: 30px; height: 52px; background: #999; border-radius: 15px; border: none; padding: 0;
             position: relative; cursor: pointer; transition: background 0.3s;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
         }
-        #touch-toggle.toggle-on, #edge-btn.active { background: var(--accent); }
+        #touch-toggle.toggle-on { background: var(--accent); }
         .toggle-knob {
             width: 22px; height: 22px; background: white; border-radius: 50%;
             position: absolute; left: 4px; bottom: 4px;
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
-        #touch-toggle.toggle-on .toggle-knob, #edge-btn.active .toggle-knob { transform: translateY(-22px); }
+        #touch-toggle.toggle-on .toggle-knob { transform: translateY(-22px); }
 
         .floating-label {
             position: absolute; background: rgba(0, 0, 0, 0.7); color: #fff;
@@ -370,17 +370,22 @@
         .anim-pip.open { background: #fff; border-color: #16a34a; }
         .anim-pip.hidden { display: none; }
 
-        body.mats-collapsed #anim-banner, body.mats-collapsed #phase-banner { top: 94px; }
-        #anim-banner, #phase-banner {
-            transition: top 0.3s ease;
+        #top-notices {
             position: absolute; top: 150px; left: 50%; transform: translateX(-50%);
-            max-width: calc(100% - 40px); text-align: center; white-space: normal;
-            color: #ffffff; padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
-            z-index: 800; pointer-events: none; display: none;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            width: max-content; max-width: calc(100% - 40px);
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            z-index: 800; pointer-events: none; transition: top 0.3s ease;
+        }
+        body.mats-collapsed #top-notices { top: 94px; }
+        #anim-banner, #phase-banner, #iso-banner, #toast-msg {
+            text-align: center; white-space: normal; color: #ffffff;
+            padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
+            display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
         #anim-banner { background: rgba(22, 163, 74, 0.92); }
         #phase-banner { background: rgba(37, 99, 235, 0.92); }
+        #iso-banner { background: rgba(124, 58, 237, 0.92); }
+        #toast-msg { background: rgba(17, 17, 17, 0.88); transition: opacity 0.3s ease; }
 
         #ui-panel {
             top: 20px; left: 50%; transform: translateX(-50%);
@@ -404,16 +409,16 @@
         /* ========================================= */
         #sidebar-hint {
             position: fixed; top: 50%; left: 0; transform: translateY(-50%);
-            width: 12px; height: 88px; background: rgba(107, 114, 128, 0.7);
-            border-radius: 0 8px 8px 0; z-index: 1500; cursor: pointer;
-            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.25);
+            width: 5px; height: 72px; background: rgba(107, 114, 128, 0.7);
+            border-radius: 0 5px 5px 0; z-index: 1500; cursor: pointer;
+            box-shadow: 1px 0 4px rgba(0, 0, 0, 0.25);
             transition: opacity 0.3s ease;
             animation: pulseHint 2.4s infinite alternate ease-in-out;
         }
-        
+
         #sidebar-hint::after {
             content: ''; position: absolute;
-            top: -40px; bottom: -40px; left: 0; width: 44px;
+            top: -16px; bottom: -16px; left: 0; width: 10px;
         }
 
         @keyframes pulseHint {
@@ -449,6 +454,24 @@
         }
         .unit-opt.active { background: #2563eb; color: #fff; box-shadow: 0 2px 6px rgba(37,99,235,0.35); }
         .unit-opt:active { transform: scale(0.97); }
+
+        .side-row {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 10px 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 16px; font-weight: bold; color: #333;
+        }
+        .h-toggle {
+            position: relative; width: 52px; height: 30px; padding: 0; border: none; border-radius: 15px;
+            background: #999; cursor: pointer; transition: background 0.3s;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .h-toggle.active { background: var(--accent); }
+        .h-knob {
+            position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; border-radius: 50%;
+            background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .h-toggle.active .h-knob { transform: translateX(22px); }
 
         /* ========================================= */
         /* BOUTON SCANNER HOLOGRAPHIQUE              */
@@ -620,6 +643,12 @@
             <button class="unit-opt active" data-unit="mm" type="button">mm</button>
             <button class="unit-opt" data-unit="cm" type="button">cm</button>
         </div>
+
+        <h2 style="margin-top: 24px;">Affichage</h2>
+        <div class="side-row">
+            <span>Chant</span>
+            <button id="edge-btn" class="h-toggle" type="button" aria-label="Voir les chants"><span class="h-knob"></span></button>
+        </div>
     </div>
 
     <div id="top-info-panel">
@@ -628,8 +657,12 @@
         <div id="info-material"></div> 
     </div>
 
-    <div id="anim-banner">▶ Mode Animation : cliquez sur une porte ou un tiroir</div>
-    <div id="phase-banner"></div>
+    <div id="top-notices">
+        <div id="iso-banner">◎ Mode isolé</div>
+        <div id="anim-banner">▶ Mode Animation : cliquez sur une porte ou un tiroir</div>
+        <div id="phase-banner"></div>
+        <div id="toast-msg"></div>
+    </div>
     <div id="anim-pips"></div>
 
     <!-- CONTENEUR DES FILTRES DE MATERIAUX -->
@@ -745,13 +778,12 @@
 
     <!-- COLONNE DE DROITE : chants ON/OFF, tactile ON/OFF, mesures, styles, zoom -->
     <div id="right-controls" class="ui-element">
-        <div class="switch-group">
-            <button id="edge-btn" title="Voir les chants (ON/OFF)"><div class="toggle-knob"></div></button>
-            <svg class="switch-icon" viewBox="0 0 24 24" stroke="#555" stroke-width="2" fill="none">
-                <rect x="5" y="4" width="14" height="16" rx="1"></rect>
-                <path d="M19 4v16" stroke="#ff8c00" stroke-width="4"></path>
+        <button id="isolate-btn" class="floating-btn" type="button" title="Isoler la sélection">
+            <svg viewBox="0 0 24 24" width="26" height="26" stroke="#555" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 3"></rect>
+                <rect x="8" y="8" width="8" height="8" rx="1" fill="#555"></rect>
             </svg>
-        </div>
+        </button>
 
         <div class="switch-group" id="touch-select-container">
             <div id="touch-toggle" title="Sélection tactile (ON/OFF)"><div class="toggle-knob"></div></div>
@@ -893,6 +925,66 @@
         const _e0 = new THREE.Vector3(), _e1 = new THREE.Vector3(), _ep = new THREE.Vector3();
         const _a0 = new THREE.Vector3(), _a1 = new THREE.Vector3(), _ap = new THREE.Vector3(), _ad = new THREE.Vector3();
         const _s0 = { x: 0, y: 0 }, _s1 = { x: 0, y: 0 }, _sA = { x: 0, y: 0 };
+
+        // ===== Isolation + toast =====
+        let isolatedMeshes = null;   // Set des pièces gardées visibles (null = pas isolé)
+        let toastTimer = null, toastHideTimer = null;
+
+        function showToast(msg, ms = 2200) {
+            const el = document.getElementById('toast-msg');
+            if (!el) return;
+            clearTimeout(toastTimer);
+            clearTimeout(toastHideTimer);
+            el.textContent = msg;
+            el.style.display = 'block';
+            el.style.opacity = '1';
+            toastTimer = setTimeout(() => {
+                el.style.opacity = '0';
+                toastHideTimer = setTimeout(() => { el.style.display = 'none'; }, 300);
+            }, ms);
+        }
+
+        // Calque 1 = invisible pour la caméra ET ignoré par les raycasts (sélection, ruban)
+        function setMeshShown(mesh, shown) {
+            const layer = shown ? 0 : 1;
+            mesh.layers.set(layer);
+            mesh.children.forEach(c => { if (!(c.isMesh && c.userData.isOriginalMesh)) c.layers.set(layer); });
+        }
+
+        function toggleIsolation() {
+            if (!globalModel) return;
+            if (isolatedMeshes) { exitIsolation(); return; }
+
+            const target = selectedMeshes.length > 0 ? selectedMeshes : scannedMeshes;
+            if (target.length === 0) { showToast("Choisissez un élément à isoler"); return; }
+
+            isolatedMeshes = new Set(target);
+            globalModel.traverse(n => {
+                if (n.isMesh && n.userData.isOriginalMesh) setMeshShown(n, isolatedMeshes.has(n));
+            });
+            animPipEls.forEach(p => {
+                let vis = false;
+                p.node.traverse(n => { if (n.isMesh && n.userData.isOriginalMesh && isolatedMeshes.has(n)) vis = true; });
+                p.isoHidden = !vis;
+            });
+
+            document.getElementById('isolate-btn').classList.add('active');
+            document.getElementById('iso-banner').style.display = 'block';
+
+            const box = new THREE.Box3();
+            target.forEach(m => box.union(new THREE.Box3().setFromObject(m)));
+            focusCameraOnBox(box, 1.6);
+        }
+
+        function exitIsolation() {
+            if (globalModel) {
+                globalModel.traverse(n => { if (n.isMesh && n.userData.isOriginalMesh) setMeshShown(n, true); });
+            }
+            isolatedMeshes = null;
+            animPipEls.forEach(p => { p.isoHidden = false; });
+            document.getElementById('isolate-btn').classList.remove('active');
+            document.getElementById('iso-banner').style.display = 'none';
+        }
 
         let labelsCached = false;
         let domLabels = {};
@@ -1275,7 +1367,7 @@
             animPipEls.forEach(p => {
                 p.node.updateWorldMatrix(true, false);
                 _pipVec.copy(p.local).applyMatrix4(p.node.matrixWorld).project(camera);
-                if (_pipVec.z >= 1) { p.el.classList.add('hidden'); return; }
+                if (p.isoHidden || _pipVec.z >= 1) { p.el.classList.add('hidden'); return; }
                 p.el.classList.remove('hidden');
                 p.el.style.left = ((_pipVec.x * 0.5 + 0.5) * w) + 'px';
                 p.el.style.top = ((-_pipVec.y * 0.5 + 0.5) * h) + 'px';
@@ -1775,7 +1867,7 @@
             document.addEventListener('touchend', e => {
                 touchEndX = e.changedTouches[0].screenX;
                 
-                if (touchStartX <= 40 && touchEndX > touchStartX + 50) {
+                if (touchStartX <= 12 && touchEndX > touchStartX + 50) {
                     openSidebar();
                 }
                 
@@ -1857,12 +1949,11 @@
                             }
                         } else {
                             node.material = baseMaterial;
-                            node.material.opacity = isEdgeBandingOn ? 0.25 : 0.15;
+                            node.material.opacity = 0.15;
                         }
                     } 
                     else {
                         let currentOpacity = globalTargetOpacity;
-                        if (isEdgeBandingOn) currentOpacity = 0.25;
 
                         if (isTextureOn && node.userData.originalMaterial) {
                             node.material = node.userData.originalMaterial;
@@ -1973,10 +2064,11 @@
             document.getElementById('material-filter-container').innerHTML = '';
 
             setStyleMode(0);
-            document.getElementById('edge-btn').classList.remove('active');
             isTextureOn = false;
             isXrayOn = false;
-            isEdgeBandingOn = false;
+            isolatedMeshes = null;
+            document.getElementById('isolate-btn').classList.remove('active');
+            document.getElementById('iso-banner').style.display = 'none';
             baseMaterial.opacity = 1.0;
             edgeMaterial.opacity = 1.0;
             document.getElementById('ui-panel').style.display = 'none';
@@ -2304,6 +2396,8 @@
                 edgeBtn.classList.toggle('active', isEdgeBandingOn);
                 updateMaterials();
             });
+
+            document.getElementById('isolate-btn').addEventListener('click', toggleIsolation);
         }
 
         // ==========================================
@@ -2462,6 +2556,7 @@
             let bestE = null, bestEd = TAPE_SNAP_EDGE_PX;
 
             for (const mesh of tapeMeshes) {
+                if (!mesh.layers.test(camera.layers)) continue;   // pièce masquée par l'isolation
                 const g = mesh.geometry;
                 if (!g) continue;
                 if (!g.boundingSphere) g.computeBoundingSphere();
