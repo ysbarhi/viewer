@@ -350,6 +350,15 @@
         /* BOUTONS DU BAS-GAUCHE */
         #assembly-mode-btn { bottom: 74px; left: 20px; width: 44px; height: 44px; }
         #anim-mode-btn { bottom: 128px; left: 20px; width: 44px; height: 44px; }
+        #multi-select-btn {
+            bottom: 182px; left: 20px; width: 44px; height: 44px;
+            touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+        }
+        #multi-select-btn.disabled { opacity: 0.4; }
+        #multi-select-btn.active {
+            background: #cffafe; border: 2px solid #06b6d4;
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.6); transform: scale(1.08);
+        }
         #anim-mode-btn.active {
             background: #dcfce7; border: 2px solid #16a34a;
             box-shadow: 0 0 12px rgba(22, 163, 74, 0.6);
@@ -740,6 +749,15 @@
         <svg viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
     </button>
 
+    <!-- BOUTON MULTISÉLECTION (maintenir + toucher les pièces) -->
+    <button id="multi-select-btn" class="floating-btn ui-element disabled" type="button" title="Maintenir pour sélectionner plusieurs pièces">
+        <svg viewBox="0 0 24 24" width="26" height="26" stroke="#555" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="8" width="11" height="11" rx="1.5"></rect>
+            <rect x="9" y="3" width="11" height="11" rx="1.5" fill="#fff"></rect>
+            <path d="M14.5 6v5M12 8.5h5"></path>
+        </svg>
+    </button>
+
     <!-- BOUTON MODE ANIMATION DES OUVRANTS -->
     <button id="anim-mode-btn" class="floating-btn ui-element" title="Mode Animation : cliquer sur les ouvrants (portes, tiroirs)">
         <svg viewBox="0 0 24 24" width="26" height="26" stroke="#555" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -900,8 +918,8 @@
         let scannedMeshes = [];        // pièce scannée QR (remplissage rouge)
         let selectedTitle = '';
         let scannedTitle = '';
-        let selectionOutline = null;   // LineSegments2 de la silhouette
-        let silhouetteData = null;     // topologie soudée de la pièce sélectionnée
+        let selectedParts = [];        // sélection tactile : [{ root, meshes, sil, outline }]
+        let isMultiHold = false;       // bouton multisélection maintenu
         const _silCam = new THREE.Vector3();
         const SUPABASE_MODELS_URL = 'https://bromdunqmghqzgufgquz.supabase.co/storage/v1/object/public/finjat-models/';
         let currentModelUid = null;   // id court du meuble (lien ?m=)
@@ -1608,9 +1626,9 @@
         }
 
         // ---------- Silhouette : arêtes entre une face vue et une face cachée (recalcul si caméra/pièce bouge) ----------
-        function updateSelectionOutline(force = false) {
-            const sd = silhouetteData;
-            if (!sd || !selectionOutline || !sd.buffer) return;
+        function updatePartOutline(part, force = false) {
+            const sd = part.sil;
+            if (!sd || !part.outline || !sd.buffer) return;
             sd.anchor.updateWorldMatrix(true, false);
             _silCam.copy(camera.position);
             sd.anchor.worldToLocal(_silCam);
@@ -1636,19 +1654,73 @@
                     n++;
                 }
             }
-            selectionOutline.geometry.instanceCount = n;
-            selectionOutline.visible = n > 0;
+            part.outline.geometry.instanceCount = n;
+            part.outline.visible = n > 0;
             sd.buffer.needsUpdate = true;
         }
 
+        function updateSelectionOutline(force = false) {
+            for (const part of selectedParts) updatePartOutline(part, force);
+        }
+
         // ---------- Effacements indépendants ----------
-        function clearTouchSelection() {
-            if (selectionOutline) {
-                if (selectionOutline.parent) selectionOutline.parent.remove(selectionOutline);
-                selectionOutline.geometry.dispose();
-                selectionOutline = null;
+        function createPartSelection(root, meshes) {
+            const sil = buildSilhouetteData(meshes);
+            const geo = new LineSegmentsGeometry();
+            geo.setPositions(new Float32Array(Math.max(1, sil.edges.length) * 6));
+            sil.buffer = geo.attributes.instanceStart.data;
+            const outline = new LineSegments2(geo, outlineMat);
+            outline.frustumCulled = false;
+            outline.raycast = () => {};
+            outline.userData.isSelectionOutline = true;
+            sil.anchor.add(outline);
+            const part = { root, meshes, sil, outline };
+            updatePartOutline(part, true);
+            return part;
+        }
+
+        function disposePartSelection(part) {
+            if (part.outline.parent) part.outline.parent.remove(part.outline);
+            part.outline.geometry.dispose();
+        }
+
+        function syncSelectedMeshes() {
+            selectedMeshes.forEach(m => { m.userData.isSelected = false; });
+            const set = new Set();
+            selectedParts.forEach(p => p.meshes.forEach(m => set.add(m)));
+            selectedMeshes = Array.from(set);
+            selectedMeshes.forEach(m => { m.userData.isSelected = true; });
+        }
+
+        function showGlobalInfo() {
+            highlightedMeshes = [];
+            if (globalModel) {
+                activeBox = new THREE.Box3().setFromObject(globalModel);
+                activeOriginalSize.copy(originalGlobalSize);
+                updateTopInfo(currentModelName, activeOriginalSize, null);
             }
-            silhouetteData = null;
+        }
+
+        // Barre du haut : 1 pièce = son nom, plusieurs = "N pièces sélectionnées" + cotes de l'ensemble
+        function refreshSelectionInfo() {
+            if (selectedParts.length === 0) {
+                selectedTitle = '';
+                if (scannedMeshes.length > 0) showTargetInfo(scannedMeshes, scannedTitle, "Défaut");
+                else showGlobalInfo();
+                return;
+            }
+            if (selectedParts.length === 1) {
+                const p = selectedParts[0];
+                selectedTitle = getPartDisplayName(p.root, p.meshes[0]).replace(/[^a-zA-Z0-9_-]/g, ' ').trim() || 'Pièce';
+            } else {
+                selectedTitle = `${selectedParts.length} pièces sélectionnées`;
+            }
+            showTargetInfo(selectedMeshes, selectedTitle, "Multiples / Défaut");
+        }
+
+        function clearTouchSelection() {
+            selectedParts.forEach(disposePartSelection);
+            selectedParts = [];
             selectedMeshes.forEach(m => { m.userData.isSelected = false; });
             selectedMeshes = [];
             selectedTitle = '';
@@ -2073,9 +2145,11 @@
             edgeMaterial.opacity = 1.0;
             document.getElementById('ui-panel').style.display = 'none';
             highlightedMeshes = [];
-            if (selectionOutline) selectionOutline.geometry.dispose();
-            selectionOutline = null;
-            silhouetteData = null;
+            selectedParts.forEach(p => p.outline.geometry.dispose());
+            selectedParts = [];
+            isMultiHold = false;
+            const multiBtn = document.getElementById('multi-select-btn');
+            if (multiBtn) multiBtn.classList.remove('active');
             selectedMeshes = [];
             scannedMeshes = [];
             selectedTitle = '';
@@ -2089,30 +2163,28 @@
             activeBox = null;
         }
 
-        function selectPartByMesh(mesh) {
-            clearTouchSelection();   // le scan QR n'est PAS touché
+        // additive = true : ajoute la pièce (ou la retire si déjà sélectionnée) sans toucher aux autres
+        function selectPartByMesh(mesh, additive = false) {
+            const root = getSelectionRoot(mesh);
 
-            const partGroup = getSelectionRoot(mesh);
-            const targetMeshes = getPartMeshes(partGroup);
-            if (targetMeshes.length === 0) return;
+            if (additive) {
+                const idx = selectedParts.findIndex(p => p.root === root);
+                if (idx >= 0) {
+                    disposePartSelection(selectedParts[idx]);
+                    selectedParts.splice(idx, 1);
+                    syncSelectedMeshes();
+                    refreshSelectionInfo();
+                    return;
+                }
+            } else {
+                clearTouchSelection();   // le scan QR n'est PAS touché
+            }
 
-            targetMeshes.forEach(m => { m.userData.isSelected = true; });
-            selectedMeshes = targetMeshes;
-            selectedTitle = getPartDisplayName(partGroup, mesh).replace(/[^a-zA-Z0-9_-]/g, ' ').trim() || 'Pièce';
-
-            silhouetteData = buildSilhouetteData(targetMeshes);
-            const geo = new LineSegmentsGeometry();
-            geo.setPositions(new Float32Array(Math.max(1, silhouetteData.edges.length) * 6));
-            silhouetteData.buffer = geo.attributes.instanceStart.data;
-
-            selectionOutline = new LineSegments2(geo, outlineMat);
-            selectionOutline.frustumCulled = false;
-            selectionOutline.raycast = () => {};
-            selectionOutline.userData.isSelectionOutline = true;
-            silhouetteData.anchor.add(selectionOutline);
-            updateSelectionOutline(true);
-
-            showTargetInfo(selectedMeshes, selectedTitle, "Multiples / Défaut");
+            const meshes = getPartMeshes(root);
+            if (meshes.length === 0) return;
+            selectedParts.push(createPartSelection(root, meshes));
+            syncSelectedMeshes();
+            refreshSelectionInfo();
         }
         
         function setupUI() {
@@ -2287,14 +2359,30 @@
             });
 
             const touchSelectToggle = document.getElementById('touch-toggle');
+            const multiBtn = document.getElementById('multi-select-btn');
             touchSelectToggle.addEventListener('click', () => {
                 isTouchSelectOn = !isTouchSelectOn;
-                if (isTouchSelectOn) {
-                    touchSelectToggle.classList.add('toggle-on');
-                } else {
-                    touchSelectToggle.classList.remove('toggle-on');
-                }
+                touchSelectToggle.classList.toggle('toggle-on', isTouchSelectOn);
+                multiBtn.classList.toggle('disabled', !isTouchSelectOn);
             });
+
+            // Multisélection : maintenir (pouce gauche) + toucher les pièces (pouce droit). Relâcher = retour sélection simple.
+            const startMultiHold = (e) => {
+                e.preventDefault();
+                if (!isTouchSelectOn) { showToast("Activez la sélection tactile"); return; }
+                isMultiHold = true;
+                multiBtn.classList.add('active');
+                try { multiBtn.setPointerCapture(e.pointerId); } catch (_) {}
+            };
+            const endMultiHold = () => {
+                isMultiHold = false;
+                multiBtn.classList.remove('active');
+            };
+            multiBtn.addEventListener('pointerdown', startMultiHold);
+            multiBtn.addEventListener('pointerup', endMultiHold);
+            multiBtn.addEventListener('pointercancel', endMultiHold);
+            multiBtn.addEventListener('lostpointercapture', endMultiHold);
+            multiBtn.addEventListener('contextmenu', (e) => e.preventDefault());
 
             const canvasEl = renderer.domElement;
             canvasEl.addEventListener('pointerdown', (e) => {
@@ -2317,7 +2405,10 @@
 
                 raycaster.setFromCamera(mouse, camera);
                 const intersects = raycaster.intersectObject(globalModel, true);
-                const validIntersects = intersects.filter(i => i.object.isMesh && i.object.userData.isOriginalMesh);
+                // Les pièces masquées (isolation) sont ignorées => un tap "dans le vide" reste un tap dans le vide
+                const validIntersects = intersects.filter(i =>
+                    i.object.isMesh && i.object.userData.isOriginalMesh && i.object.layers.test(camera.layers));
+                const additive = isMultiHold || e.ctrlKey || e.metaKey || e.shiftKey;
 
                 if (validIntersects.length > 0) {
                     const hitMesh = validIntersects[0].object;
@@ -2343,12 +2434,12 @@
                         return;
                     }
 
-                    // 2. MODE SÉLECTION TACTILE CLASSIQUE
+                    // 2. MODE SÉLECTION TACTILE (simple ou multisélection)
                     if (isTouchSelectOn) {
-                        selectPartByMesh(hitMesh);
+                        selectPartByMesh(hitMesh, additive);
                     }
-                } else if (isTouchSelectOn && !isAnimationModeOn) {
-                    clearSelection();
+                } else if (isTouchSelectOn && !isAnimationModeOn && !additive) {
+                    clearSelection();   // même comportement en mode isolé ou non
                 }
             });
 
