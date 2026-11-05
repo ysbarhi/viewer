@@ -909,6 +909,10 @@
             <span>Chant</span>
             <button id="edge-btn" class="h-toggle" type="button" aria-label="Voir les chants"><span class="h-knob"></span></button>
         </div>
+        <div class="side-row" style="margin-top: 8px;">
+            <span>Grille</span>
+            <button id="grid-btn" class="h-toggle" type="button" aria-label="Afficher la grille au sol"><span class="h-knob"></span></button>
+        </div>
 
         <h2 style="margin-top: 24px;">Chat</h2>
         <div class="side-card">
@@ -1351,6 +1355,7 @@
         // ===== Grille au sol =====
         let groundGrid = null;
         let groundY = 0;
+        let isGridOn = (() => { try { return localStorage.getItem('finjatGrid') !== '0'; } catch (e) { return true; } })();
         const _silCam = new THREE.Vector3();
         const SUPABASE_MODELS_URL = 'https://bromdunqmghqzgufgquz.supabase.co/storage/v1/object/public/finjat-models/';
         let currentModelUid = null;   // id court du meuble (lien ?m=)
@@ -3165,6 +3170,15 @@
             });
 
             document.getElementById('isolate-btn').addEventListener('click', toggleIsolation);
+
+            const gridBtn = document.getElementById('grid-btn');
+            gridBtn.classList.toggle('active', isGridOn);
+            gridBtn.addEventListener('click', () => {
+                isGridOn = !isGridOn;
+                gridBtn.classList.toggle('active', isGridOn);
+                try { localStorage.setItem('finjatGrid', isGridOn ? '1' : '0'); } catch (e) {}
+                if (groundGrid) groundGrid.visible = isGridOn && !!globalModel;
+            });
         }
 
         // ==========================================
@@ -5119,7 +5133,7 @@
                         float cov = 1.0 - smoothstep(halfW - 0.5, halfW + 0.5, d);
                         if (dotted > 0.5) {
                             float p = along / max(fwidth(along), 1e-6);    // position le long du trait (px)
-                            float period = halfW * 6.0;                     // point = 1/2 période
+                            float period = 6.0 * uPx;                       // pointillés : 3 px plein / 3 px vide
                             cov *= step(fract(p / period), 0.5);
                         }
                         return cov;
@@ -5127,22 +5141,23 @@
 
                     void main() {
                         float dotted = uBelow;
-                        float hwMain = 2.0 * uPx;   // 4 px
-                        float hwSub  = 1.0 * uPx;   // 2 px
+                        float hw = 0.5 * uPx;   // tous les traits : 1 px
 
-                        float mainL = max(lineCov(vWorld.x, 1.0, hwMain, vWorld.z, dotted),
-                                          lineCov(vWorld.z, 1.0, hwMain, vWorld.x, dotted));
-                        float subL  = max(lineCov(vWorld.x, 0.5, hwSub, vWorld.z, dotted),
-                                          lineCov(vWorld.z, 0.5, hwSub, vWorld.x, dotted));
+                        float l100 = max(lineCov(vWorld.x, 1.0,  hw, vWorld.z, dotted),
+                                         lineCov(vWorld.z, 1.0,  hw, vWorld.x, dotted));
+                        float l50  = max(lineCov(vWorld.x, 0.5,  hw, vWorld.z, dotted),
+                                         lineCov(vWorld.z, 0.5,  hw, vWorld.x, dotted));
+                        float l25  = max(lineCov(vWorld.x, 0.25, hw, vWorld.z, dotted),
+                                         lineCov(vWorld.z, 0.25, hw, vWorld.x, dotted));
 
-                        // Anti-moiré : les traits s'effacent quand les cases deviennent trop petites à l'écran
+                        // Anti-moiré : chaque niveau s'efface quand ses cases deviennent trop petites à l'écran
                         float fwm = max(fwidth(vWorld.x), fwidth(vWorld.z));
-                        float lodMain = 1.0 - smoothstep(0.10, 0.33, fwm / 1.0);
-                        float lodSub  = 1.0 - smoothstep(0.10, 0.33, fwm / 0.5);
+                        float lod100 = 1.0 - smoothstep(0.10, 0.33, fwm / 1.0);
+                        float lod50  = 1.0 - smoothstep(0.10, 0.33, fwm / 0.5);
+                        float lod25  = 1.0 - smoothstep(0.10, 0.33, fwm / 0.25);
 
-                        float aMain = mix(0.8, 0.6, uBelow);
-                        float aSub  = mix(0.6, 0.4, uBelow);
-                        float a = max(mainL * aMain * lodMain, subL * aSub * lodSub);
+                        // Opacités : 1 m = 50 %, 0,5 m = 25 %, 0,25 m = 12 % (le niveau le plus fort l'emporte)
+                        float a = max(l100 * 0.50 * lod100, max(l50 * 0.25 * lod50, l25 * 0.12 * lod25));
 
                         // Fondu vers l'horizon => grille "sans fin"
                         float dist = length(vWorld.xz - uCam.xz);
@@ -5170,7 +5185,7 @@
             const g = ensureGroundGrid();
             groundY = y;
             g.position.y = y - 0.0005;   // 0,5 mm sous le meuble : pas de scintillement avec le dessous des pièces
-            g.visible = true;
+            g.visible = isGridOn;
         }
 
         // Chaque image : la grille suit la caméra (paraît infinie) et passe en pointillés vue de dessous
