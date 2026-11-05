@@ -691,6 +691,93 @@
             font-weight: bold; font-size: 12px; cursor: pointer;
         }
         #led-clear { color: #dc2626; }
+
+        /* ========================================= */
+        /* CHAT                                      */
+        /* ========================================= */
+        #chat-btn {
+            top: 136px; left: 14px; width: 40px; height: 48px; padding: 0;
+            background: #666; border: none; border-radius: 12px; cursor: pointer; z-index: 800;
+            align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        #chat-btn.active { background: #2563eb; box-shadow: 0 0 10px rgba(37, 99, 235, 0.6); }
+        #chat-count, .chat-badge {
+            position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px;
+            border-radius: 9px; background: #dc2626; color: #fff; font-size: 11px; font-weight: bold;
+            align-items: center; justify-content: center; box-sizing: border-box; line-height: 18px; text-align: center;
+        }
+        #chat-count { display: none; }
+        .chat-badge { display: block; border: 2px solid #fff; line-height: 14px; }
+
+        #chat-layer { position: fixed; inset: 0; pointer-events: none; z-index: 595; }
+        .chat-pin {
+            position: absolute; width: 30px; height: 30px; margin: -32px 0 0 -2px; box-sizing: border-box;
+            background: #2563eb; border: 2px solid #fff; border-radius: 50% 50% 50% 0;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.35); pointer-events: auto; cursor: pointer;
+        }
+        .chat-pin svg { display: block; margin: 5px auto 0; }
+        .chat-pin.draft { background: #64748b; border-style: dashed; }
+        .chat-pin.open { background: #1d4ed8; transform: scale(1.15); }
+
+        #chat-panel {
+            position: fixed; left: 8px; right: 8px; bottom: 8px; max-height: 60vh; z-index: 1200;
+            background: #fff; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: none; flex-direction: column; overflow: hidden; font-size: 14px; color: #111;
+        }
+        #chat-panel.open { display: flex; }
+        .chat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #eee; }
+        .chat-title { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .chat-x { border: none; background: #f1f5f9; width: 30px; height: 30px; border-radius: 50%; font-size: 14px; cursor: pointer; flex-shrink: 0; }
+        #chat-recipient { padding: 8px 12px; display: flex; align-items: center; gap: 10px; overflow-x: auto; border-bottom: 1px solid #f1f5f9; }
+        .chat-for { color: #64748b; font-size: 12px; flex-shrink: 0; }
+        .chat-at { color: #2563eb; font-weight: bold; }
+        .chat-change { border: none; background: none; color: #64748b; text-decoration: underline; font-size: 12px; cursor: pointer; }
+        .chat-avatar {
+            flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 2px;
+            border: none; background: none; cursor: pointer; font-size: 10px; color: #334155; max-width: 56px; padding: 0;
+        }
+        .chat-avatar .nm { max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .contact-row .av, .chat-avatar .av {
+            width: 34px; height: 34px; border-radius: 50%; color: #fff; display: flex; align-items: center;
+            justify-content: center; font-weight: bold; font-size: 12px; flex-shrink: 0;
+        }
+        #chat-messages { flex: 1 1 auto; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-height: 60px; }
+        .chat-msg { max-width: 80%; padding: 7px 10px; border-radius: 12px; background: #f1f5f9; align-self: flex-start; word-break: break-word; }
+        .chat-msg.mine { background: #dbeafe; align-self: flex-end; }
+        .chat-msg.failed { border: 1px solid #dc2626; }
+        .chat-msg .who { font-size: 11px; font-weight: bold; color: #2563eb; margin-bottom: 2px; }
+        .chat-msg .when { font-size: 10px; color: #64748b; text-align: right; margin-top: 2px; }
+        .chat-msg audio { width: 210px; max-width: 100%; height: 36px; display: block; }
+        .chat-empty { color: #94a3b8; text-align: center; font-size: 12px; padding: 8px; }
+        #chat-rec-chip { padding: 4px 12px 0; font-size: 12px; font-weight: bold; color: #dc2626; display: flex; align-items: center; gap: 8px; }
+        #chat-rec-chip:empty { display: none; }
+        #chat-rec-chip button { border: none; background: #fee2e2; color: #dc2626; border-radius: 10px; padding: 2px 8px; cursor: pointer; }
+        .chat-input-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-top: 1px solid #eee; }
+        #chat-text { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 14px; }
+        .chat-icon-btn {
+            width: 40px; height: 40px; border-radius: 50%; border: none; background: #f1f5f9;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+        }
+        .chat-icon-btn.rec { background: #dc2626; animation: chatRec 0.8s infinite alternate; }
+        .chat-icon-btn.rec svg { stroke: #fff; }
+        .chat-send { background: #2563eb; }
+        @keyframes chatRec { from { opacity: 0.6; } to { opacity: 1; } }
+
+        /* Panneau ⚙ : profil + contacts */
+        #sidebar { overflow-y: auto; }
+        .side-card {
+            background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px;
+            display: flex; flex-direction: column; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .side-label { font-weight: bold; color: #333; font-size: 14px; }
+        .side-input { padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+        .side-btn { padding: 8px; border: none; border-radius: 8px; background: #2563eb; color: #fff; font-weight: bold; cursor: pointer; }
+        .side-hint { color: #94a3b8; font-size: 12px; }
+        #contacts-list { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; }
+        .contact-row { display: flex; align-items: center; gap: 8px; }
+        .contact-row .ci { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
+        .contact-row .ci small { color: #64748b; }
+        .contact-del { border: none; background: #fee2e2; color: #dc2626; border-radius: 6px; width: 26px; height: 26px; cursor: pointer; }
     </style>
 
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -732,6 +819,21 @@
             <span>Chant</span>
             <button id="edge-btn" class="h-toggle" type="button" aria-label="Voir les chants"><span class="h-knob"></span></button>
         </div>
+
+        <h2 style="margin-top: 24px;">Chat</h2>
+        <div class="side-card">
+            <div class="side-label">Mon profil</div>
+            <input id="profile-name" class="side-input" type="text" placeholder="Mon nom" autocomplete="name">
+            <input id="profile-phone" class="side-input" type="tel" placeholder="+212 6…" inputmode="tel" autocomplete="tel">
+            <button id="profile-save" class="side-btn" type="button">Enregistrer</button>
+        </div>
+        <div class="side-card">
+            <div class="side-label">Contacts de l'équipe</div>
+            <div id="contacts-list"><div class="side-hint">Aucun contact</div></div>
+            <input id="contact-name" class="side-input" type="text" placeholder="Nom">
+            <input id="contact-phone" class="side-input" type="tel" placeholder="+212 6…" inputmode="tel">
+            <button id="contact-add" class="side-btn" type="button">+ Ajouter</button>
+        </div>
     </div>
 
     <div id="top-info-panel">
@@ -748,6 +850,39 @@
     </div>
     <div id="anim-pips"></div>
     <div id="led-layer"></div>
+
+    <button id="chat-btn" class="ui-element" type="button" title="Discussions">
+        <svg viewBox="0 0 24 24" width="22" height="22" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span id="chat-count"></span>
+    </button>
+
+    <div id="chat-layer"></div>
+
+    <div id="chat-panel">
+        <div class="chat-head">
+            <div class="chat-title" id="chat-title">Pièce</div>
+            <button id="chat-close" class="chat-x" type="button" aria-label="Fermer">✕</button>
+        </div>
+        <div id="chat-recipient"></div>
+        <div id="chat-messages"></div>
+        <div id="chat-rec-chip"></div>
+        <div class="chat-input-row">
+            <button id="chat-mic" class="chat-icon-btn" type="button" aria-label="Message vocal">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line>
+                </svg>
+            </button>
+            <input id="chat-text" type="text" placeholder="Message… (@ pour chercher un contact)" autocomplete="off">
+            <button id="chat-send" class="chat-icon-btn chat-send" type="button" aria-label="Envoyer">
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+    </div>
 
     <div id="led-panel">
         <div class="led-panel-title">Couleur LED</div>
@@ -1063,6 +1198,26 @@
         const _ledRay = new THREE.Raycaster();
         const _ledNdc = new THREE.Vector2();
         const _ledN = new THREE.Vector3();
+
+        // ===== Chat (pins + WhatsApp prérempli) =====
+        const SUPABASE_URL_CHAT = 'https://bromdunqmghqzgufgquz.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_fzzmY0AifW9g2f3mvqozGQ_WgNzW9lm';   // Supabase > Project Settings > API Keys > publishable
+        const CHAT_AUDIO_BUCKET = 'finjat-audio';
+        const CHAT_COLORS = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#e11d48', '#0891b2', '#4f46e5', '#65a30d'];
+        let sbClient = null;
+        let isChatModeOn = false;
+        let chatThreads = new Map();     // id -> { draft, row, messages, root, local, el }
+        let chatContacts = [];
+        let chatOpenId = null;
+        let chatChannel = null;
+        let presenceChannel = null;
+        let onlinePhones = new Set();
+        let chatPidMap = null;
+        let chatPress = null;
+        let pendingThreadId = null;
+        let chatRecorder = null, chatRecChunks = [], chatRecBlob = null, chatRecStart = 0, chatRecDur = 0;
+        let chatRecTimer = null, chatRecDiscard = false;
+        const _chatV = new THREE.Vector3();
         const _silCam = new THREE.Vector3();
         const SUPABASE_MODELS_URL = 'https://bromdunqmghqzgufgquz.supabase.co/storage/v1/object/public/finjat-models/';
         let currentModelUid = null;   // id court du meuble (lien ?m=)
@@ -2223,6 +2378,7 @@
         setupTape();
         setupLasso();
         setupLed();
+        setupChat();
         setupScanner();
         setupFileUploader();
         setupSplashScreen();
@@ -2484,6 +2640,7 @@
             clearLeds();
             const ledPanel = document.getElementById('led-panel');
             if (ledPanel) ledPanel.classList.remove('open');
+            chatTeardown();
             
             const slider = document.getElementById('explode-slider');
             if(slider) {
@@ -2771,6 +2928,7 @@
                 if (!globalModel) return;
                 if (isTapeModeOn) return;   // le mètre ruban gère ses propres clics
                 if (isLedModeOn) return;    // les LED gèrent leurs propres taps
+                if (isChatModeOn) return;   // le chat gère ses propres taps (pins)
                 // Ignorer si l'utilisateur a fait tourner la caméra (glisser > 10px)
                 if (Math.abs(e.clientX - touchPointerDown.x) > 10 || Math.abs(e.clientY - touchPointerDown.y) > 10) return;
 
@@ -3818,6 +3976,605 @@
         }
 
         // ==========================================
+        // CHAT : pins de discussion sur les pièces + notification WhatsApp préremplie
+        // ==========================================
+        function chatReady() {
+            return !!SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.startsWith('COLLER');
+        }
+
+        // Client Supabase chargé seulement quand le chat sert (un échec réseau ne casse pas la 3D)
+        async function getSb() {
+            if (sbClient) return sbClient;
+            if (!chatReady()) throw new Error('Clé Supabase publishable manquante');
+            const mod = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/+esm');
+            sbClient = mod.createClient(SUPABASE_URL_CHAT, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+            return sbClient;
+        }
+
+        function normPhone(p) { return String(p || '').replace(/\D/g, ''); }
+        function getProfile() {
+            try {
+                const p = JSON.parse(localStorage.getItem('finjatProfile') || 'null');
+                return (p && p.name && p.phone) ? p : null;
+            } catch (e) { return null; }
+        }
+        function contactColor(phone) {
+            let h = 0;
+            for (const c of String(phone)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+            return CHAT_COLORS[h % CHAT_COLORS.length];
+        }
+        function nameInitials(name) {
+            return String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?';
+        }
+        function escapeHtml(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        function newUuid() {
+            if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+            });
+        }
+        function chatReadMap() {
+            try { return JSON.parse(localStorage.getItem('finjatChatRead') || '{}'); } catch (e) { return {}; }
+        }
+        function markThreadRead(id) {
+            const m = chatReadMap();
+            m[id] = Date.now();
+            try { localStorage.setItem('finjatChatRead', JSON.stringify(m)); } catch (e) {}
+        }
+        function threadUnread(th) {
+            const me = normPhone((getProfile() || {}).phone);
+            const t = chatReadMap()[th.row.id] || 0;
+            return th.messages.filter(m => normPhone(m.author_phone) !== me && Date.parse(m.created_at) > t).length;
+        }
+        function threadLink(id) {
+            return `${location.origin}${location.pathname}?m=${encodeURIComponent(currentModelUid)}&t=${id}`;
+        }
+        function partPidNode(node) {
+            for (let o = node; o && o !== globalModel; o = o.parent) {
+                const f = o.userData && o.userData.finjat;
+                if (f && f.pid) return o;
+            }
+            return null;
+        }
+
+        function setupChat() {
+            document.getElementById('chat-btn').addEventListener('click', () => setChatMode(!isChatModeOn));
+            document.getElementById('chat-close').addEventListener('click', closeChatPanel);
+            document.getElementById('chat-send').addEventListener('click', sendChatMessage);
+            document.getElementById('chat-mic').addEventListener('click', toggleChatRecording);
+            const input = document.getElementById('chat-text');
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChatMessage(); } });
+            input.addEventListener('input', () => {
+                const th = chatThreads.get(chatOpenId);
+                if (th && !th.row.recipient_phone) renderChatRecipient(th);   // "@nom" filtre les contacts
+            });
+
+            // Profil + contacts (panneau ⚙)
+            const prof = getProfile();
+            if (prof) {
+                document.getElementById('profile-name').value = prof.name;
+                document.getElementById('profile-phone').value = '+' + normPhone(prof.phone);
+            }
+            document.getElementById('profile-save').addEventListener('click', saveProfile);
+            document.getElementById('contact-add').addEventListener('click', addContactFromForm);
+            document.getElementById('settings-btn').addEventListener('click', () => loadContacts());
+
+            // Mode chat : tap sur une pièce = nouveau pin (un glisser reste une rotation)
+            const canvasEl = renderer.domElement;
+            canvasEl.addEventListener('pointerdown', (e) => {
+                if (!isChatModeOn) return;
+                chatPress = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), multi: !e.isPrimary };
+            });
+            canvasEl.addEventListener('pointerup', (e) => {
+                const p = chatPress;
+                chatPress = null;
+                if (!isChatModeOn || !p || p.id !== e.pointerId || p.multi) return;
+                if (isTapeModeOn || isLassoModeOn || isLedModeOn) return;
+                if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8 || performance.now() - p.t > 450) return;
+                const rect = renderer.domElement.getBoundingClientRect();
+                _ledNdc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+                _ledRay.setFromCamera(_ledNdc, camera);
+                const hits = _ledRay.intersectObjects(tapeMeshes, false);
+                if (hits.length) createDraftThread(hits[0]);
+            });
+
+            // Présence : "dans l'app" = app au premier plan
+            document.addEventListener('visibilitychange', () => {
+                if (!presenceChannel) return;
+                const me = getProfile();
+                if (document.visibilityState === 'visible' && me) presenceChannel.track({ name: me.name, at: Date.now() });
+                else presenceChannel.untrack();
+            });
+            if (chatReady() && getProfile()) startPresence();
+        }
+
+        async function startPresence() {
+            const me = getProfile();
+            if (!me || !chatReady()) return;
+            try {
+                const sb = await getSb();
+                if (presenceChannel) { sb.removeChannel(presenceChannel); presenceChannel = null; }
+                const ch = sb.channel('finjat-presence', { config: { presence: { key: normPhone(me.phone) } } });
+                ch.on('presence', { event: 'sync' }, () => { onlinePhones = new Set(Object.keys(ch.presenceState())); });
+                ch.subscribe((status) => {
+                    if (status === 'SUBSCRIBED' && document.visibilityState === 'visible') ch.track({ name: me.name, at: Date.now() });
+                });
+                presenceChannel = ch;
+            } catch (e) { console.warn('Finjat présence', e); }
+        }
+
+        function setChatMode(on) {
+            if (on) {
+                if (!chatReady()) { showToast("Chat : clé Supabase publishable non configurée"); return; }
+                if (!currentModelUid) { showToast("Chat : uniquement pour un meuble exporté depuis SketchUp"); return; }
+                if (!getProfile()) {
+                    showToast("Renseignez d'abord votre nom et numéro (⚙ > Chat)");
+                    document.getElementById('settings-btn').click();
+                    return;
+                }
+            }
+            isChatModeOn = !!on;
+            document.getElementById('chat-btn').classList.toggle('active', isChatModeOn);
+            if (isChatModeOn) showToast("Touchez une pièce pour y épingler une discussion");
+            refreshChatPins();
+        }
+
+        // ---------- Chargement / temps réel ----------
+        async function chatOnModelLoaded() {
+            if (!chatReady() || !currentModelUid || !globalModel) return;
+            const uid = currentModelUid;
+            try {
+                const sb = await getSb();
+                loadContacts();
+                chatPidMap = new Map();
+                globalModel.traverse(o => {
+                    const f = o.userData && o.userData.finjat;
+                    if (f && f.pid) chatPidMap.set(String(f.pid).toLowerCase(), o);
+                });
+                const [tr, mr] = await Promise.all([
+                    sb.from('finjat_threads').select('*').eq('model_uid', uid),
+                    sb.from('finjat_messages').select('*').eq('model_uid', uid).order('created_at')
+                ]);
+                if (uid !== currentModelUid) return;
+                (tr.data || []).forEach(addThreadRow);
+                (mr.data || []).forEach(addMessageRow);
+
+                chatChannel = sb.channel('chat-' + uid)
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'finjat_threads', filter: `model_uid=eq.${uid}` },
+                        (p) => { addThreadRow(p.new); refreshChatPins(); })
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'finjat_messages', filter: `model_uid=eq.${uid}` },
+                        (p) => onIncomingMessage(p.new))
+                    .subscribe();
+
+                refreshChatPins();
+                if (pendingThreadId) {
+                    const id = pendingThreadId;
+                    pendingThreadId = null;
+                    if (chatThreads.has(id)) openChatThread(id);
+                    else showToast("Discussion introuvable");
+                }
+            } catch (e) { console.warn('Finjat chat', e); }
+        }
+
+        function chatTeardown() {
+            if (chatChannel && sbClient) sbClient.removeChannel(chatChannel);
+            chatChannel = null;
+            if (chatRecorder) { chatRecDiscard = true; try { chatRecorder.stop(); } catch (e) {} }
+            chatRecBlob = null;
+            chatThreads.clear();
+            chatOpenId = null;
+            chatPidMap = null;
+            isChatModeOn = false;
+            const btn = document.getElementById('chat-btn');
+            if (btn) btn.classList.remove('active');
+            const panel = document.getElementById('chat-panel');
+            if (panel) panel.classList.remove('open');
+            refreshChatPins();
+        }
+
+        function resolveThreadAnchor(th) {
+            th.root = null;
+            th.local = null;
+            let node = null;
+            if (th.row.part_pid && chatPidMap) node = chatPidMap.get(String(th.row.part_pid).toLowerCase()) || null;
+            if (!node && th.row.part_sid != null && globalModel) {
+                globalModel.traverse(o => { if (!node && o.userData.sid === th.row.part_sid) node = o; });
+            }
+            if (node && Array.isArray(th.row.point_local)) {
+                th.root = node;
+                th.local = new THREE.Vector3().fromArray(th.row.point_local);
+            }
+        }
+
+        function addThreadRow(row) {
+            const ex = chatThreads.get(row.id);
+            if (ex) { ex.row = Object.assign(ex.row, row); ex.draft = false; return ex; }
+            const th = { draft: false, row, messages: [], root: null, local: null, el: null };
+            resolveThreadAnchor(th);
+            chatThreads.set(row.id, th);
+            return th;
+        }
+
+        function addMessageRow(m) {
+            const th = chatThreads.get(m.thread_id);
+            if (!th || th.messages.some(x => x.id === m.id)) return false;
+            th.messages.push(m);
+            th.messages.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+            return true;
+        }
+
+        function onIncomingMessage(m) {
+            if (!chatThreads.has(m.thread_id)) {   // message arrivé avant son thread
+                getSb().then(sb => sb.from('finjat_threads').select('*').eq('id', m.thread_id).single())
+                    .then(({ data }) => { if (data) { addThreadRow(data); onIncomingMessage(m); } })
+                    .catch(() => {});
+                return;
+            }
+            if (!addMessageRow(m)) return;
+            if (chatOpenId === m.thread_id) {
+                renderChatMessages(chatThreads.get(m.thread_id));
+                markThreadRead(m.thread_id);
+            }
+            refreshChatPins();
+        }
+
+        // ---------- Pins ----------
+        function createDraftThread(hit) {
+            const me = getProfile();
+            if (!me || !globalModel) return;
+            chatThreads.forEach((th, id) => { if (th.draft) chatThreads.delete(id); });
+            const root = getSelectionRoot(hit.object);
+            const anchor = partPidNode(root) || root;   // ancrage sur la pièce identifiée (suit l'éclatement)
+            anchor.updateWorldMatrix(true, false);
+            const local = anchor.worldToLocal(hit.point.clone());
+            const f = anchor.userData.finjat;
+            const id = newUuid();
+            const row = {
+                id, model_uid: currentModelUid,
+                part_pid: (f && f.pid) ? String(f.pid) : null,
+                part_sid: anchor.userData.sid ?? null,
+                part_name: getPartDisplayName(root, hit.object).replace(/[^a-zA-Z0-9_-]/g, ' ').trim() || 'Pièce',
+                point_local: local.toArray(),
+                point_world: hit.point.toArray(),
+                created_by_name: me.name, created_by_phone: normPhone(me.phone),
+                recipient_name: null, recipient_phone: null
+            };
+            chatThreads.set(id, { draft: true, row, messages: [], root: anchor, local, el: null });
+            openChatThread(id);
+        }
+
+        // Mode chat : tous les pins. Hors mode chat : seulement ceux avec des messages non lus.
+        function refreshChatPins() {
+            const layer = document.getElementById('chat-layer');
+            if (!layer) return;
+            layer.innerHTML = '';
+            let total = 0;
+            chatThreads.forEach((th, id) => {
+                th.el = null;
+                const unread = th.draft ? 0 : threadUnread(th);
+                total += unread;
+                if (!isChatModeOn && unread === 0 && chatOpenId !== id) return;
+                const el = document.createElement('div');
+                el.className = 'chat-pin' + (th.draft ? ' draft' : '') + (chatOpenId === id ? ' open' : '');
+                el.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="white"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>' +
+                    (unread ? `<span class="chat-badge">${unread}</span>` : '');
+                el.addEventListener('click', (e) => { e.stopPropagation(); openChatThread(id); });
+                layer.appendChild(el);
+                th.el = el;
+            });
+            const cnt = document.getElementById('chat-count');
+            if (cnt) { cnt.textContent = total; cnt.style.display = total ? 'flex' : 'none'; }
+            updateChatOverlay();
+        }
+
+        function updateChatOverlay() {
+            if (!chatThreads.size) return;
+            const rect = renderer.domElement.getBoundingClientRect();
+            chatThreads.forEach(th => {
+                if (!th.el) return;
+                if (th.root && th.local) {
+                    th.root.updateWorldMatrix(true, false);
+                    _chatV.copy(th.local).applyMatrix4(th.root.matrixWorld);
+                } else {
+                    _chatV.fromArray(th.row.point_world || [0, 0, 0]);
+                }
+                placeTapeEl(th.el, _chatV, rect);
+            });
+        }
+
+        // ---------- Panneau de discussion ----------
+        function openChatThread(id) {
+            const th = chatThreads.get(id);
+            if (!th) return;
+            if (chatOpenId && chatOpenId !== id) {
+                const prev = chatThreads.get(chatOpenId);
+                if (prev && prev.draft) chatThreads.delete(chatOpenId);
+            }
+            chatOpenId = id;
+            document.getElementById('chat-title').textContent = '📌 ' + (th.row.part_name || 'Pièce');
+            renderChatRecipient(th);
+            renderChatMessages(th);
+            renderRecChip();
+            document.getElementById('chat-panel').classList.add('open');
+            if (!th.draft) markThreadRead(id);
+            refreshChatPins();
+        }
+
+        function closeChatPanel() {
+            if (chatRecorder) { chatRecDiscard = true; try { chatRecorder.stop(); } catch (e) {} }
+            chatRecBlob = null;
+            renderRecChip();
+            const th = chatThreads.get(chatOpenId);
+            if (th && th.draft) chatThreads.delete(chatOpenId);   // pin abandonné sans envoi
+            chatOpenId = null;
+            document.getElementById('chat-panel').classList.remove('open');
+            refreshChatPins();
+        }
+
+        function renderChatRecipient(th) {
+            const box = document.getElementById('chat-recipient');
+            if (!th) { box.innerHTML = ''; return; }
+            const me = normPhone((getProfile() || {}).phone);
+            if (th.row.recipient_phone) {
+                let name = th.row.recipient_name;
+                if (!th.draft && normPhone(th.row.recipient_phone) === me) name = th.row.created_by_name;   // je réponds au créateur
+                box.innerHTML = `<span class="chat-for">Avec</span><span class="chat-at">@${escapeHtml(name || '')}</span>` +
+                    (th.draft ? '<button type="button" class="chat-change">changer</button>' : '');
+                const ch = box.querySelector('.chat-change');
+                if (ch) ch.addEventListener('click', () => {
+                    th.row.recipient_name = null;
+                    th.row.recipient_phone = null;
+                    renderChatRecipient(th);
+                });
+                return;
+            }
+            const m = document.getElementById('chat-text').value.match(/^@(\S*)/);
+            const q = m ? m[1].toLowerCase() : '';
+            const list = chatContacts.filter(c => normPhone(c.phone) !== me && (!q || String(c.name).toLowerCase().includes(q)));
+            if (!list.length) {
+                box.innerHTML = `<span class="chat-for">${chatContacts.length ? 'Aucun contact trouvé' : 'Ajoutez des contacts dans ⚙ > Chat'}</span>`;
+                return;
+            }
+            box.innerHTML = '<span class="chat-for">Pour :</span>';
+            list.forEach(c => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'chat-avatar';
+                b.innerHTML = `<span class="av" style="background:${contactColor(c.phone)}">${escapeHtml(nameInitials(c.name))}</span>` +
+                              `<span class="nm">${escapeHtml(c.name)}</span>`;
+                b.addEventListener('click', () => {
+                    th.row.recipient_name = c.name;
+                    th.row.recipient_phone = normPhone(c.phone);
+                    const input = document.getElementById('chat-text');
+                    input.value = input.value.replace(/^@\S*\s?/, '');
+                    renderChatRecipient(th);
+                    input.focus();
+                });
+                box.appendChild(b);
+            });
+        }
+
+        function renderChatMessages(th) {
+            const box = document.getElementById('chat-messages');
+            if (!th || !th.messages.length) {
+                box.innerHTML = `<div class="chat-empty">${th && th.draft
+                    ? 'Choisissez un destinataire, puis écrivez ou enregistrez un message'
+                    : 'Aucun message'}</div>`;
+                return;
+            }
+            const me = normPhone((getProfile() || {}).phone);
+            box.innerHTML = th.messages.map(m => {
+                const mine = normPhone(m.author_phone) === me;
+                const when = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const src = m.localAudio || m.audio_url;
+                return `<div class="chat-msg${mine ? ' mine' : ''}${m.failed ? ' failed' : ''}">` +
+                    (mine ? '' : `<div class="who">${escapeHtml(m.author_name || '')}</div>`) +
+                    (m.body ? `<div>${escapeHtml(m.body)}</div>` : '') +
+                    (src ? `<audio controls preload="none" src="${escapeHtml(src)}"></audio>` : '') +
+                    `<div class="when">${when}${m.failed ? ' · échec' : ''}</div></div>`;
+            }).join('');
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // ---------- Audio ----------
+        async function toggleChatRecording() {
+            if (chatRecorder) { chatRecorder.stop(); return; }
+            if (!navigator.mediaDevices || !window.MediaRecorder) { showToast("Enregistrement audio non supporté"); return; }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+                    .find(t => MediaRecorder.isTypeSupported(t)) || '';
+                const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+                chatRecChunks = [];
+                chatRecBlob = null;
+                chatRecDiscard = false;
+                rec.ondataavailable = (e) => { if (e.data && e.data.size) chatRecChunks.push(e.data); };
+                rec.onstop = () => {
+                    stream.getTracks().forEach(t => t.stop());
+                    clearInterval(chatRecTimer);
+                    chatRecDur = Math.round((Date.now() - chatRecStart) / 1000);
+                    chatRecBlob = chatRecDiscard ? null : new Blob(chatRecChunks, { type: rec.mimeType || type || 'audio/webm' });
+                    chatRecDiscard = false;
+                    chatRecorder = null;
+                    renderRecChip();
+                };
+                chatRecorder = rec;
+                chatRecStart = Date.now();
+                rec.start();
+                chatRecTimer = setInterval(renderRecChip, 500);
+                renderRecChip();
+            } catch (e) { showToast("Micro inaccessible"); }
+        }
+
+        function renderRecChip() {
+            const chip = document.getElementById('chat-rec-chip');
+            const mic = document.getElementById('chat-mic');
+            if (!chip || !mic) return;
+            const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+            mic.classList.toggle('rec', !!chatRecorder);
+            if (chatRecorder) {
+                chip.textContent = `● Enregistrement ${fmt(Math.round((Date.now() - chatRecStart) / 1000))} : touchez 🎤 pour arrêter`;
+                return;
+            }
+            if (chatRecBlob) {
+                chip.innerHTML = `🎤 Message vocal ${fmt(chatRecDur)} <button type="button">✕</button>`;
+                chip.querySelector('button').addEventListener('click', () => { chatRecBlob = null; renderRecChip(); });
+                return;
+            }
+            chip.innerHTML = '';
+        }
+
+        // ---------- Envoi ----------
+        async function sendChatMessage() {
+            const th = chatThreads.get(chatOpenId);
+            const me = getProfile();
+            if (!th || !me) return;
+            if (chatRecorder) { showToast("Arrêtez d'abord l'enregistrement"); return; }
+            const input = document.getElementById('chat-text');
+            const text = input.value.replace(/^@\S*\s?/, '').trim();
+            const audio = chatRecBlob;
+            if (!text && !audio) return;
+            if (!th.row.recipient_phone) { showToast("Choisissez un destinataire"); return; }
+
+            const myPhone = normPhone(me.phone);
+            const msgId = newUuid();
+            let audioPath = null, audioUrl = null;
+            if (audio) {
+                const ext = /mp4/.test(audio.type) ? 'm4a' : /ogg/.test(audio.type) ? 'ogg' : 'webm';
+                audioPath = `${currentModelUid}/${th.row.id}/${msgId}.${ext}`;
+                audioUrl = `${SUPABASE_URL_CHAT}/storage/v1/object/public/${CHAT_AUDIO_BUCKET}/${audioPath}`;
+            }
+
+            // WhatsApp ouvert TOUT DE SUITE (dans le geste, sinon bloqué) :
+            // 1er message = toujours ; réponse = seulement si l'autre personne n'est pas dans l'app
+            const creator = normPhone(th.row.created_by_phone), recip = normPhone(th.row.recipient_phone);
+            const other = (myPhone === creator) ? recip : creator;
+            if (other && other !== myPhone && (th.draft || !onlinePhones.has(other))) {
+                const lines = [
+                    `📌 ${th.row.part_name}`,
+                    text || '🎤 Message vocal',
+                    audioUrl ? `🔊 ${audioUrl}` : null,
+                    `👉 ${threadLink(th.row.id)}`
+                ].filter(Boolean);
+                window.open(`https://wa.me/${other}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
+            }
+
+            const msg = {
+                id: msgId, thread_id: th.row.id, model_uid: currentModelUid,
+                author_name: me.name, author_phone: myPhone,
+                kind: audio ? 'audio' : 'text', body: text || null, audio_url: audioUrl
+            };
+            const local = Object.assign({ created_at: new Date().toISOString(), localAudio: audio ? URL.createObjectURL(audio) : null }, msg);
+            th.messages.push(local);
+            input.value = '';
+            chatRecBlob = null;
+            renderRecChip();
+            const wasDraft = th.draft;
+            th.draft = false;
+            renderChatRecipient(th);
+            renderChatMessages(th);
+            markThreadRead(th.row.id);
+            refreshChatPins();
+
+            try {
+                const sb = await getSb();
+                if (wasDraft) {
+                    const { error } = await sb.from('finjat_threads').insert(th.row);
+                    if (error) throw error;
+                }
+                if (audio) {
+                    const { error } = await sb.storage.from(CHAT_AUDIO_BUCKET)
+                        .upload(audioPath, audio, { contentType: audio.type || 'audio/webm', upsert: false });
+                    if (error) throw error;
+                }
+                const { error } = await sb.from('finjat_messages').insert(msg);
+                if (error) throw error;
+            } catch (err) {
+                console.error('Finjat chat', err);
+                local.failed = true;
+                if (wasDraft) th.draft = true;
+                renderChatMessages(th);
+                showToast("Envoi échoué : " + (err.message || err));
+            }
+        }
+
+        // ---------- Profil + contacts partagés ----------
+        async function saveProfile() {
+            const name = document.getElementById('profile-name').value.trim();
+            const phone = normPhone(document.getElementById('profile-phone').value);
+            if (!name || phone.length < 8) { showToast("Nom + numéro international requis (ex : +212 6…)"); return; }
+            try { localStorage.setItem('finjatProfile', JSON.stringify({ name, phone })); } catch (e) {}
+            showToast("Profil enregistré");
+            if (!chatReady()) return;
+            await upsertContact(name, phone);   // je deviens visible par toute l'équipe
+            startPresence();
+        }
+
+        async function addContactFromForm() {
+            const n = document.getElementById('contact-name');
+            const p = document.getElementById('contact-phone');
+            const name = n.value.trim(), phone = normPhone(p.value);
+            if (!name || phone.length < 8) { showToast("Nom + numéro international requis (ex : +212 6…)"); return; }
+            if (!chatReady()) { showToast("Chat : clé Supabase publishable non configurée"); return; }
+            await upsertContact(name, phone);
+            n.value = '';
+            p.value = '';
+        }
+
+        async function upsertContact(name, phone) {
+            try {
+                const sb = await getSb();
+                const { error } = await sb.from('finjat_contacts')
+                    .upsert({ name, phone, color: contactColor(phone) }, { onConflict: 'phone' });
+                if (error) throw error;
+                await loadContacts();
+            } catch (e) { showToast("Contact non enregistré : " + (e.message || e)); }
+        }
+
+        async function deleteContact(phone) {
+            try {
+                const sb = await getSb();
+                const { error } = await sb.from('finjat_contacts').delete().eq('phone', phone);
+                if (error) throw error;
+                await loadContacts();
+            } catch (e) { showToast("Suppression impossible : " + (e.message || e)); }
+        }
+
+        async function loadContacts() {
+            if (!chatReady()) return;
+            try {
+                const sb = await getSb();
+                const { data, error } = await sb.from('finjat_contacts').select('*').order('name');
+                if (error) throw error;
+                chatContacts = data || [];
+                renderContactsList();
+                const th = chatThreads.get(chatOpenId);
+                if (th && !th.row.recipient_phone) renderChatRecipient(th);
+            } catch (e) { console.warn('Finjat contacts', e); }
+        }
+
+        function renderContactsList() {
+            const box = document.getElementById('contacts-list');
+            if (!box) return;
+            if (!chatContacts.length) { box.innerHTML = '<div class="side-hint">Aucun contact</div>'; return; }
+            box.innerHTML = '';
+            chatContacts.forEach(c => {
+                const row = document.createElement('div');
+                row.className = 'contact-row';
+                row.innerHTML = `<span class="av" style="background:${contactColor(c.phone)}">${escapeHtml(nameInitials(c.name))}</span>` +
+                    `<span class="ci"><b>${escapeHtml(c.name)}</b><small>+${escapeHtml(c.phone)}</small></span>` +
+                    `<button type="button" class="contact-del" aria-label="Supprimer">✕</button>`;
+                row.querySelector('.contact-del').addEventListener('click', () => {
+                    if (confirm(`Supprimer ${c.name} des contacts de l'équipe ?`)) deleteContact(c.phone);
+                });
+                box.appendChild(row);
+            });
+        }
+
+        // ==========================================
         // BASE DE DONNÉES INTERNE & GALERIE VISUELLE
         // ==========================================
         const DB_NAME = 'Finjat3D_DB';
@@ -4121,6 +4878,7 @@
             else if (urlParams.has('m')) {
                 currentModelUid = urlParams.get('m');
                 pendingPartPid = urlParams.get('p');
+                pendingThreadId = urlParams.get('t');
                 document.getElementById('start-menu').style.display = 'none';
                 loadModelFromUrl(modelUrlFromUid(currentModelUid));
             }
@@ -4523,6 +5281,8 @@
                     pendingPartPid = null;
                     setTimeout(() => highlightPartByPid(pid), 50);
                 }
+
+                chatOnModelLoaded();   // pins + messages + temps réel (+ ouvre la discussion du lien &t=)
                 
                 URL.revokeObjectURL(url);
             }, undefined, function (err) {
@@ -4765,6 +5525,7 @@
             updateSelectionOutline();
             updateTapeOverlay();
             updateLedOverlay();
+            updateChatOverlay();
             renderer.render(scene, camera);
         }
 
