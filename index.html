@@ -3986,7 +3986,7 @@
         async function getSb() {
             if (sbClient) return sbClient;
             if (!chatReady()) throw new Error('Clé Supabase publishable manquante');
-            const mod = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/+esm');
+            const mod = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
             sbClient = mod.createClient(SUPABASE_URL_CHAT, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
             return sbClient;
         }
@@ -4336,7 +4336,7 @@
             }
             const m = document.getElementById('chat-text').value.match(/^@(\S*)/);
             const q = m ? m[1].toLowerCase() : '';
-            const list = chatContacts.filter(c => normPhone(c.phone) !== me && (!q || String(c.name).toLowerCase().includes(q)));
+            const list = chatContacts.filter(c => !q || String(c.name).toLowerCase().includes(q));
             if (!list.length) {
                 box.innerHTML = `<span class="chat-for">${chatContacts.length ? 'Aucun contact trouvé' : 'Ajoutez des contacts dans ⚙ > Chat'}</span>`;
                 return;
@@ -4347,7 +4347,7 @@
                 b.type = 'button';
                 b.className = 'chat-avatar';
                 b.innerHTML = `<span class="av" style="background:${contactColor(c.phone)}">${escapeHtml(nameInitials(c.name))}</span>` +
-                              `<span class="nm">${escapeHtml(c.name)}</span>`;
+                              `<span class="nm">${escapeHtml(c.name)}${normPhone(c.phone) === me ? ' (moi)' : ''}</span>`;
                 b.addEventListener('click', () => {
                     th.row.recipient_name = c.name;
                     th.row.recipient_phone = normPhone(c.phone);
@@ -4529,19 +4529,37 @@
             const name = n.value.trim(), phone = normPhone(p.value);
             if (!name || phone.length < 8) { showToast("Nom + numéro international requis (ex : +212 6…)"); return; }
             if (!chatReady()) { showToast("Chat : clé Supabase publishable non configurée"); return; }
-            await upsertContact(name, phone);
-            n.value = '';
-            p.value = '';
+            if (await upsertContact(name, phone)) {
+                n.value = '';
+                p.value = '';
+            }
         }
 
         async function upsertContact(name, phone) {
             try {
                 const sb = await getSb();
-                const { error } = await sb.from('finjat_contacts')
-                    .upsert({ name, phone, color: contactColor(phone) }, { onConflict: 'phone' });
+                const { data, error } = await sb.from('finjat_contacts')
+                    .upsert({ name, phone, color: contactColor(phone) }, { onConflict: 'phone' })
+                    .select();
                 if (error) throw error;
+
+                // Ajout local immédiat (le @nom marche tout de suite, même si la relecture échoue)
+                const i = chatContacts.findIndex(c => normPhone(c.phone) === phone);
+                if (i >= 0) chatContacts[i].name = name; else chatContacts.push({ name, phone });
+                chatContacts.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+                renderContactsList();
+
+                if (!data || !data.length) {
+                    showToast("Contact enregistré mais illisible : vérifiez la règle « contacts read » dans Supabase");
+                } else {
+                    showToast(`Contact ajouté : ${name}`);
+                }
                 await loadContacts();
-            } catch (e) { showToast("Contact non enregistré : " + (e.message || e)); }
+                return true;
+            } catch (e) {
+                showToast("Contact non enregistré : " + (e.message || e));
+                return false;
+            }
         }
 
         async function deleteContact(phone) {
@@ -4559,11 +4577,14 @@
                 const sb = await getSb();
                 const { data, error } = await sb.from('finjat_contacts').select('*').order('name');
                 if (error) throw error;
-                chatContacts = data || [];
+                if ((data || []).length || !chatContacts.length) chatContacts = data || [];   // ne pas effacer un ajout local si la lecture revient vide
                 renderContactsList();
                 const th = chatThreads.get(chatOpenId);
                 if (th && !th.row.recipient_phone) renderChatRecipient(th);
-            } catch (e) { console.warn('Finjat contacts', e); }
+            } catch (e) {
+                console.warn('Finjat contacts', e);
+                showToast("Contacts illisibles : " + (e.message || e));
+            }
         }
 
         function renderContactsList() {
