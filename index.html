@@ -394,7 +394,7 @@
             position: absolute; top: 150px; left: 50%; transform: translateX(-50%);
             width: max-content; max-width: calc(100% - 40px);
             display: flex; flex-direction: column; align-items: center; gap: 6px;
-            z-index: 800; pointer-events: none; transition: top 0.3s ease;
+            z-index: 2100; pointer-events: none; transition: top 0.3s ease;   /* au-dessus du panneau ⚙ */
         }
         body.mats-collapsed #top-notices { top: 94px; }
         #anim-banner, #phase-banner, #iso-banner, #toast-msg {
@@ -4109,7 +4109,10 @@
         function setChatMode(on) {
             if (on) {
                 if (!chatReady()) { showToast("Chat : clé Supabase publishable non configurée"); return; }
-                if (!currentModelUid) { showToast("Chat : uniquement pour un meuble exporté depuis SketchUp"); return; }
+                if (!currentModelUid) {
+                    showToast("Chat : ouvrez ce meuble via son lien Finjat (bouton Export de l'extension SketchUp) : un fichier local ne peut pas être partagé");
+                    return;
+                }
                 if (!getProfile()) {
                     showToast("Renseignez d'abord votre nom et numéro (⚙ > Chat)");
                     document.getElementById('settings-btn').click();
@@ -4507,8 +4510,15 @@
             const phone = normPhone(document.getElementById('profile-phone').value);
             if (!name || phone.length < 8) { showToast("Nom + numéro international requis (ex : +212 6…)"); return; }
             try { localStorage.setItem('finjatProfile', JSON.stringify({ name, phone })); } catch (e) {}
+            document.getElementById('profile-phone').value = '+' + phone;
+            const saveBtn = document.getElementById('profile-save');
+            saveBtn.textContent = '✓ Enregistré';
+            setTimeout(() => { saveBtn.textContent = 'Enregistrer'; }, 2000);
+            if (!chatReady()) {
+                showToast("Profil enregistré sur cet appareil : clé Supabase publishable manquante, l'équipe ne le voit pas encore");
+                return;
+            }
             showToast("Profil enregistré");
-            if (!chatReady()) return;
             await upsertContact(name, phone);   // je deviens visible par toute l'équipe
             startPresence();
         }
@@ -4946,6 +4956,11 @@
                 globalModel.traverse(o => { o.userData.sid = sidCounter++; });   // avant tout ajout (traits, contours)
                 const fjRoot = gltf.userData && gltf.userData.finjat;
                 if (fjRoot && fjRoot.model_uid) currentModelUid = String(fjRoot.model_uid);
+                // Anciens exports Finjat (lien ?model=…/finjat-models/xxx.glb) : l'ID = nom du fichier en ligne
+                if (!currentModelUid && currentModelSourceUrl) {
+                    const mm = String(currentModelSourceUrl).match(/\/finjat-models\/([^/?#]+)\.glb/i);
+                    if (mm) currentModelUid = decodeURIComponent(mm[1]);
+                }
                 scene.add(globalModel);
                 scene.updateMatrixWorld(true);
 
