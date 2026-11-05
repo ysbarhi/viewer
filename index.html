@@ -222,6 +222,59 @@
         #source-close { background: #e5e7eb; color: #333; }
 
         /* ========================================= */
+        /* LIEU DE LIVRAISON / MONTAGE               */
+        /* ========================================= */
+        #addr-wrap { margin-bottom: 20px; display: none; }
+        .addr-card {
+            display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #ddd;
+            border-radius: 10px; padding: 10px 12px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .addr-card:active { transform: scale(0.98); }
+        .addr-text { flex: 1; min-width: 0; }
+        .addr-label { font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; }
+        .addr-value {
+            font-size: 14px; font-weight: bold; color: #111; margin-top: 2px;
+            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .addr-pin {
+            width: 40px; height: 40px; border-radius: 50%; background: #fee2e2; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .addr-card.empty {
+            flex-direction: column; justify-content: center; gap: 2px; padding: 14px;
+            border: 2px dashed #94a3b8; color: #475569; font-size: 13px; font-weight: bold; text-align: center;
+        }
+        .addr-plus { font-size: 38px; line-height: 1; font-weight: 300; color: #2563eb; }
+        .addr-edit {
+            display: none; margin: 6px 0 0 auto; border: none; background: none;
+            color: #64748b; font-size: 12px; text-decoration: underline; cursor: pointer;
+        }
+
+        #addr-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 3000;
+            display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        #addr-overlay.active { display: flex; }
+        #addr-box {
+            background: #fff; border-radius: 14px; padding: 18px; width: 100%; max-width: 380px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35); display: flex; flex-direction: column; gap: 8px;
+        }
+        .addr-opt {
+            padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; background: #f8fafc;
+            font-size: 15px; font-weight: bold; text-align: left; cursor: pointer; color: #111;
+        }
+        .addr-opt:active { background: #eff6ff; }
+        .addr-help { font-size: 12px; color: #64748b; margin: -2px 2px 2px; }
+        .addr-paste-row { display: flex; gap: 6px; }
+        .addr-input { flex: 1; min-width: 0; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+        #addr-paste { width: 44px; border: none; border-radius: 8px; background: #e0f2fe; font-size: 18px; cursor: pointer; }
+        #addr-preview { font-size: 12px; font-weight: bold; color: #166534; min-height: 16px; }
+        #addr-preview.warn { color: #b45309; }
+        #addr-save { background: #2563eb; color: #fff; }
+        #addr-save:disabled { opacity: 0.4; }
+        #addr-cancel { background: #e5e7eb; color: #333; }
+
+        /* ========================================= */
         /* GALERIE DES MEUBLES                       */
         /* ========================================= */
         #recent-gallery-container {
@@ -840,6 +893,11 @@
             <svg viewBox="0 0 24 24" width="20" height="20" stroke="white" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             <span id="save-local-label">Enregistrer sur l'appareil</span>
         </button>
+
+        <div id="addr-wrap">
+            <div id="addr-card" class="addr-card empty" role="button" tabindex="0"></div>
+            <button id="addr-edit" class="addr-edit" type="button">Modifier le lieu</button>
+        </div>
         <h2>Unités</h2>
         <div class="unit-switch" role="radiogroup" aria-label="Unité de mesure">
             <button class="unit-opt active" data-unit="mm" type="button">mm</button>
@@ -977,6 +1035,25 @@
                 </button>
             </div>
             <div id="recent-gallery" class="layout-list"></div>
+        </div>
+    </div>
+
+    <div id="addr-overlay">
+        <div id="addr-box" role="dialog" aria-modal="true">
+            <div class="source-title">📍 Lieu de livraison / montage</div>
+            <button id="addr-here" class="addr-opt" type="button">📍 Ma position actuelle</button>
+            <button id="addr-gmaps" class="addr-opt" type="button">🗺 Choisir dans Google Maps</button>
+            <div class="addr-help">Dans Google Maps : touchez le lieu → Partager → Copier le lien, puis revenez et touchez 📋.</div>
+            <div class="addr-paste-row">
+                <input id="addr-link" class="addr-input" type="text" placeholder="Lien Google Maps ou coordonnées" autocomplete="off">
+                <button id="addr-paste" type="button" aria-label="Coller">📋</button>
+            </div>
+            <input id="addr-name" class="addr-input" type="text" placeholder="Adresse / repère (optionnel)" autocomplete="off">
+            <div id="addr-preview"></div>
+            <div class="source-actions">
+                <button id="addr-save" type="button" disabled>Enregistrer</button>
+                <button id="addr-cancel" type="button">Annuler</button>
+            </div>
         </div>
     </div>
 
@@ -1264,6 +1341,12 @@
         let chatRecorder = null, chatRecChunks = [], chatRecBlob = null, chatRecStart = 0, chatRecDur = 0;
         let chatRecTimer = null, chatRecDiscard = false;
         const _chatV = new THREE.Vector3();
+
+        // ===== Lieu de livraison / montage =====
+        let modelLocation = null;         // lieu enregistré (Supabase ou local)
+        let modelExportLocation = null;   // lieu fourni par l'export SketchUp (prioritaire, à venir)
+        let addrDraft = null;             // lieu en cours de choix dans le sélecteur
+        const GMAPS_RE = /^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps|maps\.google\.[a-z.]+)/i;
         const _silCam = new THREE.Vector3();
         const SUPABASE_MODELS_URL = 'https://bromdunqmghqzgufgquz.supabase.co/storage/v1/object/public/finjat-models/';
         let currentModelUid = null;   // id court du meuble (lien ?m=)
@@ -2425,6 +2508,7 @@
         setupLasso();
         setupLed();
         setupChat();
+        setupAddress();
         setupScanner();
         setupFileUploader();
         setupSplashScreen();
@@ -2687,6 +2771,9 @@
             const ledPanel = document.getElementById('led-panel');
             if (ledPanel) ledPanel.classList.remove('open');
             chatTeardown();
+            modelLocation = null;
+            modelExportLocation = null;
+            renderAddrCard();
             
             const slider = document.getElementById('explode-slider');
             if(slider) {
@@ -4742,6 +4829,251 @@
         }
 
         // ==========================================
+        // LIEU DE LIVRAISON / MONTAGE
+        // ==========================================
+        function normalizeLocation(v) {
+            if (!v) return null;
+            if (typeof v === 'string') return v.trim() ? { address: v.trim(), lat: null, lng: null, maps_url: null } : null;
+            const loc = {
+                address: v.address ? String(v.address) : null,
+                lat: Number.isFinite(+v.lat) && v.lat !== null ? +v.lat : null,
+                lng: Number.isFinite(+v.lng) && v.lng !== null ? +v.lng : null,
+                maps_url: (v.maps_url && GMAPS_RE.test(v.maps_url)) ? v.maps_url : null
+            };
+            return (loc.address || loc.lat !== null || loc.maps_url) ? loc : null;
+        }
+
+        function localLocKey() {
+            if (currentModelUid) return 'uid:' + currentModelUid;
+            if (currentLoadedFileName) return 'file:' + currentLoadedFileName;
+            return null;
+        }
+        function readLocalLocations() {
+            try { return JSON.parse(localStorage.getItem('finjatLocations') || '{}'); } catch (e) { return {}; }
+        }
+        function storeLocalLocation(loc) {
+            const key = localLocKey();
+            if (!key) return;
+            const all = readLocalLocations();
+            all[key] = loc;
+            try { localStorage.setItem('finjatLocations', JSON.stringify(all)); } catch (e) {}
+        }
+
+        function setupAddress() {
+            const card = document.getElementById('addr-card');
+            const ov = document.getElementById('addr-overlay');
+            const linkIn = document.getElementById('addr-link');
+            const nameIn = document.getElementById('addr-name');
+
+            const onCard = () => {
+                const loc = modelExportLocation || modelLocation;
+                if (loc) openLocationInMaps(loc); else openAddrPicker();
+            };
+            card.addEventListener('click', onCard);
+            card.addEventListener('keydown', (e) => { if (e.key === 'Enter') onCard(); });
+            document.getElementById('addr-edit').addEventListener('click', openAddrPicker);
+            document.getElementById('settings-btn').addEventListener('click', renderAddrCard);
+
+            document.getElementById('addr-cancel').addEventListener('click', () => ov.classList.remove('active'));
+            ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('active'); });
+            document.getElementById('addr-save').addEventListener('click', saveModelLocation);
+
+            linkIn.addEventListener('input', () => {
+                addrDraft = parseMapsInput(linkIn.value);
+                if (addrDraft && addrDraft.address && !nameIn.value.trim()) nameIn.value = addrDraft.address;
+                updateAddrPreview();
+            });
+            nameIn.addEventListener('input', updateAddrPreview);
+
+            document.getElementById('addr-paste').addEventListener('click', async () => {
+                try {
+                    const t = await navigator.clipboard.readText();
+                    linkIn.value = t || '';
+                    linkIn.dispatchEvent(new Event('input'));
+                } catch (e) {
+                    setAddrPreview("Collage refusé : collez le lien à la main dans le champ", true);
+                }
+            });
+
+            document.getElementById('addr-gmaps').addEventListener('click', () => {
+                const q = (addrDraft && addrDraft.lat !== null) ? `search/?api=1&query=${addrDraft.lat},${addrDraft.lng}` : '';
+                window.open('https://www.google.com/maps/' + q, '_blank');
+            });
+
+            document.getElementById('addr-here').addEventListener('click', () => {
+                if (!navigator.geolocation) { setAddrPreview("Géolocalisation non disponible", true); return; }
+                setAddrPreview("Localisation en cours…", false);
+                navigator.geolocation.getCurrentPosition(async (pos) => {
+                    const lat = +pos.coords.latitude.toFixed(6), lng = +pos.coords.longitude.toFixed(6);
+                    addrDraft = { lat, lng, maps_url: null, address: null };
+                    linkIn.value = `${lat}, ${lng}`;
+                    updateAddrPreview();
+                    if (!nameIn.value.trim()) {
+                        const name = await reverseGeocode(lat, lng);
+                        if (name && !nameIn.value.trim()) { nameIn.value = name; updateAddrPreview(); }
+                    }
+                }, (err) => {
+                    setAddrPreview(err.code === 1 ? "Localisation refusée (autorisez-la pour ce site)" : "Position introuvable, réessayez", true);
+                }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+            });
+        }
+
+        function setAddrPreview(txt, warn) {
+            const p = document.getElementById('addr-preview');
+            p.textContent = txt;
+            p.classList.toggle('warn', !!warn);
+        }
+
+        function updateAddrPreview() {
+            const name = document.getElementById('addr-name').value.trim();
+            const raw = document.getElementById('addr-link').value.trim();
+            if (addrDraft && addrDraft.lat !== null) setAddrPreview(`✓ Position : ${addrDraft.lat.toFixed(5)}, ${addrDraft.lng.toFixed(5)}`, false);
+            else if (addrDraft && addrDraft.maps_url) setAddrPreview('✓ Lien Google Maps reconnu', false);
+            else if (raw) setAddrPreview('⚠ Lien non reconnu : collez un lien Google Maps ou « latitude, longitude »', true);
+            else setAddrPreview('', false);
+            document.getElementById('addr-save').disabled = !(addrDraft || name);
+        }
+
+        // Reconnaît : liens Google Maps (épingle !3d!4d, ?q=, @lat,lng, /place/…, liens courts) ou "lat, lng"
+        function parseMapsInput(text) {
+            const s = String(text || '').trim();
+            if (!s) return null;
+            const urlM = s.match(/https?:\/\/\S+/i);
+            const url = urlM ? urlM[0] : null;
+            const before = urlM ? s.slice(0, urlM.index).trim().replace(/\s+/g, ' ') : '';
+            const n = '(-?\\d{1,3}\\.\\d+)';
+            const patterns = [
+                new RegExp('!3d' + n + '!4d' + n),
+                new RegExp('[?&](?:q|query|ll|center|destination)=' + n + ',\\s*' + n),
+                new RegExp('@' + n + ',' + n),
+                new RegExp('^' + n + '\\s*,\\s*' + n + '$')
+            ];
+            for (const re of patterns) {
+                const m = s.match(re);
+                if (m) {
+                    const lat = +m[1], lng = +m[2];
+                    if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+                        return { lat, lng, maps_url: (url && GMAPS_RE.test(url)) ? url : null, address: before || null };
+                    }
+                }
+            }
+            if (url && GMAPS_RE.test(url)) {
+                let name = before;
+                const pm = url.match(/\/place\/([^/@?]+)/);
+                if (!name && pm) name = decodeURIComponent(pm[1].replace(/\+/g, ' '));
+                return { lat: null, lng: null, maps_url: url, address: name || null };   // lien court : ouvert tel quel
+            }
+            return null;
+        }
+
+        async function reverseGeocode(lat, lng) {
+            try {
+                const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&accept-language=fr`);
+                if (!r.ok) return null;
+                const j = await r.json();
+                return j.display_name || null;
+            } catch (e) { return null; }
+        }
+
+        function openAddrPicker() {
+            const cur = modelLocation || {};
+            addrDraft = (cur.lat !== null && cur.lat !== undefined) || cur.maps_url ? Object.assign({}, cur) : null;
+            document.getElementById('addr-link').value = cur.maps_url || ((cur.lat !== null && cur.lat !== undefined) ? `${cur.lat}, ${cur.lng}` : '');
+            document.getElementById('addr-name').value = cur.address || '';
+            updateAddrPreview();
+            document.getElementById('addr-overlay').classList.add('active');
+        }
+
+        function openLocationInMaps(loc) {
+            let url;
+            if (loc.lat !== null && loc.lat !== undefined && loc.lng !== null && loc.lng !== undefined) {
+                url = `https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}`;
+            } else if (loc.maps_url && GMAPS_RE.test(loc.maps_url)) {
+                url = loc.maps_url;
+            } else {
+                url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.address || '')}`;
+            }
+            window.open(url, '_blank');
+        }
+
+        function renderAddrCard() {
+            const wrap = document.getElementById('addr-wrap');
+            if (!wrap) return;
+            wrap.style.display = globalModel ? 'block' : 'none';
+            const card = document.getElementById('addr-card');
+            const edit = document.getElementById('addr-edit');
+            const loc = modelExportLocation || modelLocation;
+            if (!loc) {
+                card.className = 'addr-card empty';
+                card.innerHTML = '<span class="addr-plus">+</span><span>Ajouter le lieu de livraison / montage</span>';
+                edit.style.display = 'none';
+                return;
+            }
+            const label = loc.address ||
+                ((loc.lat !== null && loc.lat !== undefined) ? `${(+loc.lat).toFixed(5)}, ${(+loc.lng).toFixed(5)}` : 'Lieu Google Maps');
+            card.className = 'addr-card';
+            card.innerHTML =
+                `<div class="addr-text"><div class="addr-label">Livraison / montage</div>` +
+                `<div class="addr-value">${escapeHtml(label)}</div></div>` +
+                `<span class="addr-pin"><svg viewBox="0 0 24 24" width="22" height="22">` +
+                `<path d="M12 2C8.1 2 5 5.1 5 9c0 5.3 7 13 7 13s7-7.7 7-13c0-3.9-3.1-7-7-7z" fill="#ea4335"/>` +
+                `<circle cx="12" cy="9" r="2.6" fill="#fff"/></svg></span>`;
+            edit.style.display = modelExportLocation ? 'none' : 'block';   // l'adresse venant de SketchUp fait foi
+        }
+
+        async function loadModelLocation() {
+            modelLocation = null;
+            const key = localLocKey();
+            if (key) modelLocation = normalizeLocation(readLocalLocations()[key]);
+            renderAddrCard();
+            if (!currentModelUid || !chatReady()) return;
+            const uid = currentModelUid;
+            try {
+                const sb = await getSb();
+                const { data, error } = await sb.from('finjat_locations').select('*').eq('model_uid', uid).maybeSingle();
+                if (error) throw error;
+                if (data && uid === currentModelUid) {
+                    modelLocation = normalizeLocation(data);
+                    storeLocalLocation(modelLocation);
+                    renderAddrCard();
+                }
+            } catch (e) { console.warn('Finjat lieu', e); }
+        }
+
+        async function saveModelLocation() {
+            const name = document.getElementById('addr-name').value.trim();
+            const loc = normalizeLocation({
+                address: name || (addrDraft && addrDraft.address) || null,
+                lat: addrDraft ? addrDraft.lat : null,
+                lng: addrDraft ? addrDraft.lng : null,
+                maps_url: addrDraft ? addrDraft.maps_url : null
+            });
+            if (!loc) return;
+            modelLocation = loc;
+            storeLocalLocation(loc);
+            renderAddrCard();
+            document.getElementById('addr-overlay').classList.remove('active');
+
+            if (!currentModelUid || !chatReady()) {
+                showToast("Lieu enregistré sur cet appareil");
+                return;
+            }
+            try {
+                const sb = await getSb();
+                const { error } = await sb.from('finjat_locations').upsert({
+                    model_uid: currentModelUid,
+                    address: loc.address, lat: loc.lat, lng: loc.lng, maps_url: loc.maps_url,
+                    updated_by: (getProfile() || {}).name || null,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'model_uid' });
+                if (error) throw error;
+                showToast("Lieu enregistré pour ce meuble");
+            } catch (e) {
+                showToast("Lieu enregistré sur cet appareil seulement : " + (e.message || e));
+            }
+        }
+
+        // ==========================================
         // BASE DE DONNÉES INTERNE & GALERIE VISUELLE
         // ==========================================
         const DB_NAME = 'Finjat3D_DB';
@@ -5455,6 +5787,10 @@
                 }
 
                 chatOnModelLoaded();   // pins + messages + temps réel (+ ouvre la discussion du lien &t=)
+
+                // Lieu : export SketchUp (à venir : extras.finjat.location) > enregistré pour ce meuble
+                modelExportLocation = normalizeLocation(fjRoot && (fjRoot.location || fjRoot.address));
+                loadModelLocation();
                 
                 URL.revokeObjectURL(url);
             }, undefined, function (err) {
