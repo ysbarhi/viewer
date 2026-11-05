@@ -1347,6 +1347,10 @@
         let modelExportLocation = null;   // lieu fourni par l'export SketchUp (prioritaire, à venir)
         let addrDraft = null;             // lieu en cours de choix dans le sélecteur
         const GMAPS_RE = /^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps|maps\.google\.[a-z.]+)/i;
+
+        // ===== Grille au sol =====
+        let groundGrid = null;
+        let groundY = 0;
         const _silCam = new THREE.Vector3();
         const SUPABASE_MODELS_URL = 'https://bromdunqmghqzgufgquz.supabase.co/storage/v1/object/public/finjat-models/';
         let currentModelUid = null;   // id court du meuble (lien ?m=)
@@ -2774,6 +2778,7 @@
             modelLocation = null;
             modelExportLocation = null;
             renderAddrCard();
+            if (groundGrid) groundGrid.visible = false;
             
             const slider = document.getElementById('explode-slider');
             if(slider) {
@@ -3673,6 +3678,7 @@
                 ledStrips.forEach(s => [s.core, s.halo].forEach(l => {
                     if (l.visible) { ledHiddenForId.push(l); l.visible = false; }
                 }));
+                if (groundGrid && groundGrid.visible) { ledHiddenForId.push(groundGrid); groundGrid.visible = false; }
                 scene.background = new THREE.Color(0x000000);
 
                 if (!lassoRT || lassoRT.width !== W || lassoRT.height !== H) {
@@ -5074,6 +5080,115 @@
         }
 
         // ==========================================
+        // GRILLE AU SOL INFINIE (shader)
+        // Au-dessus : traits continus 1 m (4 px, 80 %) + 0,5 m (2 px, 60 %)
+        // En dessous : pointillés 1 m (60 %) + 0,5 m (40 %)
+        // ==========================================
+        function ensureGroundGrid() {
+            if (groundGrid) return groundGrid;
+            const geo = new THREE.PlaneGeometry(1, 1);
+            geo.rotateX(-Math.PI / 2);   // plan horizontal (XZ)
+            const mat = new THREE.ShaderMaterial({
+                uniforms: {
+                    uColor: { value: new THREE.Color(0x8a8a8a) },
+                    uCam:   { value: new THREE.Vector3() },
+                    uBelow: { value: 0 },
+                    uPx:    { value: 1 },
+                    uFade:  { value: 50 }
+                },
+                vertexShader: `
+                    varying vec3 vWorld;
+                    void main() {
+                        vec4 wp = modelMatrix * vec4(position, 1.0);
+                        vWorld = wp.xyz;
+                        gl_Position = projectionMatrix * viewMatrix * wp;
+                    }`,
+                fragmentShader: `
+                    uniform vec3 uColor;
+                    uniform vec3 uCam;
+                    uniform float uBelow;
+                    uniform float uPx;
+                    uniform float uFade;
+                    varying vec3 vWorld;
+
+                    // Couverture d'un réseau de traits (largeur en pixels écran), option pointillés écran
+                    float lineCov(float coord, float spacing, float halfW, float along, float dotted) {
+                        float c = coord / spacing;
+                        float fw = max(fwidth(c), 1e-6);
+                        float d = abs(fract(c + 0.5) - 0.5) / fw;          // distance au trait (px)
+                        float cov = 1.0 - smoothstep(halfW - 0.5, halfW + 0.5, d);
+                        if (dotted > 0.5) {
+                            float p = along / max(fwidth(along), 1e-6);    // position le long du trait (px)
+                            float period = halfW * 6.0;                     // point = 1/2 période
+                            cov *= step(fract(p / period), 0.5);
+                        }
+                        return cov;
+                    }
+
+                    void main() {
+                        float dotted = uBelow;
+                        float hwMain = 2.0 * uPx;   // 4 px
+                        float hwSub  = 1.0 * uPx;   // 2 px
+
+                        float mainL = max(lineCov(vWorld.x, 1.0, hwMain, vWorld.z, dotted),
+                                          lineCov(vWorld.z, 1.0, hwMain, vWorld.x, dotted));
+                        float subL  = max(lineCov(vWorld.x, 0.5, hwSub, vWorld.z, dotted),
+                                          lineCov(vWorld.z, 0.5, hwSub, vWorld.x, dotted));
+
+                        // Anti-moiré : les traits s'effacent quand les cases deviennent trop petites à l'écran
+                        float fwm = max(fwidth(vWorld.x), fwidth(vWorld.z));
+                        float lodMain = 1.0 - smoothstep(0.10, 0.33, fwm / 1.0);
+                        float lodSub  = 1.0 - smoothstep(0.10, 0.33, fwm / 0.5);
+
+                        float aMain = mix(0.8, 0.6, uBelow);
+                        float aSub  = mix(0.6, 0.4, uBelow);
+                        float a = max(mainL * aMain * lodMain, subL * aSub * lodSub);
+
+                        // Fondu vers l'horizon => grille "sans fin"
+                        float dist = length(vWorld.xz - uCam.xz);
+                        a *= 1.0 - smoothstep(uFade * 0.6, uFade, dist);
+                        if (a < 0.003) discard;
+
+                        gl_FragColor = vec4(uColor, a);
+                        #include <colorspace_fragment>
+                    }`,
+                transparent: true,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+                polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 4
+            });
+            groundGrid = new THREE.Mesh(geo, mat);
+            groundGrid.renderOrder = -1;          // dessinée avant les objets transparents (Rayons X)
+            groundGrid.frustumCulled = false;
+            groundGrid.raycast = () => {};
+            groundGrid.visible = false;
+            scene.add(groundGrid);
+            return groundGrid;
+        }
+
+        function placeGroundGrid(y) {
+            const g = ensureGroundGrid();
+            groundY = y;
+            g.position.y = y - 0.0005;   // 0,5 mm sous le meuble : pas de scintillement avec le dessous des pièces
+            g.visible = true;
+        }
+
+        // Chaque image : la grille suit la caméra (paraît infinie) et passe en pointillés vue de dessous
+        function updateGroundGrid() {
+            if (!groundGrid || !groundGrid.visible) return;
+            const h = Math.abs(camera.position.y - groundY);
+            const fade = Math.max(20, h * 50, camera.position.distanceTo(controls.target) * 6);
+            groundGrid.position.x = camera.position.x;
+            groundGrid.position.z = camera.position.z;
+            groundGrid.scale.set(fade * 2.2, 1, fade * 2.2);
+            const u = groundGrid.material.uniforms;
+            u.uCam.value.copy(camera.position);
+            u.uBelow.value = camera.position.y < groundY ? 1 : 0;
+            u.uPx.value = renderer.getPixelRatio();
+            u.uFade.value = fade;
+        }
+
+        // ==========================================
         // BASE DE DONNÉES INTERNE & GALERIE VISUELLE
         // ==========================================
         const DB_NAME = 'Finjat3D_DB';
@@ -5791,6 +5906,7 @@
                 // Lieu : export SketchUp (à venir : extras.finjat.location) > enregistré pour ce meuble
                 modelExportLocation = normalizeLocation(fjRoot && (fjRoot.location || fjRoot.address));
                 loadModelLocation();
+                placeGroundGrid(globalBox.min.y);   // sol = point le plus bas du meuble
                 
                 URL.revokeObjectURL(url);
             }, undefined, function (err) {
@@ -6040,6 +6156,7 @@
             updateTapeOverlay();
             updateLedOverlay();
             updateChatOverlay();
+            updateGroundGrid();
             renderer.render(scene, camera);
         }
 
