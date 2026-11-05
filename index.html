@@ -188,6 +188,38 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 12px;
         }
         #home-scan-btn:active { background: #eff6ff; transform: scale(0.98); }
+        #home-source-btn {
+            background: #fff; color: #0f766e; border: 2px solid #14b8a6;
+            padding: 13px 30px; border-radius: 10px; font-size: 18px; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 12px;
+        }
+        #home-source-btn:active { background: #f0fdfa; transform: scale(0.98); }
+
+        #source-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 3000;
+            display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        #source-overlay.active { display: flex; }
+        #source-box {
+            background: #fff; border-radius: 14px; padding: 20px; width: 100%; max-width: 380px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+        }
+        .source-title { font-size: 18px; font-weight: bold; color: #222; margin-bottom: 10px; text-align: center; }
+        #source-path {
+            font-family: Consolas, 'Courier New', monospace; font-size: 14px; color: #111;
+            background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;
+            word-break: break-all; user-select: all; -webkit-user-select: all;
+        }
+        #source-meta { font-size: 12px; color: #64748b; margin: 8px 0 16px; text-align: center; }
+        .source-actions { display: flex; gap: 8px; }
+        .source-actions button {
+            flex: 1; padding: 12px; border-radius: 8px; border: none;
+            font-size: 15px; font-weight: bold; cursor: pointer;
+        }
+        #source-copy { background: #2563eb; color: #fff; }
+        #source-copy:disabled { opacity: 0.4; }
+        #source-share { background: #14b8a6; color: #fff; }
+        #source-close { background: #e5e7eb; color: #333; }
 
         /* ========================================= */
         /* GALERIE DES MEUBLES                       */
@@ -935,6 +967,7 @@
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
         <button id="home-scan-btn" type="button">📷 SCANNER UNE ÉTIQUETTE</button>
+        <button id="home-source-btn" type="button">🗂 TROUVER SOURCE</button>
         
         <div id="recent-gallery-container">
             <div class="gallery-header">
@@ -944,6 +977,19 @@
                 </button>
             </div>
             <div id="recent-gallery" class="layout-list"></div>
+        </div>
+    </div>
+
+    <div id="source-overlay">
+        <div id="source-box" role="dialog" aria-modal="true">
+            <div class="source-title">🗂 Fichier source</div>
+            <div id="source-path">Recherche…</div>
+            <div id="source-meta"></div>
+            <div class="source-actions">
+                <button id="source-copy" type="button" disabled>Copier</button>
+                <button id="source-share" type="button" style="display: none;">Partager</button>
+                <button id="source-close" type="button">Fermer</button>
+            </div>
         </div>
     </div>
 
@@ -4606,6 +4652,96 @@
         }
 
         // ==========================================
+        // TROUVER SOURCE : QR -> chemin du .skp (fiche <uid>.json déposée à l'export)
+        // ==========================================
+        let currentSourceInfo = null;
+
+        function setupSourceDialog() {
+            const ov = document.getElementById('source-overlay');
+            const copyBtn = document.getElementById('source-copy');
+            const shareBtn = document.getElementById('source-share');
+            const close = () => ov.classList.remove('active');
+
+            document.getElementById('source-close').addEventListener('click', close);
+            ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+
+            copyBtn.addEventListener('click', async () => {
+                const p = currentSourceInfo && currentSourceInfo.source_path;
+                if (!p) return;
+                try {
+                    await navigator.clipboard.writeText(p);
+                } catch (e) {
+                    const ta = document.createElement('textarea');   // repli anciens navigateurs
+                    ta.value = p;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    try { document.execCommand('copy'); } catch (_) {}
+                    ta.remove();
+                }
+                copyBtn.textContent = '✓ Copié';
+                setTimeout(() => { copyBtn.textContent = 'Copier'; }, 1800);
+            });
+
+            shareBtn.addEventListener('click', () => {
+                const info = currentSourceInfo;
+                if (!info || !navigator.share) return;
+                navigator.share({
+                    title: 'Fichier source' + (info.file_name ? ' : ' + info.file_name : ''),
+                    text: info.source_path
+                }).catch(() => {});
+            });
+        }
+
+        async function showSourceForText(text) {
+            const ov = document.getElementById('source-overlay');
+            const pathEl = document.getElementById('source-path');
+            const metaEl = document.getElementById('source-meta');
+            const copyBtn = document.getElementById('source-copy');
+            const shareBtn = document.getElementById('source-share');
+
+            currentSourceInfo = null;
+            pathEl.textContent = 'Recherche…';
+            metaEl.textContent = '';
+            copyBtn.disabled = true;
+            shareBtn.style.display = 'none';
+            ov.classList.add('active');
+
+            const link = parseFinjatLink(text);
+            let uid = link && link.uid;
+            if (!uid && link && link.modelUrl) {
+                const mm = String(link.modelUrl).match(/\/finjat-models\/([^/?#]+)\.glb/i);
+                if (mm) uid = decodeURIComponent(mm[1]);
+            }
+            if (!uid) {
+                pathEl.textContent = "Ce QR ne contient pas de lien Finjat.";
+                metaEl.textContent = 'Code lu : ' + text;
+                return;
+            }
+
+            try {
+                const r = await fetch(`${SUPABASE_MODELS_URL}${encodeURIComponent(uid)}.json?t=${Date.now()}`, { cache: 'no-store' });
+                if (!r.ok) throw new Error((r.status === 400 || r.status === 404) ? 'absent' : 'HTTP ' + r.status);
+                const info = await r.json();
+                if (!info.source_path) {
+                    pathEl.textContent = "Le fichier SketchUp n'était pas encore enregistré au moment de l'export.";
+                    return;
+                }
+                currentSourceInfo = info;
+                pathEl.textContent = info.source_path;
+                metaEl.textContent = [
+                    info.computer ? `PC : ${info.computer}` : null,
+                    info.exported_at ? `Exporté le ${new Date(info.exported_at).toLocaleString()}` : null
+                ].filter(Boolean).join(' · ');
+                copyBtn.disabled = false;
+                if (navigator.share) shareBtn.style.display = '';
+            } catch (e) {
+                pathEl.textContent = (e.message === 'absent')
+                    ? "Source inconnue : ce meuble a été exporté avant cette fonction. Ré-exportez-le depuis SketchUp."
+                    : "Recherche impossible (" + e.message + ")";
+            }
+        }
+
+        // ==========================================
         // BASE DE DONNÉES INTERNE & GALERIE VISUELLE
         // ==========================================
         const DB_NAME = 'Finjat3D_DB';
@@ -5491,8 +5627,9 @@
                 if (isScannerOpen) stopAndHideScanner();
             });
 
-            function openScanner() {
+            function openScanner(mode) {
                 if (isScannerOpen) return;
+                scanMode = (mode === 'source') ? 'source' : 'part';
                 isScannerOpen = true;
                 container.style.display = 'block';
 
@@ -5512,7 +5649,8 @@
                         if (handled) return;
                         handled = true;
                         window.history.back();
-                        highlightScannedPart(decodedText);
+                        if (scanMode === 'source') showSourceForText(decodedText);
+                        else highlightScannedPart(decodedText);
                     },
                     () => {}
                 ).catch(() => {
@@ -5528,8 +5666,12 @@
                 openScanner();
             });
 
+            let scanMode = 'part';
             const homeScanBtn = document.getElementById('home-scan-btn');
-            if (homeScanBtn) homeScanBtn.addEventListener('click', openScanner);
+            if (homeScanBtn) homeScanBtn.addEventListener('click', () => openScanner('part'));
+            const homeSourceBtn = document.getElementById('home-source-btn');
+            if (homeSourceBtn) homeSourceBtn.addEventListener('click', () => openScanner('source'));
+            setupSourceDialog();
 
             closeBtn.addEventListener('click', () => {
                 window.history.back();
