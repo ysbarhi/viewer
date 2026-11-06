@@ -1432,6 +1432,7 @@
 
         // ===== Angles =====
         const ANGLE_MAX_LABELS = 500;
+        const ANGLE_THICK_MAX = 0.021;   // m : faces plus étroites = champs de panneaux (MDF/PVC 5–18 mm + chant) => ignorées
         let isAngleModeOn = false;
         let anglesDirty = false, anglesDirtyAt = 0;
         let angleObjects = [], angleLabels = [], angleFillMat = null;   // secteurs : 1 lot fixe + 1 lot par ouvrant animé
@@ -5531,6 +5532,25 @@
             const corners = [];
             outs.forEach((m, r) => {
                 const n = rNormal.get(r);
+
+                // Champ de panneau : largeur de la face perpendiculairement à sa plus longue arête <= épaisseur max
+                let longest = 0, ua = -1, ub = -1;
+                m.forEach((nexts, a) => nexts.forEach(b => {
+                    const L = P(a).distanceToSquared(P(b));
+                    if (L > longest) { longest = L; ua = a; ub = b; }
+                }));
+                if (ua >= 0) {
+                    const u = P(ub).sub(P(ua)).normalize();
+                    const w = new THREE.Vector3().crossVectors(n, u).normalize();
+                    let lo = Infinity, hi = -Infinity;
+                    m.forEach((nexts, a) => {
+                        const d = w.dot(P(a));
+                        if (d < lo) lo = d;
+                        if (d > hi) hi = d;
+                    });
+                    if (hi - lo <= ANGLE_THICK_MAX) return;   // face de champ : pas d'angles
+                }
+
                 const mover = movers[rMover.get(r)] || null;
                 const im = ins.get(r);
                 m.forEach((nexts, V) => {
