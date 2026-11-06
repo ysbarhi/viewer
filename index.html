@@ -1434,7 +1434,7 @@
         const ANGLE_MAX_LABELS = 500;
         let isAngleModeOn = false;
         let anglesDirty = false, anglesDirtyAt = 0;
-        let angleFill = null, angleLines = null, angleLabels = [];
+        let angleObjects = [], angleLabels = [], angleFillMat = null;   // secteurs : 1 lot fixe + 1 lot par ouvrant animé
         let angleOccIdx = 0, angleIsoFlag = false;
         const angleLineMat = new LineMaterial({ vertexColors: true, linewidth: 2 });
         const _angRay = new THREE.Raycaster();
@@ -3795,7 +3795,7 @@
                     if (l.visible) { ledHiddenForId.push(l); l.visible = false; }
                 }));
                 if (groundGrid && groundGrid.visible) { ledHiddenForId.push(groundGrid); groundGrid.visible = false; }
-                [angleFill, angleLines].forEach(o => { if (o && o.visible) { ledHiddenForId.push(o); o.visible = false; } });
+                angleObjects.forEach(o => { if (o.visible) { ledHiddenForId.push(o); o.visible = false; } });
                 scene.background = new THREE.Color(0x000000);
 
                 if (!lassoRT || lassoRT.width !== W || lassoRT.height !== H) {
@@ -5399,23 +5399,45 @@
             return (sel || tapeMeshes).filter(m => m.layers.test(camera.layers));
         }
 
+        // Pièce mobile qui porte ce mesh : ouvrant animé, ou chant rattaché à un ouvrant animé
+        function angleMoverOf(mesh, animSet) {
+            for (let o = mesh; o && o !== globalModel; o = o.parent) {
+                if (animSet.has(o)) return o;
+                const h = o.userData && o.userData.hostPart;
+                if (h && animSet.has(h)) return o;
+            }
+            return null;
+        }
+
         // Soudure + regroupement des triangles coplanaires en faces planes, puis angles intérieurs aux coins
         function computeAngleCorners(meshes) {
+            const animSet = new Set(animatedPartNodes);
+            const movers = [null];            // 0 = fixe
+            const moverIdx = new Map();
             const raw = [];
+            const rawMover = [];              // index de pièce mobile par triangle brut
             const v = new THREE.Vector3();
+
             meshes.forEach(m => {
                 const g = m.geometry, pos = g && g.attributes.position;
                 if (!pos) return;
                 m.updateWorldMatrix(true, false);
-                const flip = m.matrixWorld.determinant() < 0;   // composants miroir : on garde les normales vers l'extérieur
+                let mi = 0;
+                const mv = animSet.size ? angleMoverOf(m, animSet) : null;
+                if (mv) {
+                    mi = moverIdx.get(mv);
+                    if (mi === undefined) { mi = movers.length; movers.push(mv); moverIdx.set(mv, mi); }
+                }
+                const flip = m.matrixWorld.determinant() < 0;   // composants miroir : normales vers l'extérieur
+                const order = flip ? [0, 2, 1] : [0, 1, 2];
                 const idx = g.index;
                 const count = idx ? idx.count : pos.count;
                 for (let i = 0; i + 2 < count; i += 3) {
-                    const order = flip ? [0, 2, 1] : [0, 1, 2];
                     for (const k of order) {
                         v.fromBufferAttribute(pos, idx ? idx.getX(i + k) : i + k).applyMatrix4(m.matrixWorld);
                         raw.push(v.x, v.y, v.z);
                     }
+                    rawMover.push(mi);
                 }
             });
             if (!raw.length) return { corners: [], diag: 1 };
@@ -5438,19 +5460,22 @@
             const NV = verts.length / 3;
             const P = (i) => new THREE.Vector3(verts[i * 3], verts[i * 3 + 1], verts[i * 3 + 2]);
 
-            // 2. Triangles (normales unitaires), sans doublons
-            const tris = [], tn = [];
+            // 2. Triangles (normale unitaire + pièce mobile), sans doublons
+            const tris = [], tn = [], tm = [];
             const seen = new Set();
             for (let t = 0; t + 2 < welded.length; t += 3) {
                 const a = welded[t], b = welded[t + 1], c = welded[t + 2];
                 if (a === b || b === c || a === c) continue;
-                const key = [a, b, c].sort((x, y) => x - y).join('_');
+                const mi = rawMover[t / 3];
+                const key = mi + '|' + [a, b, c].sort((x, y) => x - y).join('_');
                 if (seen.has(key)) continue;
                 seen.add(key);
-                const pa = P(a), n = new THREE.Vector3().subVectors(P(b), pa).cross(new THREE.Vector3().subVectors(P(c), pa));
+                const pa = P(a);
+                const n = new THREE.Vector3().subVectors(P(b), pa).cross(new THREE.Vector3().subVectors(P(c), pa));
                 if (n.lengthSq() < 1e-24) continue;
                 tris.push(a, b, c);
                 tn.push(n.normalize());
+                tm.push(mi);
             }
             const T = tn.length;
 
@@ -5459,21 +5484,21 @@
             const edgeMap = new Map();
             for (let t = 0; t < T; t++) {
                 for (let k = 0; k < 3; k++) {
-                    const a = tris[t * 3 + k], b = tris[t * 3 + (k + 1) % 3];
-                    const key = ekey(a, b);
+                    const key = ekey(tris[t * 3 + k], tris[t * 3 + (k + 1) % 3]);
                     let l = edgeMap.get(key);
                     if (!l) { l = []; edgeMap.set(key, l); }
                     l.push(t);
                 }
             }
 
-            // 4. Faces planes (union des triangles voisins coplanaires)
+            // 4. Faces planes : triangles voisins coplanaires ET sur la même pièce mobile
             const parent = new Int32Array(T);
             for (let i = 0; i < T; i++) parent[i] = i;
             const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
             edgeMap.forEach(l => {
                 if (l.length !== 2) return;
                 const [t1, t2] = l;
+                if (tm[t1] !== tm[t2]) return;   // une porte ne fusionne jamais avec le caisson
                 if (tn[t1].dot(tn[t2]) < 0.99995) return;
                 const d = tn[t1].dot(new THREE.Vector3().subVectors(P(tris[t2 * 3]), P(tris[t1 * 3])));
                 if (Math.abs(d) > tol * 20) return;
@@ -5482,7 +5507,7 @@
             });
 
             // 5. Contours orientés de chaque face plane
-            const outs = new Map(), ins = new Map(), rNormal = new Map();
+            const outs = new Map(), ins = new Map(), rNormal = new Map(), rMover = new Map();
             const push = (map, r, a, b) => {
                 let m = map.get(r);
                 if (!m) { m = new Map(); map.set(r, m); }
@@ -5492,7 +5517,7 @@
             };
             for (let t = 0; t < T; t++) {
                 const r = find(t);
-                if (!rNormal.has(r)) rNormal.set(r, tn[t]);
+                if (!rNormal.has(r)) { rNormal.set(r, tn[t]); rMover.set(r, tm[t]); }
                 for (let k = 0; k < 3; k++) {
                     const a = tris[t * 3 + k], b = tris[t * 3 + (k + 1) % 3];
                     const l = edgeMap.get(ekey(a, b));
@@ -5506,6 +5531,7 @@
             const corners = [];
             outs.forEach((m, r) => {
                 const n = rNormal.get(r);
+                const mover = movers[rMover.get(r)] || null;
                 const im = ins.get(r);
                 m.forEach((nexts, V) => {
                     const prevs = im && im.get(V);
@@ -5519,20 +5545,18 @@
                     if (ang < 0) ang += Math.PI * 2;
                     const deg = THREE.MathUtils.radToDeg(ang);
                     if (Math.abs(deg - 180) < 0.5 || deg < 0.5) return;
-                    corners.push({ v: pv, a, b, n, deg, minLen: Math.min(lp, ln) });
+                    corners.push({ v: pv, a, b, n: n.clone(), deg, minLen: Math.min(lp, ln), mover });
                 });
             });
             return { corners, diag };
         }
 
         function clearAngleVisuals() {
-            [angleFill, angleLines].forEach(o => {
-                if (!o) return;
-                scene.remove(o);
+            angleObjects.forEach(o => {
+                if (o.parent) o.parent.remove(o);
                 o.geometry.dispose();
             });
-            if (angleFill) angleFill.material.dispose();
-            angleFill = angleLines = null;
+            angleObjects = [];
             angleLabels = [];
             angleOccIdx = 0;
             const layer = document.getElementById('angle-layer');
@@ -5550,17 +5574,25 @@
             buildAngleVisuals(corners, diag);
         }
 
-        // Secteurs dans le plan de chaque face : contour 100 %, remplissage même couleur 50 %
+        // Secteurs : 1 lot fixe (scène) + 1 lot par pièce mobile (enfant de la pièce => suit l'animation)
         function buildAngleVisuals(corners, diag) {
             if (!corners.length) return;
+            if (!angleFillMat) {
+                angleFillMat = new THREE.MeshBasicMaterial({
+                    vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide,
+                    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
+                });
+            }
             const R = Math.max(diag * 0.04, 0.004);
             const off = diag * 1e-4;
             const c90 = new THREE.Color('#22c55e'), cOther = new THREE.Color('#f97316');
-            const fillPos = [], fillCol = [], linePos = [], lineCol = [];
-            const q = new THREE.Quaternion(), dir = new THREE.Vector3();
+            const q = new THREE.Quaternion(), dir = new THREE.Vector3(), tv = new THREE.Vector3();
+            const groups = new Map();   // pièce mobile (ou null) -> tableaux
             const pushCol = (arr, col, nb) => { for (let i = 0; i < nb; i++) arr.push(col.r, col.g, col.b); };
 
             corners.forEach(c => {
+                let g = groups.get(c.mover);
+                if (!g) { g = { fillPos: [], fillCol: [], linePos: [], lineCol: [] }; groups.set(c.mover, g); }
                 const is90 = Math.abs(c.deg - 90) < 0.5;
                 const col = is90 ? c90 : cOther;
                 c.css = is90 ? '#22c55e' : '#f97316';
@@ -5575,36 +5607,62 @@
                     dir.copy(c.b).applyQuaternion(q);
                     const cur = base.clone().addScaledVector(dir, r);
                     if (prev) {
-                        fillPos.push(base.x, base.y, base.z, prev.x, prev.y, prev.z, cur.x, cur.y, cur.z);
-                        pushCol(fillCol, col, 3);
-                        linePos.push(prev.x, prev.y, prev.z, cur.x, cur.y, cur.z);
-                        pushCol(lineCol, col, 2);
+                        g.fillPos.push(base.x, base.y, base.z, prev.x, prev.y, prev.z, cur.x, cur.y, cur.z);
+                        pushCol(g.fillCol, col, 3);
+                        g.linePos.push(prev.x, prev.y, prev.z, cur.x, cur.y, cur.z);
+                        pushCol(g.lineCol, col, 2);
                     }
                     prev = cur;
                 }
                 const e1 = base.clone().addScaledVector(c.b, r), e2 = base.clone().addScaledVector(c.a, r);
-                linePos.push(base.x, base.y, base.z, e1.x, e1.y, e1.z, base.x, base.y, base.z, e2.x, e2.y, e2.z);
-                pushCol(lineCol, col, 4);
+                g.linePos.push(base.x, base.y, base.z, e1.x, e1.y, e1.z, base.x, base.y, base.z, e2.x, e2.y, e2.z);
+                pushCol(g.lineCol, col, 4);
+
+                // Coin d'un ouvrant : coordonnées locales mémorisées pour suivre l'animation
+                if (c.mover) {
+                    c.mover.updateWorldMatrix(true, false);
+                    const inv = c.mover.matrixWorld.clone().invert();
+                    c.lp = c.labelPos.clone().applyMatrix4(inv);
+                    c.lv = c.v.clone().applyMatrix4(inv);
+                    c.ln = c.n.clone().transformDirection(inv);
+                }
             });
 
-            const fg = new THREE.BufferGeometry();
-            fg.setAttribute('position', new THREE.Float32BufferAttribute(fillPos, 3));
-            fg.setAttribute('color', new THREE.Float32BufferAttribute(fillCol, 3));
-            angleFill = new THREE.Mesh(fg, new THREE.MeshBasicMaterial({
-                vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide,
-                polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
-            }));
-            angleFill.renderOrder = 5;
-            angleFill.raycast = () => {};
-            scene.add(angleFill);
+            const toLocal = (arr, inv) => {
+                for (let i = 0; i < arr.length; i += 3) {
+                    tv.set(arr[i], arr[i + 1], arr[i + 2]).applyMatrix4(inv);
+                    arr[i] = tv.x; arr[i + 1] = tv.y; arr[i + 2] = tv.z;
+                }
+            };
 
-            const lg = new LineSegmentsGeometry();
-            lg.setPositions(linePos);
-            lg.setColors(lineCol);
-            angleLines = new LineSegments2(lg, angleLineMat);
-            angleLines.renderOrder = 6;
-            angleLines.raycast = () => {};
-            scene.add(angleLines);
+            groups.forEach((g, mover) => {
+                if (!g.fillPos.length) return;
+                if (mover) {
+                    mover.updateWorldMatrix(true, false);
+                    const inv = mover.matrixWorld.clone().invert();
+                    toLocal(g.fillPos, inv);
+                    toLocal(g.linePos, inv);
+                }
+                const fg = new THREE.BufferGeometry();
+                fg.setAttribute('position', new THREE.Float32BufferAttribute(g.fillPos, 3));
+                fg.setAttribute('color', new THREE.Float32BufferAttribute(g.fillCol, 3));
+                const fill = new THREE.Mesh(fg, angleFillMat);
+                fill.renderOrder = 5;
+                fill.raycast = () => {};
+
+                const lg = new LineSegmentsGeometry();
+                lg.setPositions(g.linePos);
+                lg.setColors(g.lineCol);
+                const lines = new LineSegments2(lg, angleLineMat);
+                lines.renderOrder = 6;
+                lines.raycast = () => {};
+                lines.frustumCulled = false;
+
+                const host = mover || scene;
+                host.add(fill);
+                host.add(lines);
+                angleObjects.push(fill, lines);
+            });
 
             // Étiquettes : angles non droits en priorité, nombre plafonné
             const layer = document.getElementById('angle-layer');
@@ -5630,7 +5688,7 @@
             L.occluded = hits.length > 0 && hits[0].distance < d - Math.max(0.002, d * 0.004);
         }
 
-        // Chaque image : recalcul différé si besoin, occultation par lots, désencombrement écran
+        // Chaque image : recalcul différé si besoin, suivi des ouvrants, occultation par lots, désencombrement
         function updateAngles() {
             if (!isAngleModeOn) return;
             const now = performance.now();
@@ -5641,6 +5699,17 @@
             }
             if (!angleLabels.length) return;
             angleLineMat.resolution.set(window.innerWidth, window.innerHeight);
+
+            // Coins des ouvrants : position / normale recalculées depuis la pièce (porte qui tourne, tiroir qui glisse)
+            for (const L of angleLabels) {
+                const c = L.c;
+                if (!c.mover) continue;
+                c.mover.updateWorldMatrix(true, false);
+                const mw = c.mover.matrixWorld;
+                c.labelPos.copy(c.lp).applyMatrix4(mw);
+                c.v.copy(c.lv).applyMatrix4(mw);
+                c.n.copy(c.ln).transformDirection(mw);
+            }
 
             for (let k = 0; k < 25 && k < angleLabels.length; k++) {
                 angleOccIdx = (angleOccIdx + 1) % angleLabels.length;
