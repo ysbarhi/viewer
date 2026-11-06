@@ -275,6 +275,29 @@
         #addr-cancel { background: #e5e7eb; color: #333; }
 
         /* ========================================= */
+        /* LECTURE AUTOMATIQUE DE L'ASSEMBLAGE       */
+        /* ========================================= */
+        #asm-play {
+            position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%);
+            display: none; align-items: flex-end; gap: 14px; z-index: 120; pointer-events: none;
+        }
+        #asm-play.visible { display: flex; }
+        #asm-play button {
+            background: none; border: none; padding: 0; cursor: pointer; pointer-events: auto;
+            -webkit-tap-highlight-color: transparent; touch-action: none;
+        }
+        #asm-play svg { display: block; fill: var(--accent); filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); transition: transform 0.1s; }
+        #play-btn svg { width: 46px; height: 46px; }
+        .spd-wrap { display: flex; flex-direction: column; align-items: center; gap: 1px; margin-bottom: 9px; }
+        .spd-label {
+            font-size: 11px; font-weight: bold; color: var(--accent-dark); min-height: 14px; line-height: 14px;
+            text-shadow: 0 0 3px #fff, 0 0 2px #fff;
+        }
+        .spd-btn svg { width: 26px; height: 26px; }
+        .spd-btn:disabled { opacity: 0.3; cursor: default; }
+        #play-btn:active svg, .spd-btn:not(:disabled):active svg { transform: scale(0.88); }
+
+        /* ========================================= */
         /* GALERIE DES MEUBLES                       */
         /* ========================================= */
         #recent-gallery-container {
@@ -1136,6 +1159,25 @@
         </svg>
     </button>
 
+    <!-- LECTURE AUTOMATIQUE (mode assemblage) -->
+    <div id="asm-play">
+        <div class="spd-wrap">
+            <span id="spd-label-slow" class="spd-label"></span>
+            <button id="spd-down" class="spd-btn" type="button" aria-label="Plus lent" disabled>
+                <svg viewBox="0 0 24 24"><path d="M21 6v12l-8-6zM12 6v12l-8-6z"></path></svg>
+            </button>
+        </div>
+        <button id="play-btn" type="button" aria-label="Lecture">
+            <svg id="play-icon" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"></path></svg>
+        </button>
+        <div class="spd-wrap">
+            <span id="spd-label-fast" class="spd-label">x1</span>
+            <button id="spd-up" class="spd-btn" type="button" aria-label="Plus rapide" disabled>
+                <svg viewBox="0 0 24 24"><path d="M3 6v12l8-6zM12 6v12l8-6z"></path></svg>
+            </button>
+        </div>
+    </div>
+
     <!-- SLIDER D'ÉCLATEMENT (horizontal) -->
     <div id="explode-slider-container" class="ui-element">
         <div id="slider-ticks"></div>
@@ -1356,6 +1398,12 @@
         let groundGrid = null;
         let groundY = 0;
         let isGridOn = (() => { try { return localStorage.getItem('finjatGrid') !== '0'; } catch (e) { return true; } })();
+
+        // ===== Lecture automatique de l'assemblage =====
+        const PLAY_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
+        const PLAY_STEPS_PER_SEC = 0.8;   // vitesse x1 : 0,8 étape par seconde
+        let isAsmPlaying = false;
+        let playSpeedIdx = 3;             // x1
         const _silCam = new THREE.Vector3();
         const SUPABASE_MODELS_URL = 'https://bromdunqmghqzgufgquz.supabase.co/storage/v1/object/public/finjat-models/';
         let currentModelUid = null;   // id court du meuble (lien ?m=)
@@ -2784,6 +2832,7 @@
             modelExportLocation = null;
             renderAddrCard();
             if (groundGrid) groundGrid.visible = false;
+            setAsmPlaying(false);
             
             const slider = document.getElementById('explode-slider');
             if(slider) {
@@ -2925,7 +2974,7 @@
                 if (isAssemblyModeOn) {
                     slider.min = "0";
                     slider.max = maxAssemblyStep.toString();
-                    slider.step = "1";
+                    slider.step = "any";   // mouvement continu (lecture + glisser fluides)
                     slider.value = "0"; 
                     
                     prevBtn.disabled = false;
@@ -2946,23 +2995,38 @@
                 slider.dispatchEvent(new Event('input'));
             });
 
-            prevBtn.addEventListener('click', () => {
-                if (!isAssemblyModeOn) return;
-                let val = parseInt(slider.value, 10);
-                if (val > 0) {
-                    slider.value = val - 1;
-                    slider.dispatchEvent(new Event('input'));
-                }
-            });
+            // Flèches : tap = 1 étape (vers l'étape entière suivante / précédente), maintien = défilement continu
+            const stepBy = (dir) => {
+                if (!isAssemblyModeOn) return false;
+                const v = parseFloat(slider.value) || 0;
+                const nv = dir > 0
+                    ? Math.min(maxAssemblyStep, Math.floor(v + 1e-6) + 1)
+                    : Math.max(0, Math.ceil(v - 1e-6) - 1);
+                if (Math.abs(nv - v) < 1e-6) return false;
+                slider.value = String(nv);
+                slider.dispatchEvent(new Event('input'));
+                return true;
+            };
+            const bindHold = (btn, dir) => {
+                let t1 = null, t2 = null;
+                const stop = () => { clearTimeout(t1); clearInterval(t2); t1 = t2 = null; };
+                btn.addEventListener('pointerdown', (e) => {
+                    if (btn.disabled || !isAssemblyModeOn) return;
+                    e.preventDefault();
+                    if (isAsmPlaying) setAsmPlaying(false);
+                    stop();
+                    stepBy(dir);
+                    t1 = setTimeout(() => {
+                        t2 = setInterval(() => { if (!stepBy(dir)) stop(); }, 160);
+                    }, 450);
+                });
+                ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
+                btn.addEventListener('contextmenu', (e) => e.preventDefault());
+            };
+            bindHold(prevBtn, -1);
+            bindHold(nextBtn, +1);
 
-            nextBtn.addEventListener('click', () => {
-                if (!isAssemblyModeOn) return;
-                let val = parseInt(slider.value, 10);
-                if (val < maxAssemblyStep) {
-                    slider.value = val + 1;
-                    slider.dispatchEvent(new Event('input'));
-                }
-            });
+            setupAsmPlay(slider);
 
             slider.addEventListener('input', (e) => {
                 if (!globalModel) return;
@@ -2980,14 +3044,15 @@
                 const phaseBanner = document.getElementById('phase-banner');
                 const phaseInd = document.getElementById('phase-indicator');
                 if (isAssemblyModeOn) {
-                    stepInd.innerText = `${val}/${maxAssemblyStep}`;
+                    const stepVal = Math.ceil(val - 1e-6);   // étape en cours (valeur continue pendant la lecture)
+                    stepInd.innerText = `${stepVal}/${maxAssemblyStep}`;
                     if (phaseBanner) {
-                        const txt = assemblyPhaseLabel(val);
+                        const txt = assemblyPhaseLabel(stepVal);
                         phaseBanner.innerText = txt;
                         phaseBanner.style.display = txt ? 'block' : 'none';
                     }
                     if (phaseInd) {
-                        const counter = assemblyPhaseCounter(val);
+                        const counter = assemblyPhaseCounter(stepVal);
                         phaseInd.innerText = counter;
                         phaseInd.style.display = counter ? 'block' : 'none';
                     }
@@ -3003,20 +3068,18 @@
                         if (node.userData.originalScale) node.scale.copy(node.userData.originalScale);
 
                         if (isAssemblyModeOn && assemblyHierarchy && node.userData.seq) {
-                            // Séquence hiérarchique : éclatement du sous-ensemble + éclatement local de la pièce
+                            // Séquence hiérarchique continue : sous-ensemble puis pièce, glissement entre étapes
                             const sq = node.userData.seq;
                             node.position.copy(node.userData.originalPosition);
-                            const parentDone = !(sq.group.final_step > 0) ||
-                                               val >= assemblyHierarchy.finalOffset + sq.group.final_step;
-                            if (!parentDone) node.position.addScaledVector(sq.groupDir, 1.5 * 0.85);
-                            if (val < sq.globalStep) node.position.addScaledVector(sq.localDir, 1.5);
+                            const kG = (sq.group.final_step > 0)
+                                ? asmProgress(val, assemblyHierarchy.finalOffset + sq.group.final_step) : 1;
+                            if (kG < 1) node.position.addScaledVector(sq.groupDir, 1.5 * 0.85 * (1 - kG));
+                            const kL = asmProgress(val, sq.globalStep);
+                            if (kL < 1) node.position.addScaledVector(sq.localDir, 1.5 * (1 - kL));
                         } else if (isAssemblyModeOn) {
-                            if (node.userData.assemblyStep > val) {
-                                node.position.copy(node.userData.originalPosition)
-                                    .addScaledVector(node.userData.explodeDirection, 1.5);
-                            } else {
-                                node.position.copy(node.userData.originalPosition);
-                            }
+                            const k = asmProgress(val, node.userData.assemblyStep);
+                            node.position.copy(node.userData.originalPosition)
+                                .addScaledVector(node.userData.explodeDirection, 1.5 * (1 - k));
                         } else {
                             const factor = (val / 100) * 1.5;
                             node.position.copy(node.userData.originalPosition)
@@ -5204,6 +5267,71 @@
         }
 
         // ==========================================
+        // LECTURE AUTOMATIQUE DE L'ASSEMBLAGE
+        // ==========================================
+        // Avancement d'une étape s (0 = éclaté, 1 = monté) pour une valeur continue du curseur
+        function asmProgress(val, s) {
+            if (!(s > 0)) return 1;
+            const t = Math.min(1, Math.max(0, val - (s - 1)));
+            return t * t * (3 - 2 * t);   // ease in/out
+        }
+
+        function setupAsmPlay(slider) {
+            document.getElementById('play-btn').addEventListener('click', () => setAsmPlaying(!isAsmPlaying));
+            document.getElementById('spd-up').addEventListener('click', () => {
+                if (!isAsmPlaying) return;
+                playSpeedIdx = Math.min(PLAY_SPEEDS.length - 1, playSpeedIdx + 1);
+                renderSpeedLabels();
+            });
+            document.getElementById('spd-down').addEventListener('click', () => {
+                if (!isAsmPlaying) return;
+                playSpeedIdx = Math.max(0, playSpeedIdx - 1);
+                renderSpeedLabels();
+            });
+            slider.addEventListener('pointerdown', () => { if (isAsmPlaying) setAsmPlaying(false); });   // reprise en main
+            renderSpeedLabels();
+        }
+
+        function renderSpeedLabels() {
+            const sp = PLAY_SPEEDS[playSpeedIdx];
+            document.getElementById('spd-label-fast').textContent = sp >= 1 ? 'x' + sp : '';
+            document.getElementById('spd-label-slow').textContent = sp < 1 ? 'x' + sp : '';
+        }
+
+        function setAsmPlaying(on) {
+            const slider = document.getElementById('explode-slider');
+            isAsmPlaying = !!on && isAssemblyModeOn && maxAssemblyStep > 0;
+            if (isAsmPlaying && slider && parseFloat(slider.value) >= maxAssemblyStep - 1e-6) {
+                slider.value = '0';   // relancer depuis le début
+                slider.dispatchEvent(new Event('input'));
+            }
+            const icon = document.getElementById('play-icon');
+            if (icon) icon.innerHTML = isAsmPlaying
+                ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z"></path>'   // pause
+                : '<path d="M7 4l13 8-13 8z"></path>';              // lecture
+            const btn = document.getElementById('play-btn');
+            if (btn) btn.setAttribute('aria-label', isAsmPlaying ? 'Pause' : 'Lecture');
+            ['spd-up', 'spd-down'].forEach(id => {
+                const b = document.getElementById(id);
+                if (b) b.disabled = !isAsmPlaying;
+            });
+        }
+
+        // Chaque image : affichage selon le mode assemblage + avancée continue du curseur
+        function updateAssemblyPlayback(dt) {
+            const wrap = document.getElementById('asm-play');
+            const show = !!globalModel && isAssemblyModeOn && maxAssemblyStep > 0;
+            if (wrap && wrap.classList.contains('visible') !== show) wrap.classList.toggle('visible', show);
+            if (!show) { if (isAsmPlaying) setAsmPlaying(false); return; }
+            if (!isAsmPlaying) return;
+            const slider = document.getElementById('explode-slider');
+            let v = (parseFloat(slider.value) || 0) + dt * PLAY_STEPS_PER_SEC * PLAY_SPEEDS[playSpeedIdx];
+            if (v >= maxAssemblyStep) { v = maxAssemblyStep; setAsmPlaying(false); }
+            slider.value = String(v);
+            slider.dispatchEvent(new Event('input'));
+        }
+
+        // ==========================================
         // BASE DE DONNÉES INTERNE & GALERIE VISUELLE
         // ==========================================
         const DB_NAME = 'Finjat3D_DB';
@@ -6164,6 +6292,7 @@
             lastFrameTime = now;
 
             updateAnimations(dt);
+            updateAssemblyPlayback(dt);
             controls.update();
             updateMeasurementLabels();
             updateAnimPips();
