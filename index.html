@@ -45,13 +45,29 @@
 
         /* ===== MÈTRE RUBAN ===== */
         #tape-btn {
-            position: absolute; top: 80px; right: 14px; width: 40px; height: 48px; padding: 0;
+            position: absolute; top: 136px; right: 14px; width: 40px; height: 48px; padding: 0;
             background: #9ca3af; border: none; border-radius: 12px; cursor: pointer; z-index: 800;
             align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             transition: background 0.2s, box-shadow 0.2s;
         }
         #tape-btn.active { background: #f59e0b; box-shadow: 0 0 10px rgba(245, 158, 11, 0.6); }
         #tape-btn:active { transform: scale(0.95); }
+
+        /* ===== ANGLES ===== */
+        #angle-btn {
+            position: absolute; top: 80px; right: 14px; width: 40px; height: 48px; padding: 0;
+            background: #9ca3af; border: none; border-radius: 12px; cursor: pointer; z-index: 800;
+            align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        #angle-btn.active { background: #16a34a; box-shadow: 0 0 10px rgba(22, 163, 74, 0.6); }
+        #angle-btn:active { transform: scale(0.95); }
+        #angle-layer { position: fixed; inset: 0; pointer-events: none; z-index: 580; }
+        .angle-label {
+            position: absolute; transform: translate(-50%, -125%); display: none; white-space: nowrap;
+            background: rgba(17, 17, 17, 0.82); color: #fff; font-size: 11px; font-weight: bold;
+            padding: 2px 6px; border-radius: 8px; border: 1.5px solid var(--c, #f97316); pointer-events: none;
+        }
 
         #tape-layer { position: fixed; inset: 0; pointer-events: none; z-index: 600; display: none; }
         #tape-layer.visible { display: block; }
@@ -1027,6 +1043,15 @@
     </button>
     
 
+    <button id="angle-btn" class="ui-element" type="button" title="Angles">
+        <svg viewBox="0 0 24 24" width="26" height="26" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 20V5"></path><path d="M4 20h15"></path>
+            <path d="M4 12a8 8 0 0 1 8 8"></path>
+            <text x="11.5" y="11" font-size="7.5" font-weight="bold" fill="white" stroke="none" font-family="sans-serif">90°</text>
+        </svg>
+    </button>
+    <div id="angle-layer"></div>
+
     <button id="tape-btn" class="ui-element" type="button" title="Mètre ruban">
         <svg viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="5" width="14" height="14" rx="3"></rect>
@@ -1404,6 +1429,16 @@
         const PLAY_STEPS_PER_SEC = 1.75;   // vitesse x1 : 1,75 étape par seconde
         let isAsmPlaying = false;
         let playSpeedIdx = 3;             // x1
+
+        // ===== Angles =====
+        const ANGLE_MAX_LABELS = 500;
+        let isAngleModeOn = false;
+        let anglesDirty = false, anglesDirtyAt = 0;
+        let angleFill = null, angleLines = null, angleLabels = [];
+        let angleOccIdx = 0, angleIsoFlag = false;
+        const angleLineMat = new LineMaterial({ vertexColors: true, linewidth: 2 });
+        const _angRay = new THREE.Raycaster();
+        const _angDir = new THREE.Vector3(), _angV = new THREE.Vector3();
         const _silCam = new THREE.Vector3();
         const SUPABASE_MODELS_URL = 'https://bromdunqmghqzgufgquz.supabase.co/storage/v1/object/public/finjat-models/';
         let currentModelUid = null;   // id court du meuble (lien ?m=)
@@ -2342,6 +2377,7 @@
             });
             selectedMeshes = Array.from(set);
             selectedMeshes.forEach(m => { m.userData.isSelected = true; setSelectFill(m, true); });
+            anglesDirty = true;
         }
 
         // Niveau supérieur : premier groupe/composant parent qui contient PLUS de géométrie que la pièce
@@ -2435,6 +2471,7 @@
             selectedParts = [];
             selectedMeshes.forEach(m => { m.userData.isSelected = false; setSelectFill(m, false); });
             selectedMeshes = [];
+            anglesDirty = true;
             selectedTitle = '';
         }
 
@@ -2566,6 +2603,7 @@
         setupLed();
         setupChat();
         setupAddress();
+        setupAngles();
         setupScanner();
         setupFileUploader();
         setupSplashScreen();
@@ -2833,6 +2871,7 @@
             renderAddrCard();
             if (groundGrid) groundGrid.visible = false;
             setAsmPlaying(false);
+            setAngleMode(false);
             
             const slider = document.getElementById('explode-slider');
             if(slider) {
@@ -3139,7 +3178,7 @@
                 if (Math.abs(e.clientX - touchPointerDown.x) > 10 || Math.abs(e.clientY - touchPointerDown.y) > 10) return;
 
                 // On n'intercepte le clic que si le Mode Animation OU la Sélection Tactile est actif
-                if (!isAnimationModeOn && !isTouchSelectOn) return;
+                if (!isAnimationModeOn && !isTouchSelectOn && !isAngleModeOn) return;
 
                 const rect = canvasEl.getBoundingClientRect();
                 mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -3177,11 +3216,11 @@
                     }
 
                     // 2. MODE SÉLECTION TACTILE : 1 tap = pièce, 2 taps = sous-ensemble, 3 taps = ensemble
-                    if (isTouchSelectOn) {
+                    if (isTouchSelectOn || isAngleModeOn) {
                         const tap = registerTap(e, hitMesh);
                         selectPartAtLevel(tap.mesh, tap.count, additive);
                     }
-                } else if (isTouchSelectOn && !isAnimationModeOn) {
+                } else if ((isTouchSelectOn || isAngleModeOn) && !isAnimationModeOn) {
                     lastTap = null;
                     if (!additive) clearSelection();   // même comportement en mode isolé ou non
                 }
@@ -3756,6 +3795,7 @@
                     if (l.visible) { ledHiddenForId.push(l); l.visible = false; }
                 }));
                 if (groundGrid && groundGrid.visible) { ledHiddenForId.push(groundGrid); groundGrid.visible = false; }
+                [angleFill, angleLines].forEach(o => { if (o && o.visible) { ledHiddenForId.push(o); o.visible = false; } });
                 scene.background = new THREE.Color(0x000000);
 
                 if (!lassoRT || lassoRT.width !== W || lassoRT.height !== H) {
@@ -5332,6 +5372,310 @@
         }
 
         // ==========================================
+        // ANGLES : angles réels des faces (coins des polygones plans, pas la boîte englobante)
+        // ==========================================
+        function setupAngles() {
+            document.getElementById('angle-btn').addEventListener('click', () => setAngleMode(!isAngleModeOn));
+            document.getElementById('explode-slider').addEventListener('input', () => {
+                if (isAngleModeOn) { anglesDirty = true; anglesDirtyAt = performance.now(); }   // pièces déplacées
+            });
+        }
+
+        function setAngleMode(on) {
+            isAngleModeOn = !!on && !!globalModel;
+            const btn = document.getElementById('angle-btn');
+            if (btn) btn.classList.toggle('active', isAngleModeOn);
+            if (isAngleModeOn) {
+                angleIsoFlag = !!isolatedMeshes;
+                rebuildAngles();
+                showToast(selectedMeshes.length ? "Angles de la sélection" : "Angles de l'objet : touchez une pièce pour ses angles");
+            } else {
+                clearAngleVisuals();
+            }
+        }
+
+        function angleTargetMeshes() {
+            const sel = selectedMeshes.length ? selectedMeshes : (scannedMeshes.length ? scannedMeshes : null);
+            return (sel || tapeMeshes).filter(m => m.layers.test(camera.layers));
+        }
+
+        // Soudure + regroupement des triangles coplanaires en faces planes, puis angles intérieurs aux coins
+        function computeAngleCorners(meshes) {
+            const raw = [];
+            const v = new THREE.Vector3();
+            meshes.forEach(m => {
+                const g = m.geometry, pos = g && g.attributes.position;
+                if (!pos) return;
+                m.updateWorldMatrix(true, false);
+                const flip = m.matrixWorld.determinant() < 0;   // composants miroir : on garde les normales vers l'extérieur
+                const idx = g.index;
+                const count = idx ? idx.count : pos.count;
+                for (let i = 0; i + 2 < count; i += 3) {
+                    const order = flip ? [0, 2, 1] : [0, 1, 2];
+                    for (const k of order) {
+                        v.fromBufferAttribute(pos, idx ? idx.getX(i + k) : i + k).applyMatrix4(m.matrixWorld);
+                        raw.push(v.x, v.y, v.z);
+                    }
+                }
+            });
+            if (!raw.length) return { corners: [], diag: 1 };
+
+            const bb = new THREE.Box3();
+            for (let i = 0; i < raw.length; i += 3) bb.expandByPoint(v.set(raw[i], raw[i + 1], raw[i + 2]));
+            const diag = bb.getSize(new THREE.Vector3()).length() || 1;
+            const tol = diag * 1e-5;
+
+            // 1. Soudure
+            const keyMap = new Map();
+            const verts = [];
+            const welded = new Int32Array(raw.length / 3);
+            for (let i = 0, n = 0; i < raw.length; i += 3, n++) {
+                const k = Math.round(raw[i] / tol) + '_' + Math.round(raw[i + 1] / tol) + '_' + Math.round(raw[i + 2] / tol);
+                let id = keyMap.get(k);
+                if (id === undefined) { id = verts.length / 3; verts.push(raw[i], raw[i + 1], raw[i + 2]); keyMap.set(k, id); }
+                welded[n] = id;
+            }
+            const NV = verts.length / 3;
+            const P = (i) => new THREE.Vector3(verts[i * 3], verts[i * 3 + 1], verts[i * 3 + 2]);
+
+            // 2. Triangles (normales unitaires), sans doublons
+            const tris = [], tn = [];
+            const seen = new Set();
+            for (let t = 0; t + 2 < welded.length; t += 3) {
+                const a = welded[t], b = welded[t + 1], c = welded[t + 2];
+                if (a === b || b === c || a === c) continue;
+                const key = [a, b, c].sort((x, y) => x - y).join('_');
+                if (seen.has(key)) continue;
+                seen.add(key);
+                const pa = P(a), n = new THREE.Vector3().subVectors(P(b), pa).cross(new THREE.Vector3().subVectors(P(c), pa));
+                if (n.lengthSq() < 1e-24) continue;
+                tris.push(a, b, c);
+                tn.push(n.normalize());
+            }
+            const T = tn.length;
+
+            // 3. Arêtes -> triangles
+            const ekey = (a, b) => a < b ? a * NV + b : b * NV + a;
+            const edgeMap = new Map();
+            for (let t = 0; t < T; t++) {
+                for (let k = 0; k < 3; k++) {
+                    const a = tris[t * 3 + k], b = tris[t * 3 + (k + 1) % 3];
+                    const key = ekey(a, b);
+                    let l = edgeMap.get(key);
+                    if (!l) { l = []; edgeMap.set(key, l); }
+                    l.push(t);
+                }
+            }
+
+            // 4. Faces planes (union des triangles voisins coplanaires)
+            const parent = new Int32Array(T);
+            for (let i = 0; i < T; i++) parent[i] = i;
+            const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+            edgeMap.forEach(l => {
+                if (l.length !== 2) return;
+                const [t1, t2] = l;
+                if (tn[t1].dot(tn[t2]) < 0.99995) return;
+                const d = tn[t1].dot(new THREE.Vector3().subVectors(P(tris[t2 * 3]), P(tris[t1 * 3])));
+                if (Math.abs(d) > tol * 20) return;
+                const r1 = find(t1), r2 = find(t2);
+                if (r1 !== r2) parent[r1] = r2;
+            });
+
+            // 5. Contours orientés de chaque face plane
+            const outs = new Map(), ins = new Map(), rNormal = new Map();
+            const push = (map, r, a, b) => {
+                let m = map.get(r);
+                if (!m) { m = new Map(); map.set(r, m); }
+                let l = m.get(a);
+                if (!l) { l = []; m.set(a, l); }
+                l.push(b);
+            };
+            for (let t = 0; t < T; t++) {
+                const r = find(t);
+                if (!rNormal.has(r)) rNormal.set(r, tn[t]);
+                for (let k = 0; k < 3; k++) {
+                    const a = tris[t * 3 + k], b = tris[t * 3 + (k + 1) % 3];
+                    const l = edgeMap.get(ekey(a, b));
+                    if (l.length === 2 && find(l[0]) === find(l[1])) continue;   // arête interne à la face
+                    push(outs, r, a, b);
+                    push(ins, r, b, a);
+                }
+            }
+
+            // 6. Angle intérieur à chaque coin (ignore les points alignés à 180°)
+            const corners = [];
+            outs.forEach((m, r) => {
+                const n = rNormal.get(r);
+                const im = ins.get(r);
+                m.forEach((nexts, V) => {
+                    const prevs = im && im.get(V);
+                    if (nexts.length !== 1 || !prevs || prevs.length !== 1) return;
+                    const pv = P(V);
+                    const toPrev = P(prevs[0]).sub(pv), toNext = P(nexts[0]).sub(pv);
+                    const lp = toPrev.length(), ln = toNext.length();
+                    if (lp < tol || ln < tol) return;
+                    const a = toPrev.divideScalar(lp), b = toNext.divideScalar(ln);
+                    let ang = Math.atan2(n.dot(new THREE.Vector3().crossVectors(b, a)), b.dot(a));
+                    if (ang < 0) ang += Math.PI * 2;
+                    const deg = THREE.MathUtils.radToDeg(ang);
+                    if (Math.abs(deg - 180) < 0.5 || deg < 0.5) return;
+                    corners.push({ v: pv, a, b, n, deg, minLen: Math.min(lp, ln) });
+                });
+            });
+            return { corners, diag };
+        }
+
+        function clearAngleVisuals() {
+            [angleFill, angleLines].forEach(o => {
+                if (!o) return;
+                scene.remove(o);
+                o.geometry.dispose();
+            });
+            if (angleFill) angleFill.material.dispose();
+            angleFill = angleLines = null;
+            angleLabels = [];
+            angleOccIdx = 0;
+            const layer = document.getElementById('angle-layer');
+            if (layer) layer.innerHTML = '';
+        }
+
+        function rebuildAngles() {
+            clearAngleVisuals();
+            anglesDirty = false;
+            anglesDirtyAt = 0;
+            if (!isAngleModeOn || !globalModel) return;
+            const meshes = angleTargetMeshes();
+            if (!meshes.length) return;
+            const { corners, diag } = computeAngleCorners(meshes);
+            buildAngleVisuals(corners, diag);
+        }
+
+        // Secteurs dans le plan de chaque face : contour 100 %, remplissage même couleur 50 %
+        function buildAngleVisuals(corners, diag) {
+            if (!corners.length) return;
+            const R = Math.max(diag * 0.04, 0.004);
+            const off = diag * 1e-4;
+            const c90 = new THREE.Color('#22c55e'), cOther = new THREE.Color('#f97316');
+            const fillPos = [], fillCol = [], linePos = [], lineCol = [];
+            const q = new THREE.Quaternion(), dir = new THREE.Vector3();
+            const pushCol = (arr, col, nb) => { for (let i = 0; i < nb; i++) arr.push(col.r, col.g, col.b); };
+
+            corners.forEach(c => {
+                const is90 = Math.abs(c.deg - 90) < 0.5;
+                const col = is90 ? c90 : cOther;
+                c.css = is90 ? '#22c55e' : '#f97316';
+                const r = Math.min(R, c.minLen * 0.3);
+                const base = c.v.clone().addScaledVector(c.n, off);
+                c.labelPos = base;
+                const seg = Math.max(3, Math.ceil(c.deg / 10));
+                const total = THREE.MathUtils.degToRad(c.deg);
+                let prev = null;
+                for (let i = 0; i <= seg; i++) {
+                    q.setFromAxisAngle(c.n, total * i / seg);
+                    dir.copy(c.b).applyQuaternion(q);
+                    const cur = base.clone().addScaledVector(dir, r);
+                    if (prev) {
+                        fillPos.push(base.x, base.y, base.z, prev.x, prev.y, prev.z, cur.x, cur.y, cur.z);
+                        pushCol(fillCol, col, 3);
+                        linePos.push(prev.x, prev.y, prev.z, cur.x, cur.y, cur.z);
+                        pushCol(lineCol, col, 2);
+                    }
+                    prev = cur;
+                }
+                const e1 = base.clone().addScaledVector(c.b, r), e2 = base.clone().addScaledVector(c.a, r);
+                linePos.push(base.x, base.y, base.z, e1.x, e1.y, e1.z, base.x, base.y, base.z, e2.x, e2.y, e2.z);
+                pushCol(lineCol, col, 4);
+            });
+
+            const fg = new THREE.BufferGeometry();
+            fg.setAttribute('position', new THREE.Float32BufferAttribute(fillPos, 3));
+            fg.setAttribute('color', new THREE.Float32BufferAttribute(fillCol, 3));
+            angleFill = new THREE.Mesh(fg, new THREE.MeshBasicMaterial({
+                vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide,
+                polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
+            }));
+            angleFill.renderOrder = 5;
+            angleFill.raycast = () => {};
+            scene.add(angleFill);
+
+            const lg = new LineSegmentsGeometry();
+            lg.setPositions(linePos);
+            lg.setColors(lineCol);
+            angleLines = new LineSegments2(lg, angleLineMat);
+            angleLines.renderOrder = 6;
+            angleLines.raycast = () => {};
+            scene.add(angleLines);
+
+            // Étiquettes : angles non droits en priorité, nombre plafonné
+            const layer = document.getElementById('angle-layer');
+            const ordered = corners.slice().sort((x, y) =>
+                (Math.abs(x.deg - 90) < 0.5 ? 1 : 0) - (Math.abs(y.deg - 90) < 0.5 ? 1 : 0));
+            ordered.slice(0, ANGLE_MAX_LABELS).forEach(c => {
+                const el = document.createElement('div');
+                el.className = 'angle-label';
+                el.style.setProperty('--c', c.css);
+                el.textContent = (Math.abs(c.deg - Math.round(c.deg)) < 0.05 ? Math.round(c.deg) : c.deg.toFixed(1)) + '°';
+                layer.appendChild(el);
+                angleLabels.push({ el, c, occluded: false, shown: false });
+            });
+            angleLabels.forEach(angleOcclusion);   // passe complète initiale
+        }
+
+        // Étiquette cachée si une autre pièce masque le coin
+        function angleOcclusion(L) {
+            const d = camera.position.distanceTo(L.c.v);
+            _angRay.set(camera.position, _angDir.subVectors(L.c.v, camera.position).normalize());
+            _angRay.far = d;
+            const hits = _angRay.intersectObjects(tapeMeshes, false);
+            L.occluded = hits.length > 0 && hits[0].distance < d - Math.max(0.002, d * 0.004);
+        }
+
+        // Chaque image : recalcul différé si besoin, occultation par lots, désencombrement écran
+        function updateAngles() {
+            if (!isAngleModeOn) return;
+            const now = performance.now();
+            if (angleIsoFlag !== !!isolatedMeshes) { angleIsoFlag = !!isolatedMeshes; anglesDirty = true; }
+            if (anglesDirty) {
+                if (!anglesDirtyAt) anglesDirtyAt = now;
+                if (now - anglesDirtyAt > 120) rebuildAngles();
+            }
+            if (!angleLabels.length) return;
+            angleLineMat.resolution.set(window.innerWidth, window.innerHeight);
+
+            for (let k = 0; k < 25 && k < angleLabels.length; k++) {
+                angleOccIdx = (angleOccIdx + 1) % angleLabels.length;
+                angleOcclusion(angleLabels[angleOccIdx]);
+            }
+
+            const rect = renderer.domElement.getBoundingClientRect();
+            const cell = 34;
+            const used = new Set();
+            for (const L of angleLabels) {
+                const c = L.c;
+                let show = !L.occluded && _angV.subVectors(camera.position, c.v).dot(c.n) > 0;   // face tournée vers la caméra
+                let sx = 0, sy = 0;
+                if (show) {
+                    _tp.copy(c.labelPos).project(camera);
+                    if (_tp.z > 1 || Math.abs(_tp.x) > 1.05 || Math.abs(_tp.y) > 1.05) show = false;
+                    else {
+                        sx = rect.left + (_tp.x * 0.5 + 0.5) * rect.width;
+                        sy = rect.top + (-_tp.y * 0.5 + 0.5) * rect.height;
+                        const key = Math.floor(sx / cell) + ',' + Math.floor(sy / cell);
+                        if (used.has(key)) show = false; else used.add(key);
+                    }
+                }
+                if (show) {
+                    L.el.style.left = sx + 'px';
+                    L.el.style.top = sy + 'px';
+                    if (!L.shown) { L.el.style.display = 'block'; L.shown = true; }
+                } else if (L.shown) {
+                    L.el.style.display = 'none';
+                    L.shown = false;
+                }
+            }
+        }
+
+        // ==========================================
         // BASE DE DONNÉES INTERNE & GALERIE VISUELLE
         // ==========================================
         const DB_NAME = 'Finjat3D_DB';
@@ -6301,6 +6645,7 @@
             updateLedOverlay();
             updateChatOverlay();
             updateGroundGrid();
+            updateAngles();
             renderer.render(scene, camera);
         }
 
