@@ -65,8 +65,9 @@
         #angle-layer { position: fixed; inset: 0; pointer-events: none; z-index: 580; }
         .angle-label {
             position: absolute; transform: translate(-50%, -125%); display: none; white-space: nowrap;
-            background: rgba(17, 17, 17, 0.82); color: #fff; font-size: 11px; font-weight: bold;
-            padding: 2px 6px; border-radius: 8px; border: 1.5px solid var(--c, #f97316); pointer-events: none;
+            background: var(--c, #f97316); color: #fff; font-size: 11px; font-weight: bold;
+            padding: 2px 6px; border-radius: 8px; border: 1.5px solid rgba(255, 255, 255, 0.9);
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); pointer-events: none;
         }
 
         #tape-layer { position: fixed; inset: 0; pointer-events: none; z-index: 600; display: none; }
@@ -312,6 +313,79 @@
         .spd-btn svg { width: 26px; height: 26px; }
         .spd-btn:disabled { opacity: 0.3; cursor: default; }
         #play-btn:active svg, .spd-btn:not(:disabled):active svg { transform: scale(0.88); }
+
+        /* ========================================= */
+        /* ORDRE D'AFFICHAGE                          */
+        /* fenêtres (3000) > panneau ⚙ (2000) > panneaux chat/LED > boutons (800) > infos (400) > étiquettes 3D (300) */
+        /* ========================================= */
+        .ui-element, #scan-btn, #asm-play, #right-controls, #explode-slider-container, #step-controls-container { z-index: 800; }
+        #top-notices { z-index: 400; max-width: calc(100vw - 140px); }   /* passe à la ligne au lieu de toucher les boutons */
+        .floating-label { z-index: 300; }
+        #angle-layer { z-index: 310; }
+        #anim-pips   { z-index: 320; }
+        #chat-layer  { z-index: 330; }
+        #led-layer   { z-index: 340; }
+        #tape-layer  { z-index: 350; }
+        #lasso-canvas { z-index: 360; }
+
+        /* Messages temporaires : seuls au-dessus de tout (confirmations depuis le panneau ⚙) */
+        #toast-wrap {
+            position: absolute; top: 150px; left: 50%; transform: translateX(-50%);
+            width: max-content; max-width: calc(100vw - 140px);
+            z-index: 2500; pointer-events: none; transition: top 0.3s ease;
+        }
+        body.mats-collapsed #toast-wrap { top: 94px; }
+
+        /* Pas de sélection de texte / menu contextuel sur les icônes et boutons (appui long) */
+        body, button, svg, .ui-element, .floating-btn, .step-btn, .tape-pip, .led-pip, .chat-pin, .anim-pip {
+            -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+        }
+        input, textarea, .chat-msg { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+
+        /* ========================================= */
+        /* BARRE DU BAS : même style que les boutons flottants */
+        /* ========================================= */
+        #explode-slider-container {
+            left: 72px; right: 72px; bottom: 18px; height: 48px; padding: 0 14px; box-sizing: border-box;
+            background: rgba(255, 255, 255, 0.92); border-radius: 24px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #slider-ticks { left: 14px; right: 14px; }
+        #explode-slider { height: 48px; }
+        #explode-slider::-webkit-slider-runnable-track {
+            height: 6px; border-radius: 3px;
+            background: linear-gradient(to right, var(--accent) var(--p, 0%), #e5e7eb var(--p, 0%));
+        }
+        #explode-slider::-moz-range-track { height: 6px; border-radius: 3px; background: #e5e7eb; }
+        #explode-slider::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
+        #explode-slider::-webkit-slider-thumb {
+            width: 22px; height: 22px; margin-top: -8px; border-radius: 50%;
+            background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        #explode-slider::-moz-range-thumb {
+            width: 22px; height: 22px; border-radius: 50%; box-sizing: border-box;
+            background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .slider-tick {
+            width: 4px; height: 12px; margin: -6px 0 0 -2px; border-radius: 2px;
+            left: calc(11px + (100% - 22px) * var(--f, 0)); background: var(--accent-dark); opacity: 0.55;
+        }
+        #step-controls-container { bottom: 18px; height: 48px; }
+        .step-btn {
+            width: 44px; height: 44px; margin: 0 16px; border-radius: 12px !important;
+            background: #fff !important; box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .step-btn svg { width: 22px; height: 22px; stroke: var(--accent-dark); }
+        .step-btn:disabled { opacity: 0.4; }
+        .step-btn:not(:disabled):active { transform: scale(0.9); background: var(--accent-soft) !important; }
+        #step-counters { bottom: 56px; }
+        #step-indicator {
+            background: var(--accent); border-radius: 10px; padding: 2px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        #phase-indicator {
+            background: #fff; color: var(--accent-dark); border-radius: 10px; padding: 2px 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
 
         /* ========================================= */
         /* GALERIE DES MEUBLES                       */
@@ -979,8 +1053,8 @@
         <div id="iso-banner">◎ Mode isolé</div>
         <div id="anim-banner">▶ Mode Animation : cliquez sur une porte ou un tiroir</div>
         <div id="phase-banner"></div>
-        <div id="toast-msg"></div>
     </div>
+    <div id="toast-wrap"><div id="toast-msg"></div></div>
     <div id="anim-pips"></div>
     <div id="led-layer"></div>
 
@@ -1211,12 +1285,16 @@
 
     <!-- ÉTAPES : flèches précédent / suivant + compteurs (phase puis étape) -->
     <div id="step-controls-container" class="ui-element">
-        <button id="step-prev-btn" class="step-btn" disabled>&lt;</button>
+        <button id="step-prev-btn" class="step-btn" type="button" aria-label="Étape précédente" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
         <div id="step-counters">
             <span id="phase-indicator"></span>
             <span id="step-indicator">0/0</span>
         </div>
-        <button id="step-next-btn" class="step-btn" disabled>&gt;</button>
+        <button id="step-next-btn" class="step-btn" type="button" aria-label="Étape suivante" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
     </div>
 
     <!-- COLONNE DE DROITE : chants ON/OFF, tactile ON/OFF, mesures, styles, zoom -->
@@ -5364,7 +5442,18 @@
         }
 
         // Chaque image : affichage selon le mode assemblage + avancée continue du curseur
+        // Remplissage teal de la piste jusqu'au curseur
+        function paintExplodeSlider() {
+            const s = document.getElementById('explode-slider');
+            if (!s) return;
+            const min = parseFloat(s.min) || 0, max = parseFloat(s.max) || 100;
+            const p = max > min ? ((parseFloat(s.value) - min) / (max - min)) * 100 : 0;
+            const val = Math.max(0, Math.min(100, p)).toFixed(2) + '%';
+            if (s.style.getPropertyValue('--p') !== val) s.style.setProperty('--p', val);
+        }
+
         function updateAssemblyPlayback(dt) {
+            paintExplodeSlider();
             const wrap = document.getElementById('asm-play');
             const show = !!globalModel && isAssemblyModeOn && maxAssemblyStep > 0;
             if (wrap && wrap.classList.contains('visible') !== show) wrap.classList.toggle('visible', show);
