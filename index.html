@@ -211,6 +211,25 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 12px;
         }
         #home-source-btn:active { background: #f0fdfa; transform: scale(0.98); }
+        #home-install-btn {
+            display: none; background: none; border: none; color: #2563eb; font-size: 15px; font-weight: bold;
+            margin-top: 14px; cursor: pointer; text-decoration: underline;
+        }
+        #install-help {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 6000;
+            display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        #install-help.active { display: flex; }
+        #install-help-box {
+            background: #fff; border-radius: 14px; padding: 20px; width: 100%; max-width: 380px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35); font-size: 14px; color: #222; line-height: 1.5;
+        }
+        #install-help-box ol { padding-left: 20px; margin: 8px 0 14px; }
+        #install-help-box b { color: #111; }
+        #install-help-close {
+            width: 100%; padding: 12px; border: none; border-radius: 8px; background: #2563eb; color: #fff;
+            font-size: 15px; font-weight: bold; cursor: pointer;
+        }
 
         #source-overlay {
             position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 3000;
@@ -1369,6 +1388,7 @@
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
         <button id="home-scan-btn" type="button">📷 SCANNER UNE ÉTIQUETTE</button>
         <button id="home-source-btn" type="button">🗂 TROUVER SOURCE</button>
+        <button id="home-install-btn" type="button">📲 Installer l'application</button>
         
         <div id="recent-gallery-container">
             <div class="gallery-header">
@@ -1484,6 +1504,23 @@
                 <button id="addr-save" type="button" disabled>Enregistrer</button>
                 <button id="addr-cancel" type="button">Annuler</button>
             </div>
+        </div>
+    </div>
+
+    <div id="install-help">
+        <div id="install-help-box" role="dialog" aria-modal="true">
+            <div class="source-title">📲 Installer Assembly Part Finder</div>
+            <b>Android</b>
+            <ol>
+                <li>Si le lien a été ouvert depuis <b>WhatsApp</b> : touchez <b>⋮</b> puis <b>« Ouvrir dans Chrome »</b>.</li>
+                <li>Dans Chrome : <b>⋮</b> puis <b>« Installer l'application »</b>.</li>
+            </ol>
+            <b>iPhone</b>
+            <ol>
+                <li>Ouvrez le lien dans <b>Safari</b>.</li>
+                <li>Touchez <b>Partager</b> puis <b>« Sur l'écran d'accueil »</b>.</li>
+            </ol>
+            <button id="install-help-close" type="button">Compris</button>
         </div>
     </div>
 
@@ -2986,7 +3023,7 @@
         animate();
         setupSplashScreen();   // en premier : l'intro se ferme même si un module plante plus loin
         [setupUI, setupTape, setupLasso, setupLed, setupChat, setupAddress, setupAngles,
-         setupNoticeMarquee, setupAccounts, setupScanner, setupFileUploader, setupSidebar].forEach(fn => {
+         setupNoticeMarquee, setupAccounts, setupInstall, setupScanner, setupFileUploader, setupSidebar].forEach(fn => {
             try { fn(); }
             catch (e) { console.error('Finjat : échec au démarrage de ' + fn.name, e); }   // les autres modules continuent
         });
@@ -6909,6 +6946,49 @@
             setLocalPasskey(currentMember.id, null);
             showToast("Empreinte désactivée sur cet appareil");
             showProfilesStep();
+        }
+
+        // ==========================================
+        // INSTALLATION : bouton direct (Chrome) ou mode d'emploi (WhatsApp, iPhone)
+        // ==========================================
+        let deferredInstallPrompt = null;
+
+        function isAppInstalled() {
+            return window.matchMedia('(display-mode: standalone)').matches ||
+                   window.matchMedia('(display-mode: fullscreen)').matches ||
+                   window.navigator.standalone === true ||
+                   document.referrer.startsWith('android-app://');   // application Android (PWABuilder)
+        }
+
+        function setupInstall() {
+            const btn = document.getElementById('home-install-btn');
+            const help = document.getElementById('install-help');
+            const refresh = () => { btn.style.display = isAppInstalled() ? 'none' : 'inline-block'; };
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();               // on garde l'invite pour notre propre bouton
+                deferredInstallPrompt = e;
+                refresh();
+            });
+            window.addEventListener('appinstalled', () => {
+                deferredInstallPrompt = null;
+                btn.style.display = 'none';
+                showToast("Assembly Part Finder installée");
+            });
+
+            btn.addEventListener('click', async () => {
+                if (deferredInstallPrompt) {
+                    deferredInstallPrompt.prompt();
+                    try { await deferredInstallPrompt.userChoice; } catch (e) {}
+                    deferredInstallPrompt = null;
+                    refresh();
+                } else {
+                    help.classList.add('active');   // installation directe indisponible ici : mode d'emploi
+                }
+            });
+            document.getElementById('install-help-close').addEventListener('click', () => help.classList.remove('active'));
+            help.addEventListener('click', (e) => { if (e.target === help) help.classList.remove('active'); });
+            refresh();
         }
 
         // ==========================================
