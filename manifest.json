@@ -1,7 +1,10 @@
 {
   "name": "Assembly Part Finder",
   "short_name": "APF",
-  "description": "Visionneuse de modèles 3D GLB",
+  "id": "/viewer/",
+  "description": "Assembly Part Finder (APF) : visionneuse 3D d'assemblage de meubles",
+  "lang": "fr",
+  "categories": ["productivity", "utilities"],
   "start_url": "/viewer/",
   "scope": "/viewer/",
   "display": "standalone",
@@ -11,6 +14,28 @@
   "launch_handler": {
     "client_mode": ["navigate-existing", "auto"]
   },
+  "share_target": {
+    "action": "share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "shared_file",
+          "accept": [".glb", "model/gltf-binary", "application/octet-stream"]
+        }
+      ]
+    }
+  },
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "model/gltf-binary": [".glb"],
+        "application/octet-stream": [".glb"]
+      }
+    }
+  ],
   "icons": [
     {
       "src": "logo-192.png",
@@ -21,6 +46,12 @@
       "src": "logo.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "logo-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
