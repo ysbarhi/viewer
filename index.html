@@ -2974,19 +2974,12 @@
 
         init();
         animate();
-        setupUI();
-        setupTape();
-        setupLasso();
-        setupLed();
-        setupChat();
-        setupAddress();
-        setupAngles();
-        setupNoticeMarquee();
-        setupAccounts();
-        setupScanner();
-        setupFileUploader();
-        setupSplashScreen();
-        setupSidebar();
+        setupSplashScreen();   // en premier : l'intro se ferme même si un module plante plus loin
+        [setupUI, setupTape, setupLasso, setupLed, setupChat, setupAddress, setupAngles,
+         setupNoticeMarquee, setupAccounts, setupScanner, setupFileUploader, setupSidebar].forEach(fn => {
+            try { fn(); }
+            catch (e) { console.error('Finjat : échec au démarrage de ' + fn.name, e); }   // les autres modules continuent
+        });
 
         function setupSplashScreen() {
             const splash = document.getElementById('splash-screen');
@@ -6257,7 +6250,9 @@
             const inner = (m && m.avatar_emoji) ? escapeHtml(m.avatar_emoji) : escapeHtml(nameInitials(m && m.name));
             return `<span class="av ${cls}" style="background-color:${safeColor(m && m.avatar_color)}">${inner}</span>`;
         }
-        const VISITOR_AV = (cls) => `<span class="av ${cls}" style="background-color:#6b7280">👤</span>`;
+        function VISITOR_AV(cls) {   // déclaration "function" : utilisable dès le démarrage
+            return `<span class="av ${cls}" style="background-color:#6b7280">👤</span>`;
+        }
 
         async function authFn(action, payload = {}) {
             const sb = await getSb();
