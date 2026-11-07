@@ -450,6 +450,35 @@
         .slider-tick {
             left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--f, 0)) !important;
         }
+
+        /* ========================================= */
+        /* LECTURE : bouton à la place du bouton assemblage + vitesse dans le panneau ⚙ */
+        /* ========================================= */
+        #assembly-mode-btn { display: none !important; }
+        #play-btn { bottom: 74px; left: 20px; width: 44px; height: 44px; position: absolute; }
+        #play-btn svg { width: 26px !important; height: 26px !important; fill: #555; filter: none; }
+        #play-btn.active { background: var(--accent-soft); border: 2px solid var(--accent); }
+        #play-speed-badge {
+            position: absolute; top: 2px; right: 3px; font-size: 9px; font-weight: bold;
+            color: #555; line-height: 1; pointer-events: none;
+        }
+
+        .speed-head { display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #333; font-size: 16px; }
+        #speed-value { color: #2563eb; }
+        #speed-track { position: relative; height: 30px; margin: 4px 10px 0; cursor: pointer; touch-action: none; }
+        #speed-track::before {
+            content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: #555;
+        }
+        .speed-dot { position: absolute; top: 50%; width: 0; height: 0; pointer-events: none; }
+        .speed-dot::before {
+            content: ''; position: absolute; width: 8px; height: 8px; left: -4px; top: -4px;
+            border-radius: 50%; background: #555; transition: all 0.15s;
+        }
+        .speed-dot.x1::before { width: 12px; height: 12px; left: -6px; top: -6px; }
+        .speed-dot.on::before {
+            width: 18px; height: 18px; left: -9px; top: -9px; background: #2563eb;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+        }
         #phase-indicator {
             background: #fff; color: var(--accent-dark); border-radius: 10px; padding: 2px 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
@@ -1090,6 +1119,10 @@
             <span>Sélection tactile</span>
             <button id="touch-toggle" class="h-toggle" type="button" aria-label="Sélection tactile"><span class="h-knob"></span></button>
         </div>
+        <div class="side-card" style="margin: 8px 0 0;">
+            <div class="speed-head"><span>Vitesse de lecture</span><b id="speed-value">x1</b></div>
+            <div id="speed-track"></div>
+        </div>
         <div class="side-row" style="margin-top: 8px;">
             <span>Grille</span>
             <button id="grid-btn" class="h-toggle" type="button" aria-label="Afficher la grille au sol"><span class="h-knob"></span></button>
@@ -1326,24 +1359,11 @@
         </svg>
     </button>
 
-    <!-- LECTURE AUTOMATIQUE (mode assemblage) -->
-    <div id="asm-play">
-        <div class="spd-wrap">
-            <span id="spd-label-slow" class="spd-label"></span>
-            <button id="spd-down" class="spd-btn" type="button" aria-label="Plus lent" disabled>
-                <svg viewBox="0 0 24 24"><path d="M21 6v12l-8-6zM12 6v12l-8-6z"></path></svg>
-            </button>
-        </div>
-        <button id="play-btn" type="button" aria-label="Lecture">
-            <svg id="play-icon" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"></path></svg>
-        </button>
-        <div class="spd-wrap">
-            <span id="spd-label-fast" class="spd-label">x1</span>
-            <button id="spd-up" class="spd-btn" type="button" aria-label="Plus rapide" disabled>
-                <svg viewBox="0 0 24 24"><path d="M3 6v12l8-6zM12 6v12l8-6z"></path></svg>
-            </button>
-        </div>
-    </div>
+    <!-- LECTURE (remonte vers 0 = assemblé) -->
+    <button id="play-btn" class="floating-btn ui-element" type="button" aria-label="Lecture" title="Lecture">
+        <svg id="play-icon" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"></path></svg>
+        <span id="play-speed-badge">x1</span>
+    </button>
 
     <!-- SLIDER D'ÉCLATEMENT (horizontal) -->
     <div id="explode-slider-container" class="ui-element">
@@ -1574,7 +1594,11 @@
         const PLAY_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
         const PLAY_STEPS_PER_SEC = 1.75;   // vitesse x1 : 1,75 étape par seconde
         let isAsmPlaying = false;
-        let playSpeedIdx = 3;             // x1
+        let playSpeedIdx = (() => {
+            try { const i = parseInt(localStorage.getItem('finjatPlaySpeed'), 10); return (i >= 0 && i < 12) ? i : 3; }
+            catch (e) { return 3; }
+        })();                             // x1 par défaut
+        const EXPLODE_PLAY_SECONDS = 2.0;  // .glb sans étapes : 100 -> 0 en 2 s à x1
 
         // ===== Angles =====
         const ANGLE_MAX_LABELS = 500;
@@ -1968,7 +1992,7 @@
             getAssemblyPhases().forEach(p => {
                 const t = document.createElement('div');
                 t.className = 'slider-tick';
-                t.style.setProperty('--f', p.end / maxAssemblyStep);
+                t.style.setProperty('--f', 1 - p.end / maxAssemblyStep);
                 box.appendChild(t);
             });
         }
@@ -3114,18 +3138,8 @@
                 animBtn.classList.toggle('active', isAnimationModeOn);
 
                 if (isAnimationModeOn) {
-                    // Désactiver le mode assemblage et remettre l'éclatement à zéro pour animer depuis la pose fermée
-                    if (isAssemblyModeOn) {
-                        isAssemblyModeOn = false;
-                        assemblyBtn.classList.remove('active');
-                        prevBtn.disabled = true;
-                        nextBtn.disabled = true;
-                        stepInd.classList.remove('active');
-                        renderSliderTicks();
-                    }
-                    slider.min = "0";
-                    slider.max = "100";
-                    slider.step = "1";
+                    // Animer depuis la pose assemblée (curseur à 0)
+                    setAsmPlaying(false);
                     slider.value = "0";
                     slider.dispatchEvent(new Event('input'));
 
@@ -3231,12 +3245,12 @@
                 const phaseBanner = document.getElementById('phase-banner');
                 const phaseInd = document.getElementById('phase-indicator');
                 if (isAssemblyModeOn) {
-                    const stepVal = Math.ceil(val - 1e-6);   // étape en cours (valeur continue pendant la lecture)
+                    const stepVal = Math.ceil((maxAssemblyStep - val) - 1e-6);   // curseur 0 = assemblé = dernière étape
                     stepInd.innerText = `${stepVal}/${maxAssemblyStep}`;
                     if (phaseBanner) {
                         const txt = assemblyPhaseLabel(stepVal);
                         phaseBanner.innerText = txt;
-                        phaseBanner.style.display = txt ? 'block' : 'none';
+                        phaseBanner.style.display = (txt && stepVal < maxAssemblyStep) ? 'block' : 'none';   // pas de bandeau au repos (assemblé)
                     }
                     if (phaseInd) {
                         const counter = assemblyPhaseCounter(stepVal);
@@ -3259,12 +3273,12 @@
                             const sq = node.userData.seq;
                             node.position.copy(node.userData.originalPosition);
                             const kG = (sq.group.final_step > 0)
-                                ? asmProgress(val, assemblyHierarchy.finalOffset + sq.group.final_step) : 1;
+                                ? asmProgress(maxAssemblyStep - val, assemblyHierarchy.finalOffset + sq.group.final_step) : 1;
                             if (kG < 1) node.position.addScaledVector(sq.groupDir, 1.5 * 0.85 * (1 - kG));
-                            const kL = asmProgress(val, sq.globalStep);
+                            const kL = asmProgress(maxAssemblyStep - val, sq.globalStep);
                             if (kL < 1) node.position.addScaledVector(sq.localDir, 1.5 * (1 - kL));
                         } else if (isAssemblyModeOn) {
-                            const k = asmProgress(val, node.userData.assemblyStep);
+                            const k = asmProgress(maxAssemblyStep - val, node.userData.assemblyStep);
                             node.position.copy(node.userData.originalPosition)
                                 .addScaledVector(node.userData.explodeDirection, 1.5 * (1 - k));
                         } else {
@@ -5469,33 +5483,71 @@
             return t * t * (3 - 2 * t);   // ease in/out
         }
 
+        // Curseur principal : étapes si le .glb en a, sinon éclatement simple. 0 = assemblé.
+        function configureMainSlider() {
+            const slider = document.getElementById('explode-slider');
+            const prevBtn = document.getElementById('step-prev-btn');
+            const nextBtn = document.getElementById('step-next-btn');
+            const stepInd = document.getElementById('step-indicator');
+            isAssemblyModeOn = maxAssemblyStep > 0;
+            slider.min = '0';
+            slider.max = isAssemblyModeOn ? String(maxAssemblyStep) : '100';
+            slider.step = 'any';
+            slider.value = '0';
+            if (prevBtn) prevBtn.disabled = !isAssemblyModeOn;
+            if (nextBtn) nextBtn.disabled = !isAssemblyModeOn;
+            if (stepInd) stepInd.classList.toggle('active', isAssemblyModeOn);
+            renderSliderTicks();
+            slider.dispatchEvent(new Event('input'));
+        }
+
         function setupAsmPlay(slider) {
             document.getElementById('play-btn').addEventListener('click', () => setAsmPlaying(!isAsmPlaying));
-            document.getElementById('spd-up').addEventListener('click', () => {
-                if (!isAsmPlaying) return;
-                playSpeedIdx = Math.min(PLAY_SPEEDS.length - 1, playSpeedIdx + 1);
-                renderSpeedLabels();
-            });
-            document.getElementById('spd-down').addEventListener('click', () => {
-                if (!isAsmPlaying) return;
-                playSpeedIdx = Math.max(0, playSpeedIdx - 1);
-                renderSpeedLabels();
-            });
             slider.addEventListener('pointerdown', () => { if (isAsmPlaying) setAsmPlaying(false); });   // reprise en main
-            renderSpeedLabels();
+
+            // Vitesse (panneau ⚙) : une ligne + repères, toucher ou glisser pour choisir
+            const track = document.getElementById('speed-track');
+            PLAY_SPEEDS.forEach((sp, i) => {
+                const d = document.createElement('span');
+                d.className = 'speed-dot' + (sp === 1 ? ' x1' : '');
+                d.style.left = (i / (PLAY_SPEEDS.length - 1) * 100) + '%';
+                track.appendChild(d);
+            });
+            const pick = (e) => {
+                const r = track.getBoundingClientRect();
+                const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+                setPlaySpeed(Math.round(f * (PLAY_SPEEDS.length - 1)));
+            };
+            let dragging = false;
+            track.addEventListener('pointerdown', (e) => { dragging = true; track.setPointerCapture(e.pointerId); pick(e); });
+            track.addEventListener('pointermove', (e) => { if (dragging) pick(e); });
+            ['pointerup', 'pointercancel'].forEach(ev => track.addEventListener(ev, () => { dragging = false; }));
+            // Glisser sur la ligne ne doit pas refermer le panneau (balayage gauche)
+            ['touchstart', 'touchend'].forEach(ev => track.addEventListener(ev, (e) => e.stopPropagation(), { passive: true }));
+            renderSpeedUi();
         }
 
-        function renderSpeedLabels() {
-            const sp = PLAY_SPEEDS[playSpeedIdx];
-            document.getElementById('spd-label-fast').textContent = sp >= 1 ? 'x' + sp : '';
-            document.getElementById('spd-label-slow').textContent = sp < 1 ? 'x' + sp : '';
+        function setPlaySpeed(i) {
+            playSpeedIdx = Math.max(0, Math.min(PLAY_SPEEDS.length - 1, i));
+            try { localStorage.setItem('finjatPlaySpeed', String(playSpeedIdx)); } catch (e) {}   // mémorisé sur l'appareil
+            renderSpeedUi();
         }
 
+        function renderSpeedUi() {
+            const txt = 'x' + PLAY_SPEEDS[playSpeedIdx];
+            const v = document.getElementById('speed-value');
+            if (v) v.textContent = txt;
+            const b = document.getElementById('play-speed-badge');
+            if (b) b.textContent = txt;
+            document.querySelectorAll('#speed-track .speed-dot').forEach((d, i) => d.classList.toggle('on', i === playSpeedIdx));
+        }
+
+        // Lecture = toujours vers 0 (assemblage). À 0 : repart de l'éclaté complet.
         function setAsmPlaying(on) {
             const slider = document.getElementById('explode-slider');
-            isAsmPlaying = !!on && isAssemblyModeOn && maxAssemblyStep > 0;
-            if (isAsmPlaying && slider && parseFloat(slider.value) >= maxAssemblyStep - 1e-6) {
-                slider.value = '0';   // relancer depuis le début
+            isAsmPlaying = !!on && !!globalModel;
+            if (isAsmPlaying && slider && (parseFloat(slider.value) || 0) <= 1e-6) {
+                slider.value = slider.max;
                 slider.dispatchEvent(new Event('input'));
             }
             const icon = document.getElementById('play-icon');
@@ -5503,15 +5555,13 @@
                 ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z"></path>'   // pause
                 : '<path d="M7 4l13 8-13 8z"></path>';              // lecture
             const btn = document.getElementById('play-btn');
-            if (btn) btn.setAttribute('aria-label', isAsmPlaying ? 'Pause' : 'Lecture');
-            ['spd-up', 'spd-down'].forEach(id => {
-                const b = document.getElementById(id);
-                if (b) b.disabled = !isAsmPlaying;
-            });
+            if (btn) {
+                btn.classList.toggle('active', isAsmPlaying);
+                btn.setAttribute('aria-label', isAsmPlaying ? 'Pause' : 'Lecture');
+            }
         }
 
-        // Chaque image : affichage selon le mode assemblage + avancée continue du curseur
-        // Remplissage teal de la piste jusqu'au curseur
+        // Remplissage de la piste jusqu'au curseur (si une piste à dégradé est utilisée)
         function paintExplodeSlider() {
             const s = document.getElementById('explode-slider');
             if (!s) return;
@@ -5521,16 +5571,15 @@
             if (s.style.getPropertyValue('--p') !== val) s.style.setProperty('--p', val);
         }
 
+        // Chaque image : le curseur descend en continu vers 0
         function updateAssemblyPlayback(dt) {
             paintExplodeSlider();
-            const wrap = document.getElementById('asm-play');
-            const show = !!globalModel && isAssemblyModeOn && maxAssemblyStep > 0;
-            if (wrap && wrap.classList.contains('visible') !== show) wrap.classList.toggle('visible', show);
-            if (!show) { if (isAsmPlaying) setAsmPlaying(false); return; }
-            if (!isAsmPlaying) return;
+            if (!isAsmPlaying || !globalModel) return;
             const slider = document.getElementById('explode-slider');
-            let v = (parseFloat(slider.value) || 0) + dt * PLAY_STEPS_PER_SEC * PLAY_SPEEDS[playSpeedIdx];
-            if (v >= maxAssemblyStep) { v = maxAssemblyStep; setAsmPlaying(false); }
+            const max = parseFloat(slider.max) || 100;
+            const rate = isAssemblyModeOn ? PLAY_STEPS_PER_SEC : (max / EXPLODE_PLAY_SECONDS);
+            let v = (parseFloat(slider.value) || 0) - dt * rate * PLAY_SPEEDS[playSpeedIdx];
+            if (v <= 0) { v = 0; setAsmPlaying(false); }
             slider.value = String(v);
             slider.dispatchEvent(new Event('input'));
         }
@@ -6662,15 +6711,9 @@
                     matContainer.style.display = 'none';
                     document.getElementById('mat-toggle-btn').style.display = 'none';
                 }                
-                if (maxAssemblyStep === 0) {
-                    if(asmBtn) asmBtn.style.display = 'none';
-                    if(stepCtrl) stepCtrl.style.display = 'none';
-                } else {
-                    if(asmBtn) asmBtn.style.display = 'flex';
-                    if(stepCtrl) stepCtrl.style.display = 'flex';
-                    const stepInd = document.getElementById('step-indicator');
-                    if(stepInd) stepInd.innerText = `0/${maxAssemblyStep}`;
-                }
+                if (asmBtn) asmBtn.style.display = 'none';                               // plus de bouton assemblage
+                if (stepCtrl) stepCtrl.style.display = maxAssemblyStep === 0 ? 'none' : 'flex';
+                configureMainSlider();                                                  // étapes si le .glb en a, sinon éclatement ; ouvert à 0 = assemblé
 
                 // Afficher le bouton d'animation (toujours visible pour tester son .glb)
                 if (animBtn) animBtn.style.display = 'flex';
