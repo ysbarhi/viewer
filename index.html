@@ -419,6 +419,37 @@
             animation: finjat-marquee var(--marquee-dur, 6s) ease-in-out infinite alternate;
         }
         .is-scrolling { text-align: left !important; }
+
+        /* ========================================= */
+        /* CURSEUR DU BAS : pouce et repères calés sur la même mesure */
+        /* ========================================= */
+        #explode-slider-container {
+            --thumb: 24px;
+            padding: 0 14px !important; box-sizing: border-box !important;
+        }
+        #explode-slider {
+            -webkit-appearance: none !important; appearance: none !important;
+            width: 100% !important; margin: 0 !important; padding: 0 !important; background: transparent !important;
+        }
+        #explode-slider::-webkit-slider-thumb {
+            -webkit-appearance: none !important; appearance: none !important;
+            width: var(--thumb) !important; height: var(--thumb) !important;
+            margin-top: calc((6px - var(--thumb)) / 2) !important;   /* centré sur la piste de 6 px */
+            border-radius: 50% !important; box-sizing: border-box !important;
+            background: #2563eb !important; border: 3px solid #fff !important;
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35), 0 2px 6px rgba(0,0,0,0.35) !important;
+        }
+        #explode-slider::-moz-range-thumb {
+            width: var(--thumb) !important; height: var(--thumb) !important;
+            border-radius: 50% !important; box-sizing: border-box !important;
+            background: #2563eb !important; border: 3px solid #fff !important;
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35), 0 2px 6px rgba(0,0,0,0.35) !important;
+        }
+        /* Repères dans exactement la même boîte que le curseur */
+        #slider-ticks { left: 14px !important; right: 14px !important; top: 0 !important; bottom: 0 !important; }
+        .slider-tick {
+            left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--f, 0)) !important;
+        }
         #phase-indicator {
             background: #fff; color: var(--accent-dark); border-radius: 10px; padding: 2px 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
