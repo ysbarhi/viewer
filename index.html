@@ -318,22 +318,38 @@
         /* ORDRE D'AFFICHAGE                          */
         /* fenêtres (3000) > panneau ⚙ (2000) > panneaux chat/LED > boutons (800) > infos (400) > étiquettes 3D (300) */
         /* ========================================= */
-        .ui-element, #scan-btn, #asm-play, #right-controls, #explode-slider-container, #step-controls-container { z-index: 800; }
-        #top-notices { z-index: 400; max-width: calc(100vw - 140px); }   /* passe à la ligne au lieu de toucher les boutons */
-        .floating-label { z-index: 300; }
-        #angle-layer { z-index: 310; }
-        #anim-pips   { z-index: 320; }
-        #chat-layer  { z-index: 330; }
-        #led-layer   { z-index: 340; }
-        #tape-layer  { z-index: 350; }
-        #lasso-canvas { z-index: 360; }
+        /* Fenêtres > panneau ⚙ > panneaux > boutons > infos > chiffres flottants (forcé, indépendant de l'ordre CSS) */
+        #confirm-overlay, #source-overlay, #addr-overlay { z-index: 6000 !important; }
+        #sidebar         { z-index: 5000 !important; }
+        #sidebar-overlay { z-index: 4999 !important; }
+        #chat-panel      { z-index: 1200 !important; }
+        #led-panel       { z-index: 900 !important; }
+
+        /* Boutons et barres (gauche, droite, haut, bas, scanner) */
+        .ui-element, #close-project-btn, #settings-btn, #chat-btn, #measure-toggle-btn, #angle-btn, #tape-btn,
+        #mat-toggle-btn, #material-filter-container, #top-info-panel,
+        #assembly-mode-btn, #anim-mode-btn, #multi-select-btn, #lasso-btn,
+        #right-controls, #scan-btn, #asm-play, #explode-slider-container, #step-controls-container { z-index: 800 !important; }
+
+        /* Infos (assemblage, animation, isolé) : sous les boutons, passent à la ligne */
+        #top-notices { z-index: 400 !important; max-width: calc(100vw - 140px); }
+
+        /* Chiffres et marqueurs 3D : sous tout le reste ; cotes au-dessus des angles */
+        #lasso-canvas      { z-index: 360 !important; }
+        #tape-layer        { z-index: 350 !important; }
+        #led-layer         { z-index: 340 !important; }
+        #chat-layer        { z-index: 330 !important; }
+        #anim-pips         { z-index: 320 !important; }
+        .floating-label    { z-index: 300 !important; }
+        #angle-layer       { z-index: 290 !important; }
 
         /* Messages temporaires : seuls au-dessus de tout (confirmations depuis le panneau ⚙) */
         #toast-wrap {
             position: absolute; top: 150px; left: 50%; transform: translateX(-50%);
             width: max-content; max-width: calc(100vw - 140px);
-            z-index: 2500; pointer-events: none; transition: top 0.3s ease;
+            z-index: 450 !important; pointer-events: none; transition: top 0.3s ease;
         }
+        body:has(#sidebar.active) #toast-wrap { z-index: 5500 !important; }   /* confirmations visibles au-dessus du panneau ⚙ */
         body.mats-collapsed #toast-wrap { top: 94px; }
 
         /* Pas de sélection de texte / menu contextuel sur les icônes et boutons (appui long) */
@@ -347,27 +363,32 @@
         /* ========================================= */
         #explode-slider-container {
             left: 72px; right: 72px; bottom: 18px; height: 48px; padding: 0 14px; box-sizing: border-box;
-            background: rgba(255, 255, 255, 0.92); border-radius: 24px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            background: transparent; box-shadow: none; border-radius: 0;
         }
         #slider-ticks { left: 14px; right: 14px; }
         #explode-slider { height: 48px; }
         #explode-slider::-webkit-slider-runnable-track {
-            height: 6px; border-radius: 3px;
-            background: linear-gradient(to right, var(--accent) var(--p, 0%), #e5e7eb var(--p, 0%));
+            height: 6px; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+            background: linear-gradient(to right, #2563eb var(--p, 0%), #d1d5db var(--p, 0%));
         }
-        #explode-slider::-moz-range-track { height: 6px; border-radius: 3px; background: #e5e7eb; }
-        #explode-slider::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
+        #explode-slider::-moz-range-track { height: 6px; border-radius: 3px; background: #d1d5db; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+        #explode-slider::-moz-range-progress { height: 6px; border-radius: 3px; background: #2563eb; }
         #explode-slider::-webkit-slider-thumb {
-            width: 22px; height: 22px; margin-top: -8px; border-radius: 50%;
-            background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            -webkit-appearance: none; appearance: none;
+            width: 24px; height: 24px; margin-top: -9px; border-radius: 50% !important;
+            background: #2563eb; border: 3px solid #fff;
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35), 0 2px 6px rgba(0,0,0,0.35);
         }
         #explode-slider::-moz-range-thumb {
-            width: 22px; height: 22px; border-radius: 50%; box-sizing: border-box;
-            background: #fff; border: 3px solid var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            width: 24px; height: 24px; border-radius: 50% !important; box-sizing: border-box;
+            background: #2563eb; border: 3px solid #fff;
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35), 0 2px 6px rgba(0,0,0,0.35);
         }
         .slider-tick {
-            width: 4px; height: 12px; margin: -6px 0 0 -2px; border-radius: 2px;
-            left: calc(11px + (100% - 22px) * var(--f, 0)); background: var(--accent-dark); opacity: 0.55;
+            width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50% !important;
+            left: calc(12px + (100% - 24px) * var(--f, 0));
+            background: #fff; border: 2px solid #2563eb; box-sizing: border-box; opacity: 1;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.25);
         }
         #step-controls-container { bottom: 18px; height: 48px; }
         .step-btn {
@@ -380,7 +401,7 @@
         .step-btn:not(:disabled):active { transform: scale(0.9); background: var(--accent-soft) !important; }
         #step-counters { bottom: 56px; }
         #step-indicator {
-            background: var(--accent); border-radius: 10px; padding: 2px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            background: #2563eb; border-radius: 10px; padding: 2px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         #phase-indicator {
             background: #fff; color: var(--accent-dark); border-radius: 10px; padding: 2px 12px;
