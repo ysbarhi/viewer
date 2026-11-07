@@ -403,6 +403,24 @@
         #step-indicator {
             background: #2563eb; border-radius: 10px; padding: 2px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
+
+        /* ========================================= */
+        /* INFOS DU HAUT : entre les colonnes de boutons, défilement si trop long */
+        /* ========================================= */
+        #top-notices, #toast-wrap {
+            left: 62px !important; right: 62px !important;
+            width: auto !important; max-width: none !important; transform: none !important;
+        }
+        #top-notices { display: flex; flex-direction: column; align-items: center; }
+        #toast-wrap  { display: flex; justify-content: center; }
+        #anim-banner, #phase-banner, #iso-banner, #toast-msg {
+            max-width: 100%; box-sizing: border-box; white-space: nowrap; overflow: hidden;
+        }
+        .notice-text { display: inline-block; white-space: nowrap; }
+        .notice-text.marquee {
+            animation: finjat-marquee var(--marquee-dur, 6s) ease-in-out infinite alternate;
+        }
+        .is-scrolling { text-align: left !important; }
         #phase-indicator {
             background: #fff; color: var(--accent-dark); border-radius: 10px; padding: 2px 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
@@ -2704,6 +2722,7 @@
         setupChat();
         setupAddress();
         setupAngles();
+        setupNoticeMarquee();
         setupScanner();
         setupFileUploader();
         setupSplashScreen();
@@ -5877,6 +5896,52 @@
                     L.shown = false;
                 }
             }
+        }
+
+        // ==========================================
+        // INFOS DU HAUT : texte défilant si trop long (même effet que les noms de fichiers)
+        // ==========================================
+        function measureNotice(el, span) {
+            span.classList.remove('marquee');
+            el.classList.remove('is-scrolling');
+            span.style.removeProperty('--marquee-dist');
+            span.style.removeProperty('--marquee-dur');
+            if (!el.clientWidth) return;   // masqué : sera mesuré à l'affichage
+            const cs = getComputedStyle(el);
+            const avail = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+            const overflow = span.scrollWidth - avail;
+            if (overflow > 1) {
+                span.style.setProperty('--marquee-dist', (-overflow) + 'px');
+                span.style.setProperty('--marquee-dur', (overflow / 25 + 2.5).toFixed(2) + 's');
+                span.classList.add('marquee');
+                el.classList.add('is-scrolling');
+            }
+        }
+
+        function setupNoticeMarquee() {
+            ['anim-banner', 'phase-banner', 'iso-banner', 'toast-msg'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const apply = () => {
+                    let span = el.firstElementChild;
+                    // Le texte est réécrit par innerText / textContent ailleurs : on le ré-enveloppe
+                    if (!span || !span.classList.contains('notice-text') || el.childNodes.length !== 1) {
+                        const txt = el.textContent;
+                        el.textContent = '';
+                        span = document.createElement('span');
+                        span.className = 'notice-text';
+                        span.textContent = txt;
+                        el.appendChild(span);
+                    }
+                    requestAnimationFrame(() => measureNotice(el, span));
+                };
+                // Texte modifié
+                new MutationObserver(apply).observe(el, { childList: true, characterData: true, subtree: true });
+                // Affiché / masqué (style)
+                new MutationObserver(apply).observe(el, { attributes: true, attributeFilter: ['style'] });
+                window.addEventListener('resize', apply);
+                apply();
+            });
         }
 
         // ==========================================
