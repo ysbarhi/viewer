@@ -1,12 +1,12 @@
 /*!
- * Application : Finjat 3D Viewer
+ * Application : Assembly Part Finder (APF)
  * Organisation : YassineSbarhiApps
  * Développé par : Yassine Sbarhi
  * Region ID : MA
  * Copyright : All rights reserved to Yassine Sbarhi 2026
  */
 
-const APP_CACHE = 'viewer-cao-v24';
+const APP_CACHE = 'apf-cache-v25';
 const SHARE_CACHE = 'shared-file-cache';
 const SCOPE = self.registration.scope;
 const SHARED_KEY = new URL('./shared-file.glb', SCOPE).href;
