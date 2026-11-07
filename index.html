@@ -150,7 +150,7 @@
         .switch-group { display: flex; flex-direction: column; align-items: center; gap: 5px; }
         .switch-icon { width: 22px; height: 22px; }
 
-        #touch-toggle {
+        .v-toggle {
             width: 30px; height: 52px; background: #999; border-radius: 15px; border: none; padding: 0;
             position: relative; cursor: pointer; transition: background 0.3s;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
@@ -945,8 +945,8 @@
 
         <h2 style="margin-top: 24px;">Affichage</h2>
         <div class="side-row">
-            <span>Chant</span>
-            <button id="edge-btn" class="h-toggle" type="button" aria-label="Voir les chants"><span class="h-knob"></span></button>
+            <span>Sélection tactile</span>
+            <button id="touch-toggle" class="h-toggle" type="button" aria-label="Sélection tactile"><span class="h-knob"></span></button>
         </div>
         <div class="side-row" style="margin-top: 8px;">
             <span>Grille</span>
@@ -1235,12 +1235,12 @@
             </svg>
         </button>
 
-        <div class="switch-group" id="touch-select-container">
-            <div id="touch-toggle" title="Sélection tactile (ON/OFF)"><div class="toggle-knob"></div></div>
-            <svg class="switch-icon touch-icon" viewBox="0 0 24 24" stroke="#555" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 11V4a2 2 0 0 1 4 0v6M13 11a2 2 0 0 1 4 0v4a6 6 0 0 1-6 6H7a8 8 0 0 1-8-8v-2a2 2 0 0 1 4 0v2"></path>
+        <button id="edge-btn" class="floating-btn" type="button" title="Voir les chants">
+            <svg viewBox="0 0 24 24" width="26" height="26" stroke="#555" stroke-width="2" fill="none">
+                <rect x="5" y="4" width="14" height="16" rx="1"></rect>
+                <path d="M19 4v16" stroke="#ff8c00" stroke-width="4"></path>
             </svg>
-        </div>
+        </button>
 
 
         <button id="style-btn" class="floating-btn" title="Style : Gris">
@@ -1308,7 +1308,7 @@
         let raycaster = new THREE.Raycaster();
         let mouse = new THREE.Vector2();
         let touchPointerDown = { x: 0, y: 0 };
-        let isTouchSelectOn = false;
+        let isTouchSelectOn = (() => { try { return localStorage.getItem('finjatTouch') !== '0'; } catch (e) { return true; } })();
 
         let showMeasurements = true;
         // ===== Styles d'affichage : Gris -> Rayons X -> Texturé (un seul bouton) =====
@@ -3138,13 +3138,18 @@
 
             const touchSelectToggle = document.getElementById('touch-toggle');
             const multiBtn = document.getElementById('multi-select-btn');
-            touchSelectToggle.addEventListener('click', () => {
-                isTouchSelectOn = !isTouchSelectOn;
-                touchSelectToggle.classList.toggle('toggle-on', isTouchSelectOn);
+            const syncTouchUi = () => {
+                touchSelectToggle.classList.toggle('active', isTouchSelectOn);
                 multiBtn.classList.toggle('disabled', !isTouchSelectOn);
                 document.getElementById('lasso-btn').classList.toggle('disabled', !isTouchSelectOn);
+            };
+            touchSelectToggle.addEventListener('click', () => {
+                isTouchSelectOn = !isTouchSelectOn;
+                try { localStorage.setItem('finjatTouch', isTouchSelectOn ? '1' : '0'); } catch (e) {}   // mémorisé sur l'appareil
+                syncTouchUi();
                 if (!isTouchSelectOn && isLassoModeOn) setLassoMode(false);
             });
+            syncTouchUi();   // état au démarrage (activé par défaut, ou dernier choix)
 
             // Multisélection : maintenir (pouce gauche) + toucher les pièces (pouce droit). Relâcher = retour sélection simple.
             const startMultiHold = (e) => {
