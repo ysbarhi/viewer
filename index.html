@@ -1388,6 +1388,7 @@
             <div id="login-grid"></div>
             <div class="login-actions">
                 <button id="login-myprofile" class="login-link" type="button">Mon profil</button>
+                <button id="login-bio-toggle" class="login-link" type="button" style="display: none;">👆 Empreinte</button>
                 <button id="login-team" class="login-link" type="button">Gérer l'équipe</button>
                 <button id="login-logout" class="login-link" type="button">Se déconnecter</button>
                 <button id="login-visitor" class="login-link" type="button">Continuer en visiteur</button>
@@ -1399,7 +1400,15 @@
             <div id="login-pin-name" class="login-title"></div>
             <div id="login-dots"></div>
             <div id="login-error"></div>
+            <button id="login-bio-btn" class="login-link" type="button" style="display: none;">👆 Utiliser l'empreinte</button>
             <div id="login-pad"></div>
+        </div>
+        <div id="login-bio-offer" class="login-step" style="display: none;">
+            <div style="font-size: 64px; line-height: 1;">👆</div>
+            <div class="login-title">Connexion par empreinte</div>
+            <div class="login-sub">La prochaine fois : touchez votre profil puis le capteur. Plus besoin du PIN sur cet appareil.</div>
+            <button id="bio-enable" class="login-btn" type="button" disabled>Activer</button>
+            <button id="bio-later" class="login-link" type="button">Plus tard</button>
         </div>
         <div id="login-setup" class="login-step" style="display: none;">
             <div class="login-title">Premier lancement</div>
@@ -1805,6 +1814,7 @@
         let hubProfiles = [], teamMembers = [];
         let pinTarget = null, pinValue = '', pinBusy = false, pinStepOpen = false;
         let memberEdit = null, pinRevealCb = null;
+        let waMod = null, bioAuthOpts = null, bioRegOpts = null;   // empreinte (WebAuthn)
 
         // ===== Angles =====
         const ANGLE_MAX_LABELS = 500;
@@ -6291,6 +6301,17 @@
             document.getElementById('login-myprofile').addEventListener('click', () => { closeHub(); openMemberEditor(currentMember, true); });
             document.getElementById('login-team').addEventListener('click', () => { closeHub(); openTeam(); });
             document.getElementById('setup-go').addEventListener('click', doSetup);
+            document.getElementById('login-bio-btn').addEventListener('click', () => bioLogin(false));
+            document.getElementById('bio-enable').addEventListener('click', bioEnable);
+            document.getElementById('bio-later').addEventListener('click', () => {
+                if (currentMember) { try { localStorage.setItem('finjatBioLater:' + currentMember.id, '1'); } catch (e) {} }
+                closeHub();
+                showToast(`Bonjour ${currentMember ? currentMember.name : ''}`);
+            });
+            document.getElementById('login-bio-toggle').addEventListener('click', async () => {
+                if (!currentMember) return;
+                if (localPasskeys()[currentMember.id]) await bioDisable(); else showBioOffer();
+            });
 
             // Pavé PIN
             const pad = document.getElementById('login-pad');
@@ -6442,7 +6463,7 @@
 
         // ---------- Écran "Qui utilise l'app ?" ----------
         function showStep(id) {
-            ['login-profiles', 'login-pin', 'login-setup'].forEach(s => {
+            ['login-profiles', 'login-pin', 'login-setup', 'login-bio-offer'].forEach(s => {
                 document.getElementById(s).style.display = s === id ? '' : 'none';
             });
             pinStepOpen = (id === 'login-pin');
@@ -6454,6 +6475,13 @@
             document.getElementById('login-logout').style.display = logged ? '' : 'none';
             document.getElementById('login-team').style.display = myRole() === 'superadmin' ? '' : 'none';
             document.getElementById('login-visitor').style.display = logged ? 'none' : '';
+            const bioToggle = document.getElementById('login-bio-toggle');
+            bioToggle.style.display = 'none';
+            if (logged) bioAvailable().then(ok => {
+                if (!ok || !currentMember) return;
+                bioToggle.textContent = localPasskeys()[currentMember.id] ? '👆 Désactiver l\'empreinte' : '👆 Activer l\'empreinte';
+                bioToggle.style.display = '';
+            });
             renderProfilesGrid();
         }
         async function openHub(forced) {
@@ -6508,6 +6536,7 @@
             setPinError('');
             renderPinDots();
             showStep('login-pin');
+            prepareBio(p);   // empreinte enregistrée sur ce téléphone : essai direct, PIN en secours
         }
         function renderPinDots() {
             const box = document.getElementById('login-dots');
@@ -6549,13 +6578,7 @@
                     }
                     return;
                 }
-                const sb = await getSb();
-                const { error } = await sb.auth.verifyOtp({ token_hash: r.token_hash, type: 'magiclink' });
-                if (error) throw error;
-                try { sessionStorage.removeItem('finjatVisitor'); } catch (e) {}
-                await afterAuthChange();
-                closeHub();
-                showToast(`Bonjour ${currentMember ? currentMember.name : ''}`);
+                await finishLogin(r.token_hash, true);
             } catch (e) {
                 pinValue = '';
                 renderPinDots();
@@ -6767,6 +6790,125 @@
                 img.onerror = () => reject(new Error('Image illisible'));
                 img.src = URL.createObjectURL(file);
             });
+        }
+
+        // ==========================================
+        // EMPREINTE (passkeys WebAuthn) : connexion rapide, PIN en secours
+        // ==========================================
+        function localPasskeys() {
+            try { return JSON.parse(localStorage.getItem('finjatPasskeys') || '{}'); } catch (e) { return {}; }
+        }
+        function setLocalPasskey(memberId, credId) {
+            const m = localPasskeys();
+            if (credId) m[memberId] = credId; else delete m[memberId];
+            try { localStorage.setItem('finjatPasskeys', JSON.stringify(m)); } catch (e) {}
+        }
+        async function bioAvailable() {
+            try {
+                return !!(window.PublicKeyCredential &&
+                    await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());
+            } catch (e) { return false; }
+        }
+        async function getWebAuthn() {
+            if (!waMod) waMod = await import('https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@11/+esm');
+            return waMod;
+        }
+
+        // Fin de connexion commune (PIN ou empreinte)
+        async function finishLogin(tokenHash, viaPin) {
+            const sb = await getSb();
+            const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' });
+            if (error) throw error;
+            try { sessionStorage.removeItem('finjatVisitor'); } catch (e) {}
+            await afterAuthChange();
+            if (viaPin && currentMember && !localPasskeys()[currentMember.id] && await bioAvailable()) {
+                let later = false;
+                try { later = localStorage.getItem('finjatBioLater:' + currentMember.id) === '1'; } catch (e) {}
+                if (!later) { showBioOffer(); return; }
+            }
+            closeHub();
+            showToast(`Bonjour ${currentMember ? currentMember.name : ''}`);
+        }
+
+        // Écran PIN : options préchargées pour que le capteur s'ouvre dans le geste de l'utilisateur
+        async function prepareBio(p) {
+            const btn = document.getElementById('login-bio-btn');
+            btn.style.display = 'none';
+            bioAuthOpts = null;
+            if (!localPasskeys()[p.id] || !(await bioAvailable())) return;
+            getWebAuthn().catch(() => {});
+            const r = await authFn('passkey_login_options', { member_id: p.id });
+            if (pinTarget !== p) return;
+            if (r.error) {
+                if (r.error === 'no_passkey') setLocalPasskey(p.id, null);   // révoquée (nouveau PIN) : on oublie
+                return;
+            }
+            bioAuthOpts = r.options;
+            btn.style.display = '';
+            bioLogin(true);   // ouverture automatique du capteur (si le téléphone l'autorise sans geste)
+        }
+
+        async function bioLogin(auto) {
+            if (!bioAuthOpts || !pinTarget || pinBusy) return;
+            pinBusy = true;
+            try {
+                const wa = waMod || await getWebAuthn();
+                const resp = await wa.startAuthentication({ optionsJSON: bioAuthOpts });
+                const r = await authFn('passkey_login_verify', { member_id: pinTarget.id, response: resp });
+                if (r.error) {
+                    if (r.error === 'no_passkey') { setLocalPasskey(pinTarget.id, null); document.getElementById('login-bio-btn').style.display = 'none'; }
+                    throw new Error(r.error === 'no_passkey' ? 'Empreinte révoquée : utilisez votre PIN' : r.error);
+                }
+                bioAuthOpts = null;
+                await finishLogin(r.token_hash, false);
+            } catch (e) {
+                // Annulé ou refusé : silencieux en automatique, message sur le bouton ; le PIN reste disponible
+                if (!auto || (e && e.name !== 'NotAllowedError' && e.name !== 'AbortError')) {
+                    setPinError(e && e.name === 'NotAllowedError' ? 'Empreinte annulée : utilisez votre PIN ou réessayez' : (e.message || String(e)));
+                }
+            } finally {
+                pinBusy = false;
+            }
+        }
+
+        // Proposition d'activation (options préchargées, "Activer" ouvre directement le capteur)
+        async function showBioOffer() {
+            showStep('login-bio-offer');
+            const btn = document.getElementById('bio-enable');
+            btn.disabled = true;
+            bioRegOpts = null;
+            getWebAuthn().catch(() => {});
+            const r = await authFn('passkey_register_options');
+            if (r.error) { showToast("Empreinte indisponible : " + r.error); closeHub(); return; }
+            bioRegOpts = r.options;
+            btn.disabled = false;
+        }
+
+        async function bioEnable() {
+            if (!bioRegOpts || !currentMember) return;
+            const btn = document.getElementById('bio-enable');
+            btn.disabled = true;
+            try {
+                const wa = waMod || await getWebAuthn();
+                const resp = await wa.startRegistration({ optionsJSON: bioRegOpts });
+                const r = await authFn('passkey_register_verify', { response: resp, device_label: navigator.userAgent.slice(0, 80) });
+                if (r.error) throw new Error(r.error);
+                setLocalPasskey(currentMember.id, r.credential_id);
+                closeHub();
+                showToast("Empreinte activée sur cet appareil");
+            } catch (e) {
+                btn.disabled = false;
+                showToast(e && e.name === 'NotAllowedError' ? "Activation annulée" : "Empreinte non activée : " + (e.message || e));
+            }
+        }
+
+        async function bioDisable() {
+            const credId = currentMember && localPasskeys()[currentMember.id];
+            if (!credId) return;
+            await authFn('passkey_delete', { credential_id: credId });
+            setLocalPasskey(currentMember.id, null);
+            showToast("Empreinte désactivée sur cet appareil");
+            showProfilesStep();
         }
 
         // ==========================================
