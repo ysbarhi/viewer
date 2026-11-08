@@ -1828,6 +1828,10 @@
         const SUPABASE_ANON_KEY = 'sb_publishable_fzzmY0AifW9g2f3mvqozGQ_WgNzW9lm';   // Supabase > Project Settings > API Keys > publishable
         const CHAT_AUDIO_BUCKET = 'finjat-audio';
         const VAPID_PUBLIC_KEY = 'BGdtE8sL0sFVGSSFi7eOVD2JdhvuM70PvtXvHZEM0_hjKHRHiwwkA_uX7sixYsz2bJubYLe4FwO9ksYc23Y47Ds';
+        let authReadyResolve = null;
+        const authReady = new Promise(r => { authReadyResolve = r; });   // connexion restaurée (ou absente) au démarrage
+        let chatLoadToken = 0;                                           // seul le dernier chargement des discussions compte
+        let micHeld = false, micDownAt = 0;                              // enregistrement par appui maintenu
         const CHAT_COLORS = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#e11d48', '#0891b2', '#4f46e5', '#65a30d'];
         let sbClient = null;
         let isChatModeOn = false;
@@ -3048,7 +3052,7 @@
         animate();
         setupSplashScreen();   // en premier : l'intro se ferme même si un module plante plus loin
         [setupUI, setupTape, setupLasso, setupLed, setupChat, setupAddress, setupAngles,
-         setupNoticeMarquee, setupAccounts, setupInstall, setupPush, setupScanner, setupFileUploader, setupSidebar].forEach(fn => {
+         setupNoticeMarquee, setupAccounts, setupInstall, setupPush, setupChatExtras, setupScanner, setupFileUploader, setupSidebar].forEach(fn => {
             try { fn(); }
             catch (e) { console.error('Finjat : échec au démarrage de ' + fn.name, e); }   // les autres modules continuent
         });
@@ -4739,7 +4743,6 @@
             document.getElementById('chat-btn').addEventListener('click', () => setChatMode(!isChatModeOn));
             document.getElementById('chat-close').addEventListener('click', closeChatPanel);
             document.getElementById('chat-send').addEventListener('click', sendChatMessage);
-            document.getElementById('chat-mic').addEventListener('click', toggleChatRecording);
             const input = document.getElementById('chat-text');
             input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChatMessage(); } });
             input.addEventListener('input', () => {
@@ -4827,8 +4830,10 @@
 
         // ---------- Chargement / temps réel ----------
         async function chatOnModelLoaded() {
+            await Promise.race([authReady, new Promise(r => setTimeout(r, 8000))]);   // attendre la connexion restaurée
             if (!chatReady() || !currentModelUid || !globalModel || !can('chat')) return;
             const uid = currentModelUid;
+            const token = ++chatLoadToken;
             try {
                 const sb = await getSb();
                 loadContacts();
@@ -4841,10 +4846,11 @@
                     sb.from('finjat_threads').select('*').eq('model_uid', uid),
                     sb.from('finjat_messages').select('*').eq('model_uid', uid).order('created_at')
                 ]);
-                if (uid !== currentModelUid) return;
+                if (uid !== currentModelUid || token !== chatLoadToken) return;
                 (tr.data || []).forEach(addThreadRow);
                 (mr.data || []).forEach(addMessageRow);
 
+                if (chatChannel) { sb.removeChannel(chatChannel); chatChannel = null; }   // jamais deux abonnements
                 chatChannel = sb.channel('chat-' + uid)
                     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'finjat_threads', filter: `model_uid=eq.${uid}` },
                         (p) => { addThreadRow(p.new); refreshChatPins(); })
@@ -5093,11 +5099,13 @@
         }
 
         // ---------- Audio ----------
-        async function toggleChatRecording() {
-            if (chatRecorder) { chatRecorder.stop(); return; }
+        // Appui maintenu sur 🎤 = enregistrement ; relâcher = terminer
+        async function startChatRecording() {
+            if (chatRecorder) return;
             if (!navigator.mediaDevices || !window.MediaRecorder) { showToast("Enregistrement audio non supporté"); return; }
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                if (!micHeld) { stream.getTracks().forEach(t => t.stop()); return; }   // relâché pendant l'autorisation du micro
                 const type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
                     .find(t => MediaRecorder.isTypeSupported(t)) || '';
                 const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
@@ -5119,7 +5127,12 @@
                 rec.start();
                 chatRecTimer = setInterval(renderRecChip, 500);
                 renderRecChip();
+                if (navigator.vibrate) navigator.vibrate(30);
             } catch (e) { showToast("Micro inaccessible"); }
+        }
+
+        function stopChatRecording() {
+            if (chatRecorder) { try { chatRecorder.stop(); } catch (e) {} }
         }
 
         function renderRecChip() {
@@ -5129,7 +5142,7 @@
             const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
             mic.classList.toggle('rec', !!chatRecorder);
             if (chatRecorder) {
-                chip.textContent = `● Enregistrement ${fmt(Math.round((Date.now() - chatRecStart) / 1000))} : touchez 🎤 pour arrêter`;
+                chip.textContent = `● Enregistrement ${fmt(Math.round((Date.now() - chatRecStart) / 1000))} : relâchez pour terminer`;
                 return;
             }
             if (chatRecBlob) {
@@ -6462,15 +6475,16 @@
         }
 
         async function initAuth() {
-            if (!chatReady()) { renderAccountUi(); applyPermissions(); return; }
+            if (!chatReady()) { renderAccountUi(); applyPermissions(); authReadyResolve(); return; }
             try {
                 await afterAuthChange();
+                authReadyResolve();
                 const p = new URLSearchParams(location.search);
                 const viaLink = p.has('m') || p.has('model') || p.has('t') || p.has('shared');   // clients / poseurs : visiteurs
                 let visitor = false;
                 try { visitor = sessionStorage.getItem('finjatVisitor') === '1'; } catch (e) {}
                 if (!currentMember && !viaLink && !visitor) openHub(true);
-            } catch (e) { console.warn('Finjat comptes', e); }
+            } catch (e) { console.warn('Finjat comptes', e); authReadyResolve(); }
         }
 
         async function loadMe() {
@@ -7223,7 +7237,10 @@
             const uid = u.searchParams.get('m'), tid = u.searchParams.get('t');
             if (!uid) return;
             if (uid === currentModelUid && globalModel) {
-                if (tid && chatThreads.has(tid)) openChatThread(tid);
+                chatSyncNow().then(() => {   // récupérer d'abord ce qui est arrivé pendant l'absence
+                    if (tid && chatThreads.has(tid)) openChatThread(tid);
+                    else if (tid) { pendingThreadId = tid; chatTeardown(); chatOnModelLoaded(); }
+                });
                 return;
             }
             pendingThreadId = tid;
@@ -7253,10 +7270,75 @@
                 navigator.serviceWorker.addEventListener('message', (e) => {
                     const d = e.data || {};
                     if (d.type === 'apf-open' && d.url) openThreadFromUrl(d.url);
-                    if (d.type === 'apf-push' && d.data) showToast('💬 ' + (d.data.title || 'Nouveau message'));
+                    if (d.type === 'apf-push' && d.data) {
+                        showToast('💬 ' + (d.data.title || 'Nouveau message'));
+                        chatSyncNow();   // au cas où la connexion temps réel était coupée
+                    }
                 });
             }
             syncPushUi();
+        }
+
+        // ==========================================
+        // CHAT : resynchronisation, micro à appui maintenu, mode exclusif
+        // ==========================================
+        // Récupère tout ce qui manque (connexion coupée en arrière-plan, notification touchée…)
+        async function chatSyncNow() {
+            if (!chatReady() || !currentModelUid || !globalModel || !can('chat')) return;
+            const uid = currentModelUid;
+            try {
+                const sb = await getSb();
+                const [tr, mr] = await Promise.all([
+                    sb.from('finjat_threads').select('*').eq('model_uid', uid),
+                    sb.from('finjat_messages').select('*').eq('model_uid', uid).order('created_at')
+                ]);
+                if (uid !== currentModelUid) return;
+                (tr.data || []).forEach(addThreadRow);
+                (mr.data || []).forEach(addMessageRow);
+                if (chatOpenId && chatThreads.has(chatOpenId)) {
+                    renderChatMessages(chatThreads.get(chatOpenId));
+                    markThreadRead(chatOpenId);
+                }
+                refreshChatPins();
+            } catch (e) { console.warn('APF chat sync', e); }
+        }
+
+        function setupChatExtras() {
+            // Retour dans l'app : rattraper les messages arrivés pendant l'absence
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') chatSyncNow();
+            });
+
+            // 🎤 : maintenir pour enregistrer, relâcher pour terminer
+            const mic = document.getElementById('chat-mic');
+            mic.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                try { mic.setPointerCapture(e.pointerId); } catch (_) {}
+                micHeld = true;
+                micDownAt = Date.now();
+                chatRecDiscard = false;
+                startChatRecording();
+            });
+            const release = () => {
+                if (!micHeld) return;
+                micHeld = false;
+                if (Date.now() - micDownAt < 400) {   // simple tap : rien n'est gardé
+                    chatRecDiscard = true;
+                    showToast("Maintenez 🎤 pour enregistrer");
+                }
+                stopChatRecording();
+            };
+            ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => mic.addEventListener(ev, release));
+            mic.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            // Mode message exclusif : tout autre bouton le désactive (animation, ruban, angles, lasso, LED…)
+            document.addEventListener('pointerdown', (e) => {
+                if (!isChatModeOn) return;
+                const b = e.target.closest && e.target.closest('button');
+                if (!b || b.id === 'chat-btn') return;
+                if (b.closest('#chat-panel, #chat-layer, #sidebar, #login-overlay, #team-overlay, #member-overlay, #pin-reveal')) return;
+                setChatMode(false);
+            }, true);
         }
 
         // ==========================================
@@ -7555,6 +7637,7 @@
             const resume = saved && saved.src && (!hasLink || saved.qs === window.location.search);
 
             if (resume) {
+                pendingThreadId = urlParams.get('t');
                 skipSplash();
                 document.getElementById('start-menu').style.display = 'none';
                 document.getElementById('loader').style.display = 'flex';
