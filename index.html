@@ -610,6 +610,23 @@
         #pin-reveal-copy { background: #2563eb; color: #fff; }
         #pin-reveal-close { background: #e5e7eb; color: #333; }
         body:has(#team-overlay.open, #member-overlay.open, #login-overlay.open, #pin-reveal.open) #toast-wrap { z-index: 8000 !important; }
+
+        /* ===== NOTIFICATIONS + REPLI WHATSAPP ===== */
+        .h-toggle:disabled { opacity: 0.45; cursor: default; }
+        #chat-wa-bar { display: flex; flex-direction: column; gap: 6px; padding: 0 12px; }
+        #chat-wa-bar:empty { display: none; }
+        .wa-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 6px 8px;
+            font-size: 12px; color: #166534; font-weight: bold;
+        }
+        .wa-row button {
+            border: none; background: #25d366; color: #fff; font-weight: bold; border-radius: 8px;
+            padding: 6px 10px; cursor: pointer; flex-shrink: 0;
+        }
+        .chat-wa { border: none; background: #dcfce7; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; flex-shrink: 0; }
+        .member-wa { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: bold; color: #333; }
+        .member-wa input { width: 20px; height: 20px; }
         #phase-indicator {
             background: #fff; color: var(--accent-dark); border-radius: 10px; padding: 2px 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
@@ -1255,6 +1272,11 @@
             <div class="speed-head"><span>Vitesse de lecture</span><b id="speed-value">x1</b></div>
             <div id="speed-track"></div>
         </div>
+        <div id="push-row" class="side-row" style="margin-top: 8px; display: none;">
+            <span>Notifications</span>
+            <button id="push-toggle" class="h-toggle" type="button" aria-label="Notifications"><span class="h-knob"></span></button>
+        </div>
+        <div id="push-hint" class="side-hint" style="margin: 4px 2px 0;"></div>
         <div class="side-row" style="margin-top: 8px;">
             <span>Grille</span>
             <button id="grid-btn" class="h-toggle" type="button" aria-label="Afficher la grille au sol"><span class="h-knob"></span></button>
@@ -1310,6 +1332,7 @@
         <div id="chat-recipient"></div>
         <div id="chat-messages"></div>
         <div id="chat-rec-chip"></div>
+        <div id="chat-wa-bar"></div>
         <div class="chat-input-row">
             <button id="chat-mic" class="chat-icon-btn" type="button" aria-label="Message vocal">
                 <svg viewBox="0 0 24 24" width="20" height="20" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -1471,6 +1494,7 @@
             <input id="member-phone" class="side-input" type="tel" inputmode="tel" placeholder="Téléphone (+212 6…)">
             <input id="member-email" class="side-input" type="email" inputmode="email" placeholder="Email (info)">
             <input id="member-info" class="side-input" type="text" placeholder="Poste / infos (ex : Poseur, Atelier)">
+            <label class="member-wa"><input id="member-whatsapp" type="checkbox"> Prévenir aussi par WhatsApp</label>
             <button id="member-save" class="side-btn" type="button">Enregistrer</button>
         </div>
     </div>
@@ -1803,6 +1827,7 @@
         const SUPABASE_URL_CHAT = 'https://bromdunqmghqzgufgquz.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_fzzmY0AifW9g2f3mvqozGQ_WgNzW9lm';   // Supabase > Project Settings > API Keys > publishable
         const CHAT_AUDIO_BUCKET = 'finjat-audio';
+        const VAPID_PUBLIC_KEY = 'BGdtE8sL0sFVGSSFi7eOVD2JdhvuM70PvtXvHZEM0_hjKHRHiwwkA_uX7sixYsz2bJubYLe4FwO9ksYc23Y47Ds';
         const CHAT_COLORS = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#e11d48', '#0891b2', '#4f46e5', '#65a30d'];
         let sbClient = null;
         let isChatModeOn = false;
@@ -3023,7 +3048,7 @@
         animate();
         setupSplashScreen();   // en premier : l'intro se ferme même si un module plante plus loin
         [setupUI, setupTape, setupLasso, setupLed, setupChat, setupAddress, setupAngles,
-         setupNoticeMarquee, setupAccounts, setupInstall, setupScanner, setupFileUploader, setupSidebar].forEach(fn => {
+         setupNoticeMarquee, setupAccounts, setupInstall, setupPush, setupScanner, setupFileUploader, setupSidebar].forEach(fn => {
             try { fn(); }
             catch (e) { console.error('Finjat : échec au démarrage de ' + fn.name, e); }   // les autres modules continuent
         });
@@ -4665,8 +4690,9 @@
 
         function normPhone(p) { return String(p || '').replace(/\D/g, ''); }
         function getProfile() {
-            const phone = currentMember ? normPhone(currentMember.phone) : '';
-            return (currentMember && phone.length >= 8) ? { name: currentMember.name, phone } : null;
+            return currentMember
+                ? { id: currentMember.id, name: currentMember.name, phone: normPhone(currentMember.phone) }
+                : null;
         }
         function contactColor(phone) {
             let h = 0;
@@ -4695,9 +4721,8 @@
             try { localStorage.setItem('finjatChatRead', JSON.stringify(m)); } catch (e) {}
         }
         function threadUnread(th) {
-            const me = normPhone((getProfile() || {}).phone);
             const t = chatReadMap()[th.row.id] || 0;
-            return th.messages.filter(m => normPhone(m.author_phone) !== me && Date.parse(m.created_at) > t).length;
+            return th.messages.filter(m => !isMineMsg(m) && Date.parse(m.created_at) > t).length;
         }
         function threadLink(id) {
             return `${location.origin}${location.pathname}?m=${encodeURIComponent(currentModelUid)}&t=${id}`;
@@ -4789,7 +4814,8 @@
                     return;
                 }
                 if (!getProfile()) {
-                    showToast("Votre compte n'a pas de numéro : demandez au SuperAdmin de l'ajouter");
+                    showToast("Connectez-vous pour discuter");
+                    openHub(false);
                     return;
                 }
             }
@@ -4916,8 +4942,8 @@
                 part_name: getPartDisplayName(root, hit.object).replace(/[^a-zA-Z0-9_-]/g, ' ').trim() || 'Pièce',
                 point_local: local.toArray(),
                 point_world: hit.point.toArray(),
-                created_by_name: me.name, created_by_phone: normPhone(me.phone),
-                recipient_name: null, recipient_phone: null
+                created_by_member: me.id, created_by_name: me.name, created_by_phone: normPhone(me.phone) || null,
+                recipient_member: null, recipient_name: null, recipient_phone: null
             };
             chatThreads.set(id, { draft: true, row, messages: [], root: anchor, local, el: null });
             openChatThread(id);
@@ -4975,6 +5001,7 @@
             renderChatRecipient(th);
             renderChatMessages(th);
             renderRecChip();
+            clearWaBar();
             document.getElementById('chat-panel').classList.add('open');
             if (!th.draft) markThreadRead(id);
             refreshChatPins();
@@ -4987,6 +5014,7 @@
             const th = chatThreads.get(chatOpenId);
             if (th && th.draft) chatThreads.delete(chatOpenId);   // pin abandonné sans envoi
             chatOpenId = null;
+            clearWaBar();
             document.getElementById('chat-panel').classList.remove('open');
             refreshChatPins();
         }
@@ -4994,25 +5022,33 @@
         function renderChatRecipient(th) {
             const box = document.getElementById('chat-recipient');
             if (!th) { box.innerHTML = ''; return; }
-            const me = normPhone((getProfile() || {}).phone);
-            if (th.row.recipient_phone) {
-                let name = th.row.recipient_name;
-                if (!th.draft && normPhone(th.row.recipient_phone) === me) name = th.row.created_by_name;   // je réponds au créateur
-                box.innerHTML = `<span class="chat-for">Avec</span><span class="chat-at">@${escapeHtml(name || '')}</span>` +
-                    (th.draft ? '<button type="button" class="chat-change">changer</button>' : '');
+            const meId = currentMember ? currentMember.id : null;
+
+            if (th.row.recipient_member || th.row.recipient_phone) {
+                const other = threadCounterpart(th);
+                box.innerHTML = `<span class="chat-for">Avec</span><span class="chat-at">@${escapeHtml(other.name || '')}</span>` +
+                    (th.draft ? '<button type="button" class="chat-change">changer</button>' : '') +
+                    (!th.draft && other.phone ? '<span style="flex:1"></span><button type="button" class="chat-wa" title="Prévenir par WhatsApp">📲</button>' : '');
                 const ch = box.querySelector('.chat-change');
                 if (ch) ch.addEventListener('click', () => {
+                    th.row.recipient_member = null;
                     th.row.recipient_name = null;
                     th.row.recipient_phone = null;
                     renderChatRecipient(th);
                 });
+                const wa = box.querySelector('.chat-wa');
+                if (wa) wa.addEventListener('click', () => {
+                    const last = th.messages[th.messages.length - 1] || null;
+                    window.open(whatsAppUrl(other.phone, th, last), '_blank');
+                });
                 return;
             }
-            const m = document.getElementById('chat-text').value.match(/^@(\S*)/);
-            const q = m ? m[1].toLowerCase() : '';
-            const list = chatContacts.filter(c => !q || String(c.name).toLowerCase().includes(q));
+
+            const mm = document.getElementById('chat-text').value.match(/^@(\S*)/);
+            const q = mm ? mm[1].toLowerCase() : '';
+            const list = chatContacts.filter(c => c.id !== meId && (!q || String(c.name).toLowerCase().includes(q)));
             if (!list.length) {
-                box.innerHTML = `<span class="chat-for">${chatContacts.length ? 'Aucun contact trouvé' : 'Ajoutez des contacts dans ⚙ > Chat'}</span>`;
+                box.innerHTML = `<span class="chat-for">${chatContacts.length > 1 ? 'Aucun membre trouvé' : "Aucun autre membre dans l'équipe"}</span>`;
                 return;
             }
             box.innerHTML = '<span class="chat-for">Pour :</span>';
@@ -5020,11 +5056,11 @@
                 const b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'chat-avatar';
-                b.innerHTML = `<span class="av" style="background:${contactColor(c.phone)}">${escapeHtml(nameInitials(c.name))}</span>` +
-                              `<span class="nm">${escapeHtml(c.name)}${normPhone(c.phone) === me ? ' (moi)' : ''}</span>`;
+                b.innerHTML = avatarHtml(c, '') + `<span class="nm">${escapeHtml(c.name)}</span>`;
                 b.addEventListener('click', () => {
+                    th.row.recipient_member = c.id;
                     th.row.recipient_name = c.name;
-                    th.row.recipient_phone = normPhone(c.phone);
+                    th.row.recipient_phone = normPhone(c.phone) || null;
                     const input = document.getElementById('chat-text');
                     input.value = input.value.replace(/^@\S*\s?/, '');
                     renderChatRecipient(th);
@@ -5044,7 +5080,7 @@
             }
             const me = normPhone((getProfile() || {}).phone);
             box.innerHTML = th.messages.map(m => {
-                const mine = normPhone(m.author_phone) === me;
+                const mine = isMineMsg(m);
                 const when = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const src = m.localAudio || m.audio_url;
                 return `<div class="chat-msg${mine ? ' mine' : ''}${m.failed ? ' failed' : ''}">` +
@@ -5114,9 +5150,8 @@
             const text = input.value.replace(/^@\S*\s?/, '').trim();
             const audio = chatRecBlob;
             if (!text && !audio) return;
-            if (!th.row.recipient_phone) { showToast("Choisissez un destinataire"); return; }
+            if (!th.row.recipient_member && !th.row.recipient_phone) { showToast("Choisissez un destinataire"); return; }
 
-            const myPhone = normPhone(me.phone);
             const msgId = newUuid();
             let audioPath = null, audioUrl = null;
             if (audio) {
@@ -5125,23 +5160,9 @@
                 audioUrl = `${SUPABASE_URL_CHAT}/storage/v1/object/public/${CHAT_AUDIO_BUCKET}/${audioPath}`;
             }
 
-            // WhatsApp ouvert TOUT DE SUITE (dans le geste, sinon bloqué) :
-            // 1er message = toujours ; réponse = seulement si l'autre personne n'est pas dans l'app
-            const creator = normPhone(th.row.created_by_phone), recip = normPhone(th.row.recipient_phone);
-            const other = (myPhone === creator) ? recip : creator;
-            if (other && other !== myPhone && (th.draft || !onlinePhones.has(other))) {
-                const lines = [
-                    `📌 ${th.row.part_name}`,
-                    text || '🎤 Message vocal',
-                    audioUrl ? `🔊 ${audioUrl}` : null,
-                    `👉 ${threadLink(th.row.id)}`
-                ].filter(Boolean);
-                window.open(`https://wa.me/${other}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
-            }
-
             const msg = {
                 id: msgId, thread_id: th.row.id, model_uid: currentModelUid,
-                author_name: me.name, author_phone: myPhone,
+                author_member: me.id, author_name: me.name, author_phone: me.phone || null,
                 kind: audio ? 'audio' : 'text', body: text || null, audio_url: audioUrl
             };
             const local = Object.assign({ created_at: new Date().toISOString(), localAudio: audio ? URL.createObjectURL(audio) : null }, msg);
@@ -5149,6 +5170,7 @@
             input.value = '';
             chatRecBlob = null;
             renderRecChip();
+            clearWaBar();
             const wasDraft = th.draft;
             th.draft = false;
             renderChatRecipient(th);
@@ -5156,6 +5178,7 @@
             markThreadRead(th.row.id);
             refreshChatPins();
 
+            // 1. Enregistrement dans l'app (la discussion fait foi)
             try {
                 const sb = await getSb();
                 if (wasDraft) {
@@ -5170,11 +5193,21 @@
                 const { error } = await sb.from('finjat_messages').insert(msg);
                 if (error) throw error;
             } catch (err) {
-                console.error('Finjat chat', err);
+                console.error('APF chat', err);
                 local.failed = true;
                 if (wasDraft) th.draft = true;
                 renderChatMessages(th);
                 showToast("Envoi échoué : " + (err.message || err));
+                return;
+            }
+
+            // 2. Notification push ; WhatsApp proposé seulement si elle n'arrive pas (ou si la personne le préfère)
+            try {
+                const r = await pushFn('notify', { thread_id: th.row.id, message_id: msgId });
+                if (r.error) throw new Error(r.error);
+                offerWhatsAppFallback(th, local, r.results || []);
+            } catch (e) {
+                console.warn('APF notification', e);
             }
         }
 
@@ -5250,8 +5283,8 @@
             try {
                 const sb = await getSb();
                 const { data, error } = await sb.from('finjat_members')
-                    .select('name, phone, avatar_color, avatar_emoji, photo_url')
-                    .eq('active', true).not('phone', 'is', null).order('name');
+                    .select('id, name, phone, avatar_color, avatar_emoji, photo_url')
+                    .eq('active', true).order('name');
                 if (error) throw error;
                 if ((data || []).length || !chatContacts.length) chatContacts = data || [];   // ne pas effacer un ajout local si la lecture revient vide
                 renderContactsList();
@@ -6469,6 +6502,8 @@
             applyPermissions();
             if (getProfile()) startPresence();
             else if (presenceChannel && sbClient) { sbClient.removeChannel(presenceChannel); presenceChannel = null; }
+            syncPushSubscription();
+            syncPushUi();
             loadContacts();
             if (globalModel) {
                 chatTeardown();
@@ -6638,6 +6673,7 @@
         }
 
         async function logout() {
+            await pushDetachDevice();   // cet appareil ne reçoit plus les notifications de la personne qui part
             try { const sb = await getSb(); await sb.auth.signOut(); } catch (e) {}
             currentMember = null;
             await afterAuthChange();
@@ -6749,6 +6785,7 @@
             document.getElementById('member-phone').value = (m && m.phone) ? '+' + m.phone : '';
             document.getElementById('member-email').value = (m && m.email) || '';
             document.getElementById('member-info').value = (m && m.info) || '';
+            document.getElementById('member-whatsapp').checked = !!(m && m.whatsapp_notify);
             renderMemberPreview();
             document.getElementById('member-overlay').classList.add('open');
         }
@@ -6772,7 +6809,8 @@
                 email: document.getElementById('member-email').value.trim(),
                 info: document.getElementById('member-info').value.trim(),
                 avatar_color: e.color,
-                avatar_emoji: e.emoji || null
+                avatar_emoji: e.emoji || null,
+                whatsapp_notify: document.getElementById('member-whatsapp').checked
             };
             if (!e.self) fields.role = document.getElementById('member-role').value;
             if (!fields.name) { showToast('Nom requis'); return; }
@@ -6989,6 +7027,236 @@
             document.getElementById('install-help-close').addEventListener('click', () => help.classList.remove('active'));
             help.addEventListener('click', (e) => { if (e.target === help) help.classList.remove('active'); });
             refresh();
+        }
+
+        // ==========================================
+        // DISCUSSIONS PAR COMPTE + NOTIFICATIONS PUSH + REPLI WHATSAPP
+        // ==========================================
+        function isMineMsg(m) {
+            if (!currentMember) return false;
+            if (m.author_member) return m.author_member === currentMember.id;
+            const ph = normPhone(currentMember.phone);                     // anciens messages (par téléphone)
+            return !!ph && normPhone(m.author_phone) === ph;
+        }
+
+        // L'autre personne de la discussion (téléphone à jour pris dans l'équipe)
+        function threadCounterpart(th) {
+            const r = th.row;
+            const meId = currentMember ? currentMember.id : null;
+            let other;
+            if (r.created_by_member || r.recipient_member) {
+                other = (r.created_by_member === meId)
+                    ? { id: r.recipient_member, name: r.recipient_name, phone: r.recipient_phone }
+                    : { id: r.created_by_member, name: r.created_by_name, phone: r.created_by_phone };
+            } else {
+                const mePh = normPhone(currentMember && currentMember.phone);
+                other = (normPhone(r.created_by_phone) === mePh)
+                    ? { id: null, name: r.recipient_name, phone: r.recipient_phone }
+                    : { id: null, name: r.created_by_name, phone: r.created_by_phone };
+            }
+            const fresh = other.id && chatContacts.find(c => c.id === other.id);
+            if (fresh) { other.name = fresh.name; other.phone = fresh.phone; }
+            other.phone = normPhone(other.phone);
+            return other;
+        }
+
+        function whatsAppUrl(phone, th, msg) {
+            const lines = [
+                `📌 ${th.row.part_name}`,
+                msg && msg.body ? msg.body : (msg && msg.audio_url ? '🎤 Message vocal' : 'Nouveau message'),
+                msg && msg.audio_url ? `🔊 ${msg.audio_url}` : null,
+                `👉 ${threadLink(th.row.id)}`
+            ].filter(Boolean);
+            return `https://wa.me/${normPhone(phone)}?text=${encodeURIComponent(lines.join('\n'))}`;
+        }
+
+        function clearWaBar() {
+            const bar = document.getElementById('chat-wa-bar');
+            if (bar) bar.innerHTML = '';
+        }
+
+        // Après l'envoi : proposer WhatsApp si la notification n'est pas arrivée, ou si la personne le préfère
+        function offerWhatsAppFallback(th, msg, results) {
+            const bar = document.getElementById('chat-wa-bar');
+            if (!bar || chatOpenId !== th.row.id) return;
+            bar.innerHTML = '';
+            results.forEach(r => {
+                if (!(r.delivered === 0 || r.whatsapp_notify)) return;
+                const phone = normPhone(r.phone);
+                const why = r.delivered === 0
+                    ? `${r.name} n'a pas activé les notifications`
+                    : `${r.name} souhaite aussi être prévenu(e) par WhatsApp`;
+                const row = document.createElement('div');
+                row.className = 'wa-row';
+                if (phone.length >= 8) {
+                    row.innerHTML = `<span>${escapeHtml(why)}</span><button type="button">📲 WhatsApp</button>`;
+                    row.querySelector('button').onclick = () => {
+                        window.open(whatsAppUrl(phone, th, msg), '_blank');
+                        row.remove();
+                    };
+                } else {
+                    row.innerHTML = `<span>${escapeHtml(why)} (aucun numéro WhatsApp dans son profil)</span>`;
+                }
+                bar.appendChild(row);
+            });
+        }
+
+        // ---------- Notifications push ----------
+        function pushSupported() {
+            return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+        }
+        function swReady(ms = 4000) {
+            return Promise.race([
+                navigator.serviceWorker.ready,
+                new Promise((_, rej) => setTimeout(() => rej(new Error('Service worker indisponible')), ms))
+            ]);
+        }
+        function urlB64ToUint8Array(b64) {
+            const pad = '='.repeat((4 - b64.length % 4) % 4);
+            const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+            return Uint8Array.from(raw, c => c.charCodeAt(0));
+        }
+
+        async function pushFn(action, payload = {}) {
+            const sb = await getSb();
+            const { data: { session } } = await sb.auth.getSession();
+            const r = await fetch(`${SUPABASE_URL_CHAT}/functions/v1/finjat-push`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    apikey: SUPABASE_ANON_KEY,
+                    Authorization: 'Bearer ' + (session ? session.access_token : SUPABASE_ANON_KEY)
+                },
+                body: JSON.stringify(Object.assign({ action }, payload))
+            });
+            const j = await r.json().catch(() => ({ error: 'Réponse invalide du serveur' }));
+            if (!r.ok && !j.error) j.error = 'HTTP ' + r.status;
+            return j;
+        }
+
+        async function sendSubscription(sub) {
+            const j = sub.toJSON();
+            const r = await pushFn('subscribe', {
+                endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, ua: navigator.userAgent.slice(0, 120)
+            });
+            if (r.error) throw new Error(r.error);
+        }
+
+        async function pushSubscribe() {
+            if (!pushSupported()) throw new Error("Notifications non disponibles sur cet appareil");
+            if (!currentMember) throw new Error("Connectez-vous d'abord");
+            const perm = await Notification.requestPermission();   // dans le geste de l'utilisateur (bouton)
+            if (perm !== 'granted') throw new Error("Notifications refusées");
+            const reg = await swReady();
+            let sub = await reg.pushManager.getSubscription();
+            if (!sub) sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+            await sendSubscription(sub);
+        }
+
+        async function pushDetachDevice() {
+            try {
+                if (!pushSupported() || !currentMember) return;
+                const reg = await swReady(2000);
+                const sub = await reg.pushManager.getSubscription();
+                if (sub) await pushFn('unsubscribe', { endpoint: sub.endpoint });
+            } catch (e) {}
+        }
+
+        async function pushUnsubscribe() {
+            await pushDetachDevice();
+            try {
+                const reg = await swReady(2000);
+                const sub = await reg.pushManager.getSubscription();
+                if (sub) await sub.unsubscribe();
+            } catch (e) {}
+        }
+
+        // Après connexion : si déjà autorisé sur ce téléphone, l'abonnement suit le compte connecté (sans question)
+        async function syncPushSubscription() {
+            try {
+                if (!pushSupported() || !currentMember || Notification.permission !== 'granted') return;
+                const reg = await swReady();
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true, applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY)
+                });
+                await sendSubscription(sub);
+            } catch (e) { console.warn('APF notifications', e); }
+        }
+
+        async function syncPushUi() {
+            const row = document.getElementById('push-row');
+            const tg = document.getElementById('push-toggle');
+            const hint = document.getElementById('push-hint');
+            if (!row || !tg || !hint) return;
+            row.style.display = currentMember ? '' : 'none';
+            hint.textContent = '';
+            if (!currentMember) return;
+            if (!pushSupported()) {
+                tg.classList.remove('active');
+                tg.disabled = true;
+                hint.textContent = /iPhone|iPad/i.test(navigator.userAgent)
+                    ? "iPhone : installez l'app sur l'écran d'accueil (Safari > Partager) pour recevoir les notifications"
+                    : "Notifications non disponibles sur cet appareil";
+                return;
+            }
+            tg.disabled = false;
+            let on = false;
+            try {
+                if (Notification.permission === 'granted') {
+                    const reg = await swReady();
+                    on = !!(await reg.pushManager.getSubscription());
+                }
+            } catch (e) {}
+            tg.classList.toggle('active', on);
+            if (Notification.permission === 'denied') {
+                hint.textContent = "Notifications bloquées : autorisez-les pour APF dans les réglages du téléphone";
+            }
+        }
+
+        // Toucher une notification : ouvrir le bon meuble et la bonne discussion
+        function openThreadFromUrl(url) {
+            let u;
+            try { u = new URL(url); } catch (e) { return; }
+            const uid = u.searchParams.get('m'), tid = u.searchParams.get('t');
+            if (!uid) return;
+            if (uid === currentModelUid && globalModel) {
+                if (tid && chatThreads.has(tid)) openChatThread(tid);
+                return;
+            }
+            pendingThreadId = tid;
+            currentLoadedFileName = null;
+            currentModelBlob = null;
+            currentModelUid = uid;
+            loadModelFromUrl(modelUrlFromUid(uid));
+        }
+
+        function setupPush() {
+            const tg = document.getElementById('push-toggle');
+            tg.addEventListener('click', async () => {
+                if (tg.disabled) return;
+                const on = tg.classList.contains('active');
+                tg.disabled = true;
+                try {
+                    if (on) { await pushUnsubscribe(); showToast("Notifications désactivées sur cet appareil"); }
+                    else { await pushSubscribe(); showToast("Notifications activées"); }
+                } catch (e) {
+                    showToast(e.message || String(e));
+                } finally {
+                    tg.disabled = false;
+                    syncPushUi();
+                }
+            });
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.addEventListener('message', (e) => {
+                    const d = e.data || {};
+                    if (d.type === 'apf-open' && d.url) openThreadFromUrl(d.url);
+                    if (d.type === 'apf-push' && d.data) showToast('💬 ' + (d.data.title || 'Nouveau message'));
+                });
+            }
+            syncPushUi();
         }
 
         // ==========================================
