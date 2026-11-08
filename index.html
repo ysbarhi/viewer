@@ -3099,6 +3099,7 @@
         function updateTopInfo(title, size, matName) {
             const panel = document.getElementById('top-info-panel');
             if (!panel) return;
+            if (globalModel) panel.style.display = 'flex';   // la barre s'affiche dès qu'un meuble est ouvert
             if (!panel.querySelector('.ti-head')) {
                 panel.innerHTML =
                     '<div class="ti-head"><span class="ti-head-text notice-text"></span></div>' +
