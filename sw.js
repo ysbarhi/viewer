@@ -6,7 +6,7 @@
  * Copyright : All rights reserved to Yassine Sbarhi 2026
  */
 
-const APP_CACHE = 'apf-cache-v26';
+const APP_CACHE = 'apf-cache-v27';   // nouveau nom : purge les anciennes copies figées
 const SHARE_CACHE = 'shared-file-cache';
 const SCOPE = self.registration.scope;
 const SHARED_KEY = new URL('./shared-file.glb', SCOPE).href;
@@ -91,6 +91,12 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (req.method !== 'GET') return;
+
+  // Données en direct (Supabase : discussions, équipe, permissions, modèles 3D, audio…) : JAMAIS de cache.
+  // Seuls les fichiers de l'app et les bibliothèques (CDN) sont gardés pour le hors-ligne.
+  const sameOrigin = url.origin === self.location.origin;
+  const STATIC_HOSTS = ['unpkg.com', 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+  if (!sameOrigin && !STATIC_HOSTS.includes(url.hostname)) return;
 
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
