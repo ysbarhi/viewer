@@ -1920,6 +1920,7 @@
         // ===== Grille au sol =====
         let groundGrid = null;
         let groundY = 0;
+        let exportEdgeMats = [];   // noms de chants fournis par l'export (ABF)
         let isGridOn = (() => { try { return localStorage.getItem('finjatGrid') !== '0'; } catch (e) { return true; } })();
 
         // ===== Lecture automatique de l'assemblage =====
@@ -2587,7 +2588,12 @@
             return ((mat && mat.name) ? String(mat.name) : "Default").trim().toLowerCase();
         }
 
+        function normMatName(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
         function isEdgeMatName(key) {
+            const k = normMatName(key);
+            // Chants déclarés par ABF à l'export (tolère les suffixes ajoutés par l'export : "_1", ".001"…)
+            if (exportEdgeMats.some(n => k === n || k.startsWith(n))) return true;
             return key.includes("chant") || key.includes("edge") || key.includes("abf");
         }
 
@@ -8071,6 +8077,7 @@
                 let sidCounter = 0;
                 globalModel.traverse(o => { o.userData.sid = sidCounter++; });   // avant tout ajout (traits, contours)
                 const fjRoot = gltf.userData && gltf.userData.finjat;
+                exportEdgeMats = ((fjRoot && fjRoot.edge_materials) || []).map(normMatName).filter(Boolean);
                 if (fjRoot && fjRoot.model_uid) currentModelUid = String(fjRoot.model_uid);
                 // Anciens exports Finjat (lien ?model=…/finjat-models/xxx.glb) : l'ID = nom du fichier en ligne
                 if (!currentModelUid && currentModelSourceUrl) {
