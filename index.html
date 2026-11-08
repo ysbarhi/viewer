@@ -2709,7 +2709,7 @@
             if (gltfAssociations) {
                 for (let o = obj; o && o !== globalModel; o = o.parent) {
                     const a = gltfAssociations.get(o);
-                    if (a && a.nodes !== undefined) return o;
+                    if (a && a.nodes !== undefined) return unwrapGeom(o);
                 }
             }
             return obj.userData.partRoot || obj;
@@ -8126,11 +8126,17 @@
                 let uniqueMaterials = new Map();
 
         // Nœud glTF (= groupe / composant SketchUp) qui possède ce mesh — pas une primitive (face, chant…)
+        // L'export glTF de SketchUp range la géométrie d'un groupe dans des nœuds enfants "Geom3D_…" :
+        // cette géométrie appartient au vrai groupe SketchUp au-dessus (panneau), pas au nœud enveloppe
+        function unwrapGeom(o) {
+            return (o && /^Geom3D/i.test(o.name || '') && o.parent && o.parent !== globalModel) ? o.parent : o;
+        }
+
         function ownerNodeOf(obj) {
             if (!gltfAssociations) return null;
             for (let o = obj; o && o !== globalModel; o = o.parent) {
                 const a = gltfAssociations.get(o);
-                if (a && a.nodes !== undefined) return o;
+                if (a && a.nodes !== undefined) return unwrapGeom(o);
             }
             return null;
         }
