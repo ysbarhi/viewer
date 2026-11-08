@@ -2705,11 +2705,17 @@
         // SÉLECTION : PIÈCE ENTIÈRE + CONTOUR ROUGE ÉPAIS
         // ==========================================
         // Remonte au noeud glTF propriétaire (= groupe/composant SketchUp), pas à une primitive (face/matériau)
+        // Même règle que pour l'éclatement : un nœud "Geom3D_…" (créé par l'export glTF de SketchUp)
+        // n'est qu'une enveloppe, la géométrie appartient au vrai groupe SketchUp au-dessus
+        function unwrapGeomNode(o) {
+            return (o && /^Geom3D/i.test(o.name || '') && o.parent && o.parent !== globalModel) ? o.parent : o;
+        }
+
         function getOwnerNode(obj) {
             if (gltfAssociations) {
                 for (let o = obj; o && o !== globalModel; o = o.parent) {
                     const a = gltfAssociations.get(o);
-                    if (a && a.nodes !== undefined) return unwrapGeom(o);
+                    if (a && a.nodes !== undefined) return unwrapGeomNode(o);
                 }
             }
             return obj.userData.partRoot || obj;
