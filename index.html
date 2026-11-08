@@ -757,8 +757,16 @@
             display: block; max-width: 100%; min-width: 0; overflow: hidden; white-space: nowrap;
         }
         #recent-gallery:not(.layout-grid) .recent-item button {
-            flex: 0 0 auto; margin-left: auto;   /* ✕ toujours à droite, jamais compressé */
-            align-self: stretch; min-width: 46px; border-radius: 8px;
+            flex: 0 0 46px !important;                 /* largeur figée, jamais compressée */
+            width: 46px !important; height: 46px !important;
+            min-width: 46px !important; min-height: 46px !important;
+            max-width: 46px !important; max-height: 46px !important;
+            aspect-ratio: 1 / 1;                       /* carré parfait */
+            align-self: center !important;             /* centré dans la ligne, plus étiré */
+            margin-left: auto; padding: 0 !important;  /* ancré à droite */
+            border-radius: 10px !important;
+            display: flex; align-items: center; justify-content: center;
+            box-sizing: border-box;
         }
 
         /* Hauteur des lignes : confortable, miniature lisible */
