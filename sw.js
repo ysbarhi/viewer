@@ -6,11 +6,49 @@
  * Copyright : All rights reserved to Yassine Sbarhi 2026
  */
 
-const APP_CACHE = 'apf-cache-v25';
+const APP_CACHE = 'apf-cache-v26';
 const SHARE_CACHE = 'shared-file-cache';
 const SCOPE = self.registration.scope;
 const SHARED_KEY = new URL('./shared-file.glb', SCOPE).href;
 const PRECACHE = ['./', './index.html', './manifest.json', './logo.png', './logo-192.png', './logo-maskable-512.png', './splash-cgi.mp4'];
+
+// ===== Notifications APF =====
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data ? event.data.text() : '' }; }
+  event.waitUntil((async () => {
+    const wins = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    // App ouverte au premier plan : pas de notification système, l'app affiche le message elle-même
+    if (wins.some((w) => w.visibilityState === 'visible' && w.focused)) {
+      wins.forEach((w) => w.postMessage({ type: 'apf-push', data }));
+      return;
+    }
+    await self.registration.showNotification(data.title || 'Assembly Part Finder', {
+      body: data.body || '',
+      icon: './logo-192.png',
+      badge: './logo-192.png',
+      tag: data.tag || 'apf',
+      renotify: true,
+      data: { url: data.url || './' }
+    });
+  })());
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || './', SCOPE).href;
+  event.waitUntil((async () => {
+    const wins = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const w of wins) {
+      if (w.url.startsWith(SCOPE)) {
+        await w.focus();
+        w.postMessage({ type: 'apf-open', url: target });   // l'app ouvre le bon meuble + la bonne discussion
+        return;
+      }
+    }
+    await clients.openWindow(target);
+  })());
+});
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
