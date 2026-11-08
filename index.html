@@ -724,6 +724,20 @@
         .ti-dims { font-size: 11px; line-height: 13px; color: #4b5563; }
         .ti-mat  { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 13px; font-weight: 600; color: var(--accent-dark); }
         .ti-mat:empty { display: none; }
+
+        /* ===== Source .skp (Admin / SuperAdmin) ===== */
+        #src-wrap { margin: -8px 0 16px; }
+        .src-card {
+            display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #ddd;
+            border-radius: 10px; padding: 8px 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .src-text { flex: 1; min-width: 0; }
+        .src-label { font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; }
+        .src-path {
+            font-family: Consolas, 'Courier New', monospace; font-size: 12px; color: #111; word-break: break-all;
+            user-select: all; -webkit-user-select: all;
+        }
+        .src-copy { border: none; background: #eff6ff; border-radius: 8px; width: 36px; height: 36px; font-size: 16px; cursor: pointer; flex-shrink: 0; }
         #phase-indicator {
             background: #fff; color: var(--accent-dark); border-radius: 10px; padding: 2px 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
@@ -1349,6 +1363,16 @@
             <svg viewBox="0 0 24 24" width="20" height="20" stroke="white" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             <span id="save-local-label">Enregistrer sur l'appareil</span>
         </button>
+
+        <div id="src-wrap" style="display: none;">
+            <div class="src-card">
+                <div class="src-text">
+                    <div class="src-label">Fichier source (.skp)</div>
+                    <div id="src-path" class="src-path"></div>
+                </div>
+                <button id="src-copy" class="src-copy" type="button" title="Copier le chemin">📋</button>
+            </div>
+        </div>
 
         <div id="addr-wrap">
             <div id="addr-card" class="addr-card empty" role="button" tabindex="0"></div>
@@ -3178,7 +3202,7 @@
         animate();
         setupSplashScreen();   // en premier : l'intro se ferme même si un module plante plus loin
         [setupUI, setupTape, setupLasso, setupLed, setupChat, setupAddress, setupAngles,
-         setupNoticeMarquee, setupAccounts, setupInstall, setupPush, setupChatExtras, setupResume, setupExportKeys, setupScanner, setupFileUploader, setupSidebar].forEach(fn => {
+         setupNoticeMarquee, setupAccounts, setupInstall, setupPush, setupChatExtras, setupResume, setupExportKeys, setupScanner, setupFileUploader, setupSidebar, setupHistoryLinks].forEach(fn => {
             try { fn(); }
             catch (e) { console.error('Finjat : échec au démarrage de ' + fn.name, e); }   // les autres modules continuent
         });
@@ -6679,6 +6703,7 @@
                 chatTeardown();
                 chatOnModelLoaded();
                 loadModelLocation();
+                loadModelSource();
             }
         }
 
@@ -7770,6 +7795,166 @@
         }
 
         // ==========================================
+        // HISTORIQUE DES LIENS + RACCOURCIS + SOURCE .SKP
+        // ==========================================
+        var apfCloudMap = new Map();   // nom affiché dans l'historique -> id du meuble en ligne
+
+        function safeFileName(s) {
+            return String(s || '').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim() || 'Meuble';
+        }
+
+        function dbPut(rec) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).put(rec);
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        // Miniature de la vue actuelle (rendu immédiat puis copie réduite)
+        function captureThumb(size = 256) {
+            try {
+                renderer.render(scene, camera);
+                const src = renderer.domElement;
+                const r = Math.min(size / src.width, size / src.height);
+                const c = document.createElement('canvas');
+                c.width = Math.max(1, Math.round(src.width * r));
+                c.height = Math.max(1, Math.round(src.height * r));
+                c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+                return c.toDataURL('image/jpeg', 0.75);
+            } catch (e) { return null; }
+        }
+
+        async function refreshCloudMap() {
+            try {
+                const all = await getRecentModels();
+                apfCloudMap = new Map();
+                all.filter(r => r.uid).forEach(r => {
+                    apfCloudMap.set(r.name, r.uid);
+                    apfCloudMap.set(r.name.replace(/\.glb$/i, ''), r.uid);
+                });
+            } catch (e) {}
+        }
+
+        // Un meuble ouvert depuis un lien entre dans l'historique (ou remonte en tête s'il y est déjà)
+        async function registerCloudInHistory() {
+            if (!globalModel || !currentModelUid || currentLoadedFileName) return;
+            const uid = currentModelUid;
+            try {
+                if (!db) await initDB();
+                const all = await getRecentModels();
+                const existing = all.find(r => r.uid === uid);
+                const thumb = captureThumb();
+                if (existing) {
+                    await dbPut(Object.assign({}, existing, { date: Date.now(), thumbnail: thumb || existing.thumbnail }));
+                } else {
+                    const res = await fetch(currentModelSourceUrl || modelUrlFromUid(uid));   // déjà en cache navigateur
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const blob = await res.blob();
+                    let name = (modelClient || modelProduct) ? historyName(Date.now()) : `Meuble ${uid}.glb`;
+                    if (all.some(r => r.name === name && r.uid !== uid)) name = name.replace(/\.glb$/i, ` ${uid}.glb`);
+                    const file = new File([blob], name, { type: 'model/gltf-binary' });
+                    await dbPut({ name, fileBlob: file, date: Date.now(), thumbnail: thumb, uid });
+                }
+                await refreshCloudMap();
+                if (typeof renderRecentGallery === 'function') renderRecentGallery();
+            } catch (e) { console.warn('APF historique (lien)', e); }
+        }
+
+        function downloadBlob(blob, name) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        }
+
+        function updateSaveLabel() {
+            const lbl = document.getElementById('save-local-label');
+            if (lbl) lbl.textContent = currentModelUid ? 'Enregistrer le raccourci' : 'Enregistrer le fichier .glb';
+        }
+
+        // Meuble en ligne : raccourci .html qui ouvre le lien ; fichier local : le .glb
+        function saveShortcutOrFile() {
+            if (!globalModel) return;
+            if (currentModelUid) {
+                const url = `${location.origin}${location.pathname}?m=${encodeURIComponent(currentModelUid)}`;
+                const title = modelHeader();
+                const html =
+                    `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>` +
+                    `<meta http-equiv="refresh" content="0;url=${escapeHtml(url)}"></head>` +
+                    `<body style="font-family:sans-serif;padding:24px"><p>Ouverture de <b>${escapeHtml(title)}</b> dans Assembly Part Finder…</p>` +
+                    `<p><a href="${escapeHtml(url)}">Ouvrir le meuble</a></p>` +
+                    `<script>location.replace(${JSON.stringify(url)});<\/script></body></html>`;
+                downloadBlob(new Blob([html], { type: 'text/html' }), `${safeFileName(title)} (APF).html`);
+                showToast("Raccourci enregistré dans Téléchargements");
+            } else if (currentModelBlob) {
+                downloadBlob(currentModelBlob, currentLoadedFileName || 'meuble.glb');
+                showToast("Fichier .glb enregistré dans Téléchargements");
+            } else {
+                showToast("Rien à enregistrer pour ce meuble");
+            }
+        }
+
+        // Chemin du .skp : visible seulement si la grille l'autorise (le serveur applique la même règle)
+        async function loadModelSource() {
+            const wrap = document.getElementById('src-wrap');
+            if (!wrap) return;
+            wrap.style.display = 'none';
+            if (!globalModel || !currentModelUid || !chatReady() || !can('source')) return;
+            const uid = currentModelUid;
+            try {
+                const sb = await getSb();
+                const { data } = await sb.from('finjat_sources')
+                    .select('source_path, computer').eq('model_uid', uid).maybeSingle();
+                if (uid !== currentModelUid || !data || !data.source_path) return;
+                const p = document.getElementById('src-path');
+                p.textContent = data.source_path;
+                p.title = data.computer ? `PC : ${data.computer}` : '';
+                wrap.style.display = '';
+            } catch (e) { console.warn('APF source', e); }
+        }
+
+        function setupHistoryLinks() {
+            // Nouveau comportement du bouton (l'ancien est retiré en le remplaçant par une copie sans écouteurs)
+            const old = document.getElementById('save-local-btn');
+            if (old) {
+                const btn = old.cloneNode(true);
+                old.replaceWith(btn);
+                btn.addEventListener('click', saveShortcutOrFile);
+            }
+            updateSaveLabel();
+
+            document.getElementById('src-copy').addEventListener('click', async () => {
+                const t = document.getElementById('src-path').textContent;
+                try { await navigator.clipboard.writeText(t); showToast("Chemin copié"); } catch (e) {}
+            });
+
+            // Historique : une entrée venant d'un lien se rouvre depuis le cloud (dernière version) quand on est en ligne
+            const gal = document.getElementById('recent-gallery');
+            if (gal) gal.addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;                 // boutons (supprimer…) : comportement normal
+                const item = e.target.closest('.recent-item');
+                if (!item || !navigator.onLine) return;                 // hors ligne : la copie locale s'ouvre
+                const el = item.querySelector('.recent-name-text') || item.querySelector('.recent-name');
+                const uid = el ? apfCloudMap.get(el.textContent.trim()) : null;
+                if (!uid) return;
+                e.stopPropagation();
+                e.preventDefault();
+                document.getElementById('start-menu').style.display = 'none';
+                currentLoadedFileName = null;
+                currentModelBlob = null;
+                currentModelUid = uid;
+                loadModelFromUrl(modelUrlFromUid(uid));
+            }, true);   // phase de capture : passe avant l'ouverture normale de l'historique
+
+            setTimeout(refreshCloudMap, 0);
+        }
+
+        // ==========================================
         // BASE DE DONNÉES INTERNE & GALERIE VISUELLE
         // ==========================================
         const DB_NAME = 'Finjat3D_DB';
@@ -8560,6 +8745,9 @@
                 loadModelLocation();
                 placeGroundGrid(globalBox.min.y);   // sol = point le plus bas du meuble
                 rememberLastModel();                // bouton "Reprendre" sur l'accueil
+                updateSaveLabel();                  // "Enregistrer le raccourci" / "le fichier .glb"
+                loadModelSource();                  // chemin .skp (selon la grille)
+                setTimeout(registerCloudInHistory, 1200);   // lien ouvert => historique (après le 1er rendu, pour la miniature)
                 if (currentLoadedFileName) {        // historique : renommé "Client_Produit_Date" (après la miniature)
                     const nm = currentLoadedFileName;
                     setTimeout(() => renameInHistory(nm).catch(e => console.warn('APF historique', e)), 1500);
