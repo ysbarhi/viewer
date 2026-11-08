@@ -627,6 +627,61 @@
         .chat-wa { border: none; background: #dcfce7; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; flex-shrink: 0; }
         .member-wa { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: bold; color: #333; }
         .member-wa input { width: 20px; height: 20px; }
+
+        /* ===== Pins derrière le modèle ===== */
+        .chat-pin { transition: opacity 0.2s ease; }
+        .chat-pin.behind { opacity: 0.35; }
+
+        /* ===== Reprendre le dernier meuble (accueil) ===== */
+        #home-resume-btn {
+            display: none; background: #16a34a; color: #fff; border: none;
+            padding: 13px 30px; border-radius: 10px; font-size: 16px; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; margin-top: 12px;
+            max-width: 90vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        #home-resume-btn:active { transform: scale(0.98); }
+
+        /* ===== Discussion style WhatsApp ===== */
+        #chat-panel { background: #efeae2 !important; }
+        .chat-head { background: #008069; color: #fff; border-bottom: none !important; }
+        .chat-head .chat-x { background: rgba(255,255,255,0.18); color: #fff; }
+        #chat-recipient { background: #fff; flex-wrap: nowrap; }
+        .chat-at { background: #e7f3ff; color: #2563eb; border-radius: 12px; padding: 2px 8px; font-size: 13px; white-space: nowrap; }
+        .chat-avatar.on .av { outline: 3px solid #00a884; outline-offset: 2px; }
+        .chat-add, .chat-cancel {
+            border: none; background: #e9edef; border-radius: 50%; width: 30px; height: 30px;
+            font-size: 18px; line-height: 1; cursor: pointer; flex-shrink: 0; color: #111;
+        }
+        #chat-messages { background: #efeae2; gap: 4px !important; }
+        .chat-msg {
+            background: #fff !important; border-radius: 8px 8px 8px 2px !important; padding: 6px 9px 4px !important;
+            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); max-width: 82% !important;
+        }
+        .chat-msg.mine { background: #d9fdd3 !important; border-radius: 8px 8px 2px 8px !important; }
+        .chat-msg .who { font-size: 12px !important; margin-bottom: 1px; }
+        .chat-msg .txt { font-size: 14.5px; color: #111b21; line-height: 1.35; white-space: pre-wrap; }
+        .chat-msg .when { font-size: 10.5px !important; color: #667781 !important; margin-top: 1px; }
+        .chat-msg.mine .when { color: #53bdeb !important; }
+        .chat-msg audio { width: 230px !important; height: 38px !important; margin: 2px 0; }
+        .chat-sys {
+            align-self: center; background: #fff7d6; color: #54656f; font-size: 12px; border-radius: 8px;
+            padding: 4px 10px; margin: 4px 0; box-shadow: 0 1px 0.5px rgba(0,0,0,0.1); text-align: center;
+        }
+        .chat-input-row { background: #f0f2f5; border-top: none !important; padding: 6px 8px !important; }
+        #chat-text {
+            border: none !important; border-radius: 22px !important; padding: 11px 14px !important;
+            background: #fff; font-size: 15px !important; outline: none;
+        }
+        .chat-action {
+            width: 46px; height: 46px; border-radius: 50%; border: none; background: #00a884;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2); touch-action: none; transition: transform 0.12s, background 0.15s;
+        }
+        .chat-action:active { transform: scale(0.92); }
+        .chat-action.rec { background: #ef4444; transform: scale(1.18); animation: chatRec 0.8s infinite alternate; }
+        #chat-rec-chip { padding: 6px 12px 0 !important; color: #54656f !important; }
+        .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; animation: chatRec 0.8s infinite alternate; }
+        .rec-cancel { color: #8696a0; font-weight: normal; margin-left: auto; }
         #phase-indicator {
             background: #fff; color: var(--accent-dark); border-radius: 10px; padding: 2px 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
@@ -1334,17 +1389,9 @@
         <div id="chat-rec-chip"></div>
         <div id="chat-wa-bar"></div>
         <div class="chat-input-row">
-            <button id="chat-mic" class="chat-icon-btn" type="button" aria-label="Message vocal">
-                <svg viewBox="0 0 24 24" width="20" height="20" stroke="#333" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line>
-                </svg>
-            </button>
-            <input id="chat-text" type="text" placeholder="Message… (@ pour chercher un contact)" autocomplete="off">
-            <button id="chat-send" class="chat-icon-btn chat-send" type="button" aria-label="Envoyer">
-                <svg viewBox="0 0 24 24" width="18" height="18" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
+            <input id="chat-text" type="text" placeholder="Message" autocomplete="off">
+            <button id="chat-mic" class="chat-action" type="button" aria-label="Maintenir pour enregistrer">
+                <svg id="chat-action-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
             </button>
         </div>
     </div>
@@ -1409,6 +1456,7 @@
         <div class="author-badge">© 2026 Yassine Sbarhi</div>
         <button id="file-btn">📁 CHARGER UN MEUBLE (.glb)</button>
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
+        <button id="home-resume-btn" type="button"></button>
         <button id="home-scan-btn" type="button">📷 SCANNER UNE ÉTIQUETTE</button>
         <button id="home-source-btn" type="button">🗂 TROUVER SOURCE</button>
         <button id="home-install-btn" type="button">📲 Installer l'application</button>
@@ -1832,6 +1880,10 @@
         const authReady = new Promise(r => { authReadyResolve = r; });   // connexion restaurée (ou absente) au démarrage
         let chatLoadToken = 0;                                           // seul le dernier chargement des discussions compte
         let micHeld = false, micDownAt = 0;                              // enregistrement par appui maintenu
+        let chatAutoSend = false;                                        // relâcher = envoyer le vocal
+        let chatOccAt = 0;                                               // occultation des pins (par lots)
+        const _chatRay = new THREE.Raycaster();
+        const _chatDir = new THREE.Vector3();
         const CHAT_COLORS = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#e11d48', '#0891b2', '#4f46e5', '#65a30d'];
         let sbClient = null;
         let isChatModeOn = false;
@@ -3052,7 +3104,7 @@
         animate();
         setupSplashScreen();   // en premier : l'intro se ferme même si un module plante plus loin
         [setupUI, setupTape, setupLasso, setupLed, setupChat, setupAddress, setupAngles,
-         setupNoticeMarquee, setupAccounts, setupInstall, setupPush, setupChatExtras, setupScanner, setupFileUploader, setupSidebar].forEach(fn => {
+         setupNoticeMarquee, setupAccounts, setupInstall, setupPush, setupChatExtras, setupResume, setupScanner, setupFileUploader, setupSidebar].forEach(fn => {
             try { fn(); }
             catch (e) { console.error('Finjat : échec au démarrage de ' + fn.name, e); }   // les autres modules continuent
         });
@@ -4725,6 +4777,7 @@
             try { localStorage.setItem('finjatChatRead', JSON.stringify(m)); } catch (e) {}
         }
         function threadUnread(th) {
+            if (!isParticipant(th)) return 0;   // pas de pastille pour les discussions des autres
             const t = chatReadMap()[th.row.id] || 0;
             return th.messages.filter(m => !isMineMsg(m) && Date.parse(m.created_at) > t).length;
         }
@@ -4742,12 +4795,11 @@
         function setupChat() {
             document.getElementById('chat-btn').addEventListener('click', () => setChatMode(!isChatModeOn));
             document.getElementById('chat-close').addEventListener('click', closeChatPanel);
-            document.getElementById('chat-send').addEventListener('click', sendChatMessage);
             const input = document.getElementById('chat-text');
             input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChatMessage(); } });
             input.addEventListener('input', () => {
                 const th = chatThreads.get(chatOpenId);
-                if (th && !th.row.recipient_phone) renderChatRecipient(th);   // "@nom" filtre les contacts
+                if (th && (th.draft || th.adding)) renderChatRecipient(th);   // "@nom" filtre les membres
             });
 
             // Profil + contacts (panneau ⚙)
@@ -4852,8 +4904,13 @@
 
                 if (chatChannel) { sb.removeChannel(chatChannel); chatChannel = null; }   // jamais deux abonnements
                 chatChannel = sb.channel('chat-' + uid)
-                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'finjat_threads', filter: `model_uid=eq.${uid}` },
-                        (p) => { addThreadRow(p.new); refreshChatPins(); })
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'finjat_threads', filter: `model_uid=eq.${uid}` },
+                        (p) => {
+                            if (!p.new || !p.new.id) return;
+                            addThreadRow(p.new);
+                            if (chatOpenId === p.new.id) renderChatRecipient(chatThreads.get(p.new.id));
+                            refreshChatPins();
+                        })
                     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'finjat_messages', filter: `model_uid=eq.${uid}` },
                         (p) => onIncomingMessage(p.new))
                     .subscribe();
@@ -4949,7 +5006,8 @@
                 point_local: local.toArray(),
                 point_world: hit.point.toArray(),
                 created_by_member: me.id, created_by_name: me.name, created_by_phone: normPhone(me.phone) || null,
-                recipient_member: null, recipient_name: null, recipient_phone: null
+                recipient_member: null, recipient_name: null, recipient_phone: null,
+                participants: []
             };
             chatThreads.set(id, { draft: true, row, messages: [], root: anchor, local, el: null });
             openChatThread(id);
@@ -4982,6 +5040,9 @@
         function updateChatOverlay() {
             if (!chatThreads.size) return;
             const rect = renderer.domElement.getBoundingClientRect();
+            const now = performance.now();
+            const doOcc = now - chatOccAt > 150;   // test d'occultation ~7 fois/s
+            if (doOcc) chatOccAt = now;
             chatThreads.forEach(th => {
                 if (!th.el) return;
                 if (th.root && th.local) {
@@ -4991,6 +5052,14 @@
                     _chatV.fromArray(th.row.point_world || [0, 0, 0]);
                 }
                 placeTapeEl(th.el, _chatV, rect);
+                if (doOcc) {
+                    const d = camera.position.distanceTo(_chatV);
+                    _chatRay.set(camera.position, _chatDir.subVectors(_chatV, camera.position).normalize());
+                    _chatRay.far = d;
+                    const hits = _chatRay.intersectObjects(tapeMeshes, false);
+                    th.behind = hits.length > 0 && hits[0].distance < d - Math.max(0.004, d * 0.01);
+                }
+                th.el.classList.toggle('behind', !!th.behind);
             });
         }
 
@@ -5030,70 +5099,78 @@
             if (!th) { box.innerHTML = ''; return; }
             const meId = currentMember ? currentMember.id : null;
 
-            if (th.row.recipient_member || th.row.recipient_phone) {
-                const other = threadCounterpart(th);
-                box.innerHTML = `<span class="chat-for">Avec</span><span class="chat-at">@${escapeHtml(other.name || '')}</span>` +
-                    (th.draft ? '<button type="button" class="chat-change">changer</button>' : '') +
-                    (!th.draft && other.phone ? '<span style="flex:1"></span><button type="button" class="chat-wa" title="Prévenir par WhatsApp">📲</button>' : '');
-                const ch = box.querySelector('.chat-change');
-                if (ch) ch.addEventListener('click', () => {
-                    th.row.recipient_member = null;
-                    th.row.recipient_name = null;
-                    th.row.recipient_phone = null;
-                    renderChatRecipient(th);
+            // Choix (nouvelle discussion) ou ajout (discussion en cours)
+            if (th.draft || th.adding) {
+                const chosen = th.row.participants || [];
+                const already = th.draft ? [] : threadOthers(th).map(o => o.id);
+                const mm = document.getElementById('chat-text').value.match(/^@(\S*)/);
+                const q = mm ? mm[1].toLowerCase() : '';
+                const list = chatContacts.filter(c => c.id !== meId && !already.includes(c.id) &&
+                    (!q || String(c.name).toLowerCase().includes(q)));
+                box.innerHTML = `<span class="chat-for">${th.draft ? 'Pour :' : 'Ajouter :'}</span>`;
+                if (!list.length) {
+                    box.innerHTML += `<span class="chat-for">${q ? 'Aucun membre trouvé' : (th.draft ? "Aucun autre membre dans l'équipe" : 'Tout le monde est déjà là')}</span>`;
+                }
+                list.forEach(c => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'chat-avatar' + (th.draft && chosen.includes(c.id) ? ' on' : '');
+                    b.innerHTML = avatarHtml(c, '') + `<span class="nm">${escapeHtml(c.name)}</span>`;
+                    b.addEventListener('click', () => {
+                        const input = document.getElementById('chat-text');
+                        input.value = input.value.replace(/^@\S*\s?/, '');
+                        if (th.draft) toggleDraftRecipient(th, c);
+                        else addParticipant(th, c);
+                    });
+                    box.appendChild(b);
                 });
-                const wa = box.querySelector('.chat-wa');
-                if (wa) wa.addEventListener('click', () => {
-                    const last = th.messages[th.messages.length - 1] || null;
-                    window.open(whatsAppUrl(other.phone, th, last), '_blank');
-                });
+                if (th.adding) {
+                    const x = document.createElement('button');
+                    x.type = 'button';
+                    x.className = 'chat-cancel';
+                    x.textContent = '✕';
+                    x.onclick = () => { th.adding = false; renderChatRecipient(th); };
+                    box.appendChild(x);
+                }
                 return;
             }
 
-            const mm = document.getElementById('chat-text').value.match(/^@(\S*)/);
-            const q = mm ? mm[1].toLowerCase() : '';
-            const list = chatContacts.filter(c => c.id !== meId && (!q || String(c.name).toLowerCase().includes(q)));
-            if (!list.length) {
-                box.innerHTML = `<span class="chat-for">${chatContacts.length > 1 ? 'Aucun membre trouvé' : "Aucun autre membre dans l'équipe"}</span>`;
-                return;
-            }
-            box.innerHTML = '<span class="chat-for">Pour :</span>';
-            list.forEach(c => {
-                const b = document.createElement('button');
-                b.type = 'button';
-                b.className = 'chat-avatar';
-                b.innerHTML = avatarHtml(c, '') + `<span class="nm">${escapeHtml(c.name)}</span>`;
-                b.addEventListener('click', () => {
-                    th.row.recipient_member = c.id;
-                    th.row.recipient_name = c.name;
-                    th.row.recipient_phone = normPhone(c.phone) || null;
-                    const input = document.getElementById('chat-text');
-                    input.value = input.value.replace(/^@\S*\s?/, '');
-                    renderChatRecipient(th);
-                    input.focus();
-                });
-                box.appendChild(b);
-            });
+            // Discussion en cours : participants + ajouter + WhatsApp (si une seule personne)
+            const others = threadOthers(th);
+            box.innerHTML = '<span class="chat-for">Avec</span>' +
+                others.map(o => `<span class="chat-at">@${escapeHtml(o.name || '')}</span>`).join('') +
+                '<span style="flex:1"></span>' +
+                (isParticipant(th) ? '<button type="button" class="chat-add" title="Ajouter un participant">＋</button>' : '') +
+                (others.length === 1 && others[0].phone ? '<button type="button" class="chat-wa" title="Prévenir par WhatsApp">📲</button>' : '');
+            const add = box.querySelector('.chat-add');
+            if (add) add.onclick = () => { th.adding = true; renderChatRecipient(th); };
+            const wa = box.querySelector('.chat-wa');
+            if (wa) wa.onclick = () => {
+                const last = th.messages[th.messages.length - 1] || null;
+                window.open(whatsAppUrl(others[0].phone, th, last), '_blank');
+            };
         }
 
         function renderChatMessages(th) {
             const box = document.getElementById('chat-messages');
             if (!th || !th.messages.length) {
                 box.innerHTML = `<div class="chat-empty">${th && th.draft
-                    ? 'Choisissez un destinataire, puis écrivez ou enregistrez un message'
+                    ? 'Choisissez un ou plusieurs destinataires, puis écrivez ou maintenez 🎤'
                     : 'Aucun message'}</div>`;
                 return;
             }
-            const me = normPhone((getProfile() || {}).phone);
             box.innerHTML = th.messages.map(m => {
-                const mine = isMineMsg(m);
                 const when = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                if (m.kind === 'system') {
+                    return `<div class="chat-sys">${escapeHtml((m.author_name ? m.author_name + ' ' : '') + (m.body || ''))} · ${when}</div>`;
+                }
+                const mine = isMineMsg(m);
                 const src = m.localAudio || m.audio_url;
                 return `<div class="chat-msg${mine ? ' mine' : ''}${m.failed ? ' failed' : ''}">` +
-                    (mine ? '' : `<div class="who">${escapeHtml(m.author_name || '')}</div>`) +
-                    (m.body ? `<div>${escapeHtml(m.body)}</div>` : '') +
+                    (mine ? '' : `<div class="who" style="color:${contactColor(m.author_member || m.author_phone || m.author_name || '')}">${escapeHtml(m.author_name || '')}</div>`) +
                     (src ? `<audio controls preload="none" src="${escapeHtml(src)}"></audio>` : '') +
-                    `<div class="when">${when}${m.failed ? ' · échec' : ''}</div></div>`;
+                    (m.body ? `<div class="txt">${escapeHtml(m.body)}</div>` : '') +
+                    `<div class="when">${when}${m.failed ? ' · échec' : (mine ? ' ✓' : '')}</div></div>`;
             }).join('');
             box.scrollTop = box.scrollHeight;
         }
@@ -5121,6 +5198,8 @@
                     chatRecDiscard = false;
                     chatRecorder = null;
                     renderRecChip();
+                    if (chatRecBlob && chatAutoSend) { chatAutoSend = false; sendChatMessage(); }   // relâcher = envoyer
+                    else chatAutoSend = false;
                 };
                 chatRecorder = rec;
                 chatRecStart = Date.now();
@@ -5142,15 +5221,15 @@
             const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
             mic.classList.toggle('rec', !!chatRecorder);
             if (chatRecorder) {
-                chip.textContent = `● Enregistrement ${fmt(Math.round((Date.now() - chatRecStart) / 1000))} : relâchez pour terminer`;
-                return;
-            }
-            if (chatRecBlob) {
-                chip.innerHTML = `🎤 Message vocal ${fmt(chatRecDur)} <button type="button">✕</button>`;
+                chip.innerHTML = `<span class="rec-dot"></span> ${fmt(Math.round((Date.now() - chatRecStart) / 1000))}` +
+                                 `<span class="rec-cancel">‹ glisser pour annuler</span>`;
+            } else if (chatRecBlob) {
+                chip.innerHTML = `🎤 Vocal prêt ${fmt(chatRecDur)} <button type="button">✕</button>`;
                 chip.querySelector('button').addEventListener('click', () => { chatRecBlob = null; renderRecChip(); });
-                return;
+            } else {
+                chip.innerHTML = '';
             }
-            chip.innerHTML = '';
+            updateChatAction();
         }
 
         // ---------- Envoi ----------
@@ -7309,29 +7388,54 @@
                 if (document.visibilityState === 'visible') chatSyncNow();
             });
 
-            // 🎤 : maintenir pour enregistrer, relâcher pour terminer
-            const mic = document.getElementById('chat-mic');
-            mic.addEventListener('pointerdown', (e) => {
+            // Bouton unique : texte saisi = envoyer ; sinon maintenir = enregistrer, relâcher = envoyer, glisser à gauche = annuler
+            const btn = document.getElementById('chat-mic');
+            const input = document.getElementById('chat-text');
+            input.addEventListener('input', updateChatAction);
+            let mode = null, startX = 0;
+            btn.addEventListener('pointerdown', (e) => {
                 e.preventDefault();
-                try { mic.setPointerCapture(e.pointerId); } catch (_) {}
+                if (hasDraftContent()) { mode = 'send'; return; }
+                mode = 'rec';
+                try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+                startX = e.clientX;
                 micHeld = true;
                 micDownAt = Date.now();
                 chatRecDiscard = false;
+                chatAutoSend = true;
                 startChatRecording();
             });
-            const release = () => {
-                if (!micHeld) return;
+            btn.addEventListener('pointermove', (e) => {
+                if (mode !== 'rec' || !micHeld) return;
+                if (startX - e.clientX > 90) {
+                    micHeld = false;
+                    chatRecDiscard = true;
+                    chatAutoSend = false;
+                    stopChatRecording();
+                    showToast("Message vocal annulé");
+                    mode = null;
+                }
+            });
+            btn.addEventListener('pointerup', () => {
+                if (mode === 'send') { mode = null; sendChatMessage(); return; }
+                if (mode !== 'rec' || !micHeld) { mode = null; return; }
+                mode = null;
                 micHeld = false;
                 if (Date.now() - micDownAt < 400) {   // simple tap : rien n'est gardé
                     chatRecDiscard = true;
+                    chatAutoSend = false;
                     showToast("Maintenez 🎤 pour enregistrer");
                 }
                 stopChatRecording();
-            };
-            ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => mic.addEventListener(ev, release));
-            mic.addEventListener('contextmenu', (e) => e.preventDefault());
+            });
+            btn.addEventListener('pointercancel', () => {
+                if (mode === 'rec') { micHeld = false; chatRecDiscard = true; chatAutoSend = false; stopChatRecording(); }
+                mode = null;
+            });
+            btn.addEventListener('contextmenu', (e) => e.preventDefault());
+            updateChatAction();
 
-            // Mode message exclusif : tout autre bouton le désactive (animation, ruban, angles, lasso, LED…)
+            // Mode message exclusif : tout autre bouton le désactive
             document.addEventListener('pointerdown', (e) => {
                 if (!isChatModeOn) return;
                 const b = e.target.closest && e.target.closest('button');
@@ -7339,6 +7443,159 @@
                 if (b.closest('#chat-panel, #chat-layer, #sidebar, #login-overlay, #team-overlay, #member-overlay, #pin-reveal')) return;
                 setChatMode(false);
             }, true);
+        }
+
+        // ==========================================
+        // DISCUSSIONS À PLUSIEURS + BOUTON D'ACTION + REPRENDRE
+        // ==========================================
+        function isParticipant(th) {
+            if (!currentMember) return false;
+            const r = th.row, id = currentMember.id;
+            if (r.created_by_member === id || r.recipient_member === id) return true;
+            if (Array.isArray(r.participants) && r.participants.includes(id)) return true;
+            const ph = normPhone(currentMember.phone);   // anciennes discussions (par téléphone)
+            return !!ph && (normPhone(r.created_by_phone) === ph || normPhone(r.recipient_phone) === ph);
+        }
+
+        // Les autres personnes de la discussion (noms / téléphones à jour depuis l'équipe)
+        function threadOthers(th) {
+            const r = th.row, meId = currentMember ? currentMember.id : null;
+            const ids = [...new Set([r.created_by_member, r.recipient_member, ...(r.participants || [])]
+                .filter(x => x && x !== meId))];
+            if (!ids.length) { const o = threadCounterpart(th); return o.name ? [o] : []; }
+            return ids.map(id => {
+                const c = chatContacts.find(x => x.id === id);
+                if (c) return { id, name: c.name, phone: normPhone(c.phone) };
+                const name = id === r.created_by_member ? r.created_by_name : 'Membre';
+                return { id, name, phone: '' };
+            });
+        }
+
+        // Nouvelle discussion : sélection multiple (toucher = ajouter / retirer)
+        function toggleDraftRecipient(th, c) {
+            const set = new Set(th.row.participants || []);
+            if (set.has(c.id)) set.delete(c.id); else set.add(c.id);
+            const ids = Array.from(set);
+            const picked = ids.map(id => chatContacts.find(x => x.id === id)).filter(Boolean);
+            th.row.participants = ids;
+            th.row.recipient_member = picked.length ? picked[0].id : null;
+            th.row.recipient_name = picked.length ? picked.map(p => p.name).join(', ') : null;
+            th.row.recipient_phone = picked.length ? (normPhone(picked[0].phone) || null) : null;
+            renderChatRecipient(th);
+        }
+
+        // Discussion en cours : ajouter quelqu'un (message système = notifie tout le monde, y compris le nouveau)
+        async function addParticipant(th, c) {
+            const set = new Set(th.row.participants || []);
+            if (th.row.recipient_member) set.add(th.row.recipient_member);
+            set.add(c.id);
+            const ids = Array.from(set);
+            try {
+                const sb = await getSb();
+                const { error } = await sb.from('finjat_threads').update({ participants: ids }).eq('id', th.row.id);
+                if (error) throw error;
+                th.row.participants = ids;
+                th.adding = false;
+                renderChatRecipient(th);
+                await postSystemMessage(th, `a ajouté ${c.name}`);
+            } catch (e) {
+                showToast("Ajout impossible : " + (e.message || e));
+            }
+        }
+
+        async function postSystemMessage(th, body) {
+            const me = getProfile();
+            if (!me) return;
+            const msg = {
+                id: newUuid(), thread_id: th.row.id, model_uid: currentModelUid,
+                author_member: me.id, author_name: me.name, author_phone: me.phone || null,
+                kind: 'system', body, audio_url: null
+            };
+            th.messages.push(Object.assign({ created_at: new Date().toISOString() }, msg));
+            renderChatMessages(th);
+            markThreadRead(th.row.id);
+            const sb = await getSb();
+            const { error } = await sb.from('finjat_messages').insert(msg);
+            if (error) throw error;
+            const r = await pushFn('notify', { thread_id: th.row.id, message_id: msg.id });
+            if (!r.error) offerWhatsAppFallback(th, msg, r.results || []);
+        }
+
+        // Bouton d'action : ✈ si un texte (ou un vocal prêt) attend, sinon 🎤
+        function iconMic() {
+            return '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line>';
+        }
+        function iconSend() {
+            return '<line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>';
+        }
+        function hasDraftContent() {
+            const t = document.getElementById('chat-text').value.replace(/^@\S*\s?/, '').trim();
+            return !!t || !!chatRecBlob;
+        }
+        function updateChatAction() {
+            const icon = document.getElementById('chat-action-icon');
+            const btn = document.getElementById('chat-mic');
+            if (!icon || !btn || chatRecorder) return;
+            const send = hasDraftContent();
+            icon.innerHTML = send ? iconSend() : iconMic();
+            btn.setAttribute('aria-label', send ? 'Envoyer' : 'Maintenir pour enregistrer');
+        }
+
+        // ---------- Reprendre le dernier meuble (même ouvert depuis un lien WhatsApp) ----------
+        function readLastModel() {
+            try { return JSON.parse(localStorage.getItem('apfLastModel') || 'null'); } catch (e) { return null; }
+        }
+        function rememberLastModel() {
+            let src = null;
+            if (currentLoadedFileName) src = { type: 'db', name: currentLoadedFileName };
+            else if (currentModelUid) src = { type: 'url', uid: currentModelUid };
+            else if (currentModelSourceUrl) src = { type: 'url', url: currentModelSourceUrl };
+            if (!src) return;
+            src.label = currentLoadedFileName ||
+                ((currentModelName && currentModelName !== 'Meuble Global') ? currentModelName
+                    : (currentModelUid ? 'Meuble ' + currentModelUid : 'Dernier meuble'));
+            try { localStorage.setItem('apfLastModel', JSON.stringify(src)); } catch (e) {}
+            renderResumeBtn();
+        }
+        function renderResumeBtn() {
+            const btn = document.getElementById('home-resume-btn');
+            if (!btn) return;
+            const lm = readLastModel();
+            btn.style.display = lm ? 'inline-block' : 'none';
+            if (lm) btn.textContent = '↩ Reprendre : ' + (lm.label || 'dernier meuble');
+        }
+        async function openLastModel() {
+            const lm = readLastModel();
+            if (!lm) return;
+            document.getElementById('start-menu').style.display = 'none';
+            document.getElementById('loader').style.display = 'flex';
+            try {
+                if (lm.type === 'db') {
+                    const rec = (await getRecentModels()).find(r => r.name === lm.name);
+                    if (!rec) throw new Error("ce meuble n'est plus dans l'historique");
+                    currentLoadedFileName = rec.name;
+                    currentModelBlob = rec.fileBlob;
+                    loadModelFromUrl(URL.createObjectURL(rec.fileBlob));
+                } else if (lm.uid) {
+                    currentLoadedFileName = null;
+                    currentModelBlob = null;
+                    currentModelUid = lm.uid;
+                    loadModelFromUrl(modelUrlFromUid(lm.uid));
+                } else if (lm.url) {
+                    currentLoadedFileName = null;
+                    currentModelBlob = null;
+                    currentModelUid = null;
+                    loadModelFromUrl(lm.url);
+                }
+            } catch (e) {
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('start-menu').style.display = 'flex';
+                showToast("Impossible de reprendre : " + (e.message || e));
+            }
+        }
+        function setupResume() {
+            document.getElementById('home-resume-btn').addEventListener('click', openLastModel);
+            renderResumeBtn();
         }
 
         // ==========================================
@@ -8055,6 +8312,7 @@
                 modelExportLocation = normalizeLocation(fjRoot && (fjRoot.location || fjRoot.address));
                 loadModelLocation();
                 placeGroundGrid(globalBox.min.y);   // sol = point le plus bas du meuble
+                rememberLastModel();                // bouton "Reprendre" sur l'accueil
                 
                 URL.revokeObjectURL(url);
             }, undefined, function (err) {
