@@ -682,6 +682,15 @@
         #chat-rec-chip { padding: 6px 12px 0 !important; color: #54656f !important; }
         .rec-dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; animation: chatRec 0.8s infinite alternate; }
         .rec-cancel { color: #8696a0; font-weight: normal; margin-left: auto; }
+
+        /* ===== Clés d'export ===== */
+        .key-form { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 10px; border-bottom: 1px solid #f1f5f9; }
+        .key-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+        .key-row.revoked { opacity: 0.45; }
+        .key-ri { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+        .key-ri small { color: #64748b; font-size: 11.5px; }
+        .key-ri code { font-family: Consolas, monospace; font-size: 12px; color: #334155; }
+        #pin-reveal-code.long { font-size: 14px; letter-spacing: 0; word-break: break-all; user-select: all; -webkit-user-select: all; }
         #phase-indicator {
             background: #fff; color: var(--accent-dark); border-radius: 10px; padding: 2px 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
@@ -1517,9 +1526,11 @@
             <div class="team-tabs">
                 <button class="team-tab on" data-tab="members" type="button">Membres</button>
                 <button class="team-tab" data-tab="perms" type="button">Permissions</button>
+                <button class="team-tab" data-tab="keys" type="button">Clés d'export</button>
             </div>
             <div id="team-members"></div>
             <div id="team-perms" style="display: none;"></div>
+            <div id="team-keys" style="display: none;"></div>
         </div>
     </div>
 
@@ -3104,7 +3115,7 @@
         animate();
         setupSplashScreen();   // en premier : l'intro se ferme même si un module plante plus loin
         [setupUI, setupTape, setupLasso, setupLed, setupChat, setupAddress, setupAngles,
-         setupNoticeMarquee, setupAccounts, setupInstall, setupPush, setupChatExtras, setupResume, setupScanner, setupFileUploader, setupSidebar].forEach(fn => {
+         setupNoticeMarquee, setupAccounts, setupInstall, setupPush, setupChatExtras, setupResume, setupExportKeys, setupScanner, setupFileUploader, setupSidebar].forEach(fn => {
             try { fn(); }
             catch (e) { console.error('Finjat : échec au démarrage de ' + fn.name, e); }   // les autres modules continuent
         });
@@ -7596,6 +7607,96 @@
         function setupResume() {
             document.getElementById('home-resume-btn').addEventListener('click', openLastModel);
             renderResumeBtn();
+        }
+
+        // ==========================================
+        // CLÉS D'EXPORT (extension SketchUp) : création / révocation par le SuperAdmin
+        // ==========================================
+        async function exportFn(action, payload = {}) {
+            const sb = await getSb();
+            const { data: { session } } = await sb.auth.getSession();
+            const r = await fetch(`${SUPABASE_URL_CHAT}/functions/v1/finjat-export`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    apikey: SUPABASE_ANON_KEY,
+                    Authorization: 'Bearer ' + (session ? session.access_token : SUPABASE_ANON_KEY)
+                },
+                body: JSON.stringify(Object.assign({ action }, payload))
+            });
+            const j = await r.json().catch(() => ({ error: 'Réponse invalide du serveur' }));
+            if (!r.ok && !j.error) j.error = 'HTTP ' + r.status;
+            return j;
+        }
+
+        function setupExportKeys() {
+            // 3e onglet de l'écran Équipe
+            document.querySelectorAll('.team-tab').forEach(t => t.addEventListener('click', () => {
+                const on = t.dataset.tab === 'keys';
+                document.getElementById('team-keys').style.display = on ? '' : 'none';
+                if (on) loadExportKeys();
+            }));
+            // La fenêtre "code affiché une fois" redevient celle du PIN après fermeture
+            document.getElementById('pin-reveal-close').addEventListener('click', () => {
+                document.getElementById('pin-reveal-code').classList.remove('long');
+                document.querySelector('#pin-reveal .source-title').textContent = '🔑 Code PIN';
+            });
+        }
+
+        function revealExportKey(name, key) {
+            document.querySelector('#pin-reveal .source-title').textContent = "🗝 Clé d'export SketchUp";
+            document.getElementById('pin-reveal-code').classList.add('long');
+            revealPin(name, key);
+        }
+
+        async function loadExportKeys() {
+            const box = document.getElementById('team-keys');
+            box.innerHTML = '<div class="side-hint">Chargement…</div>';
+            if (!teamMembers.length) await loadTeam();
+            const r = await exportFn('key_list');
+            if (r.error) { box.innerHTML = `<div class="side-hint">Clés illisibles : ${escapeHtml(r.error)}</div>`; return; }
+            renderExportKeys(r.keys || []);
+        }
+
+        function renderExportKeys(keys) {
+            const box = document.getElementById('team-keys');
+            const opts = teamMembers.filter(m => m.active !== false)
+                .map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)} (${ROLE_LABELS[m.role] || m.role})</option>`).join('');
+            box.innerHTML =
+                `<div class="key-form">
+                    <select id="key-member" class="side-input">${opts}</select>
+                    <input id="key-label" class="side-input" type="text" placeholder="Poste (ex : PC Atelier)">
+                    <button id="key-create" class="side-btn" type="button">🗝 Générer une clé d'export</button>
+                    <div class="side-hint">Seuls les profils autorisés dans Permissions → « Exporter depuis SketchUp » peuvent exporter.</div>
+                </div>`;
+            box.querySelector('#key-create').onclick = async () => {
+                const memberId = box.querySelector('#key-member').value;
+                const label = box.querySelector('#key-label').value.trim();
+                const r = await exportFn('key_create', { member_id: memberId, label });
+                if (r.error) { showToast('Échec : ' + r.error); return; }
+                const m = teamMembers.find(x => x.id === memberId);
+                revealExportKey((m ? m.name : '') + (label ? ' · ' + label : ''), r.key);
+                loadExportKeys();
+            };
+            if (!keys.length) { box.insertAdjacentHTML('beforeend', '<div class="side-hint" style="padding-top:8px">Aucune clé pour le moment.</div>'); return; }
+            keys.forEach(k => {
+                const m = teamMembers.find(x => x.id === k.member_id);
+                const used = k.last_used_at ? 'utilisée le ' + new Date(k.last_used_at).toLocaleString() : 'jamais utilisée';
+                const row = document.createElement('div');
+                row.className = 'key-row' + (k.revoked ? ' revoked' : '');
+                row.innerHTML = (m ? avatarHtml(m, 'av-md') : VISITOR_AV('av-md')) +
+                    `<div class="key-ri"><b>${escapeHtml(m ? m.name : 'Membre supprimé')}${k.label ? ' · ' + escapeHtml(k.label) : ''}</b>` +
+                    `<code>${escapeHtml(k.key_prefix || '')}…</code><small>${k.revoked ? 'révoquée' : used}</small></div>` +
+                    (k.revoked ? '' : '<button type="button" class="team-act del" title="Révoquer">🗑</button>');
+                const del = row.querySelector('.team-act');
+                if (del) del.onclick = async () => {
+                    if (!confirm('Révoquer cette clé ? Ce poste ne pourra plus exporter.')) return;
+                    const r = await exportFn('key_revoke', { id: k.id });
+                    if (r.error) { showToast('Échec : ' + r.error); return; }
+                    loadExportKeys();
+                };
+                box.appendChild(row);
+            });
         }
 
         // ==========================================
