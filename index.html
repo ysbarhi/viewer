@@ -11,6 +11,28 @@
     <meta name="geo.region" content="MA">
     
     <title>Assembly Part Finder</title>
+    <script>
+        // Garde de démarrage : si le script principal plante (même erreur de syntaxe), on affiche l'erreur au lieu de figer l'intro
+        (function () {
+        var shown = false;
+        function show(msg) {
+          if (shown || window.__apfReady) return;
+          shown = true;
+          var s = document.getElementById('splash-screen');
+          if (s) s.style.display = 'none';
+          var d = document.createElement('div');
+          d.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#111;color:#fff;' +
+            'font:14px/1.5 monospace;padding:20px;overflow:auto;white-space:pre-wrap';
+          d.textContent = "⚠ Assembly Part Finder n'a pas pu démarrer\n\n" + msg +
+            "\n\nFaites une capture de cet écran et envoyez-la.";
+          (document.body || document.documentElement).appendChild(d);
+        }
+        window.addEventListener('error', function (e) {
+          show((e.message || 'Erreur inconnue') + (e.filename ? '\n' + e.filename + ' : ligne ' + e.lineno + ', colonne ' + e.colno : ''));
+        });
+        setTimeout(function () { show("Le démarrage n'a pas abouti en 15 s (aucune erreur signalée)."); }, 15000);
+      })();
+    </script>
 
     <link rel="manifest" href="manifest.json">
     <script>
@@ -2588,10 +2610,10 @@
             return ((mat && mat.name) ? String(mat.name) : "Default").trim().toLowerCase();
         }
 
-        function normMatName(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+        function edgeNameKey(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
         function isEdgeMatName(key) {
-            const k = normMatName(key);
+            const k = edgeNameKey(key);
             // Chants déclarés par ABF à l'export (tolère les suffixes ajoutés par l'export : "_1", ".001"…)
             if (exportEdgeMats.some(n => k === n || k.startsWith(n))) return true;
             return key.includes("chant") || key.includes("edge") || key.includes("abf");
@@ -3125,6 +3147,7 @@
             try { fn(); }
             catch (e) { console.error('Finjat : échec au démarrage de ' + fn.name, e); }   // les autres modules continuent
         });
+        window.__apfReady = true;   // démarrage réussi : la garde ne s'affichera plus
 
         function setupSplashScreen() {
             const splash = document.getElementById('splash-screen');
@@ -8077,7 +8100,7 @@
                 let sidCounter = 0;
                 globalModel.traverse(o => { o.userData.sid = sidCounter++; });   // avant tout ajout (traits, contours)
                 const fjRoot = gltf.userData && gltf.userData.finjat;
-                exportEdgeMats = ((fjRoot && fjRoot.edge_materials) || []).map(normMatName).filter(Boolean);
+                exportEdgeMats = ((fjRoot && fjRoot.edge_materials) || []).map(edgeNameKey).filter(Boolean);
                 if (fjRoot && fjRoot.model_uid) currentModelUid = String(fjRoot.model_uid);
                 // Anciens exports Finjat (lien ?model=…/finjat-models/xxx.glb) : l'ID = nom du fichier en ligne
                 if (!currentModelUid && currentModelSourceUrl) {
