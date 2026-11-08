@@ -8125,14 +8125,45 @@
                 let partNodes = new Set();
                 let uniqueMaterials = new Map();
 
-                function getPartRoot(mesh) {
-                    const p = mesh.parent;
-                    if (p && p !== globalModel && p.type !== 'Scene' &&
-                        p.children.length > 0 && p.children.every(c => c.isMesh)) {
-                        return p;       
-                    }
-                    return mesh;        
-                }
+        // Nœud glTF (= groupe / composant SketchUp) qui possède ce mesh — pas une primitive (face, chant…)
+        function ownerNodeOf(obj) {
+            if (!gltfAssociations) return null;
+            for (let o = obj; o && o !== globalModel; o = o.parent) {
+                const a = gltfAssociations.get(o);
+                if (a && a.nodes !== undefined) return o;
+            }
+            return null;
+        }
+
+        // Ce nœud porte-t-il de la géométrie en propre ? (mis en cache sur le nœud)
+        function nodeOwnsGeometry(node) {
+            if (node.userData._ownGeo !== undefined) return node.userData._ownGeo;
+            let own = false;
+            node.traverse(n => { if (!own && n.isMesh && ownerNodeOf(n) === node) own = true; });
+            node.userData._ownGeo = own;
+            return own;
+        }
+
+        function isMarkedBoard(node) {
+            const f = node && node.userData && node.userData.finjat;
+            return !!(f && f.pid);   // panneau identifié à l'export (marqueur __PID)
+        }
+
+        // Pièce = groupe/composant SketchUp propriétaire : faces + chants + sous-groupes non-pièces (rainures, étiquettes,
+        // profils) restent ensemble. Un panneau marqué reste toujours une pièce à part entière.
+        function getPartRoot(mesh) {
+            let root = ownerNodeOf(mesh);
+            if (!root) {   // repli : ancien comportement si la structure glTF est inconnue
+                const p = mesh.parent;
+                return (p && p !== globalModel && p.children.every(c => c.isMesh)) ? p : mesh;
+            }
+            while (!isMarkedBoard(root)) {
+                const up = root.parent ? ownerNodeOf(root.parent) : null;
+                if (!up || !nodeOwnsGeometry(up)) break;   // parent sans géométrie propre (caisson…) : on s'arrête
+                root = up;                                 // sous-groupe d'un panneau : rattaché au panneau
+            }
+            return root;
+        }
 
                 globalModel.traverse(function (node) {
                     if (node.isMesh) {
