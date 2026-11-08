@@ -713,6 +713,17 @@
         .key-ri small { color: #64748b; font-size: 11.5px; }
         .key-ri code { font-family: Consolas, monospace; font-size: 12px; color: #334155; }
         #pin-reveal-code.long { font-size: 14px; letter-spacing: 0; word-break: break-all; user-select: all; -webkit-user-select: all; }
+
+        /* ===== Barre du haut : client - produit / pièce / cotes / matériaux ===== */
+        #top-info-panel {
+            height: auto !important; min-height: 58px; padding: 4px 10px !important; box-sizing: border-box;
+            flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 0;
+        }
+        .ti-head { max-width: 100%; overflow: hidden; white-space: nowrap; font-weight: 800; font-size: 13.5px; line-height: 16px; color: #111; }
+        .ti-part { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 12px; line-height: 14px; color: #2563eb; }
+        .ti-dims { font-size: 11px; line-height: 13px; color: #4b5563; }
+        .ti-mat  { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 13px; font-weight: 600; color: var(--accent-dark); }
+        .ti-mat:empty { display: none; }
         #phase-indicator {
             background: #fff; color: var(--accent-dark); border-radius: 10px; padding: 2px 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
@@ -1596,6 +1607,7 @@
     <div id="addr-overlay">
         <div id="addr-box" role="dialog" aria-modal="true">
             <div class="source-title">📍 Lieu de livraison / montage</div>
+            <div id="addr-client" class="addr-help" style="text-align: center; font-weight: bold; color: #2563eb;"></div>
             <button id="addr-here" class="addr-opt" type="button">📍 Ma position actuelle</button>
             <button id="addr-gmaps" class="addr-opt" type="button">🗺 Choisir dans Google Maps</button>
             <div class="addr-help">Dans Google Maps : touchez le lieu → Partager → Copier le lien, puis revenez et touchez 📋.</div>
@@ -1943,6 +1955,7 @@
         let groundGrid = null;
         let groundY = 0;
         let exportEdgeMats = [];   // noms de chants fournis par l'export (ABF)
+        let modelClient = '', modelProduct = '';   // Client / Produit (Titre / Sous-titre ABF, saisis à l'export)
         let isGridOn = (() => { try { return localStorage.getItem('finjatGrid') !== '0'; } catch (e) { return true; } })();
 
         // ===== Lecture automatique de l'assemblage =====
@@ -3077,18 +3090,33 @@
             return `L: ${l} | H: ${h} | P: ${p}`;
         }
 
-        function updateTopInfo(title, sizeVector, materialName = null) {
-            document.getElementById('top-info-panel').style.display = 'block';
-            document.getElementById('info-title').innerText = title;
-            document.getElementById('info-dims').innerText = getFormattedDims(sizeVector);
-            
-            const matEl = document.getElementById('info-material');
-            if (materialName && materialName.toLowerCase() !== "default") {
-                matEl.style.display = 'block';
-                matEl.innerText = "Matériau : " + materialName;
-            } else {
-                matEl.style.display = 'none';
+        function modelHeader() {
+            const parts = [modelClient, modelProduct].filter(Boolean);
+            return parts.length ? parts.join(' - ') : (currentModelName || 'Meuble');
+        }
+
+        // Ligne 1 : Client - Produit (défilante si longue) | 2 : pièce sélectionnée / scannée | 3 : cotes | 4 : matériaux
+        function updateTopInfo(title, size, matName) {
+            const panel = document.getElementById('top-info-panel');
+            if (!panel) return;
+            if (!panel.querySelector('.ti-head')) {
+                panel.innerHTML =
+                    '<div class="ti-head"><span class="ti-head-text notice-text"></span></div>' +
+                    '<div class="ti-part"></div>' +
+                    '<div id="info-dims" class="ti-dims"></div>' +
+                    '<div class="ti-mat"></div>';
             }
+            const head = modelHeader();
+            const headEl = panel.querySelector('.ti-head');
+            const headText = panel.querySelector('.ti-head-text');
+            if (headText.textContent !== head) {
+                headText.textContent = head;
+                requestAnimationFrame(() => measureNotice(headEl, headText));
+            }
+            const isGlobal = !title || title === currentModelName;
+            panel.querySelector('.ti-part').textContent = isGlobal ? 'Ensemble complet' : title;
+            panel.querySelector('#info-dims').textContent = size ? getFormattedDims(size) : '';
+            panel.querySelector('.ti-mat').textContent = matName ? String(matName) : '';   // noms seuls, sans "Matériau :"
         }
 
         function updateMeasurementLabels() {
@@ -5702,6 +5730,7 @@
             document.getElementById('addr-link').value = cur.maps_url || ((cur.lat !== null && cur.lat !== undefined) ? `${cur.lat}, ${cur.lng}` : '');
             document.getElementById('addr-name').value = cur.address || '';
             updateAddrPreview();
+            document.getElementById('addr-client').textContent = modelClient ? `Client : ${modelClient}` : '';
             document.getElementById('addr-overlay').classList.add('active');
         }
 
@@ -5727,7 +5756,8 @@
             if (!loc) {
                 if (!can('location_edit')) { wrap.style.display = 'none'; return; }   // rien à voir, rien à ajouter
                 card.className = 'addr-card empty';
-                card.innerHTML = '<span class="addr-plus">+</span><span>Ajouter le lieu de livraison / montage</span>';
+                card.innerHTML = '<span class="addr-plus">+</span><span>Ajouter le lieu de livraison / montage' +
+                                 (modelClient ? `<br><b>${escapeHtml(modelClient)}</b>` : '') + '</span>';
                 edit.style.display = 'none';
                 return;
             }
@@ -5735,7 +5765,7 @@
                 ((loc.lat !== null && loc.lat !== undefined) ? `${(+loc.lat).toFixed(5)}, ${(+loc.lng).toFixed(5)}` : 'Lieu Google Maps');
             card.className = 'addr-card';
             card.innerHTML =
-                `<div class="addr-text"><div class="addr-label">Livraison / montage</div>` +
+                `<div class="addr-text"><div class="addr-label">Livraison / montage${modelClient ? ' · ' + escapeHtml(modelClient) : ''}</div>` +
                 `<div class="addr-value">${escapeHtml(label)}</div></div>` +
                 `<span class="addr-pin"><svg viewBox="0 0 24 24" width="22" height="22">` +
                 `<path d="M12 2C8.1 2 5 5.1 5 9c0 5.3 7 13 7 13s7-7.7 7-13c0-3.9-3.1-7-7-7z" fill="#ea4335"/>` +
@@ -7597,7 +7627,7 @@
             else if (currentModelUid) src = { type: 'url', uid: currentModelUid };
             else if (currentModelSourceUrl) src = { type: 'url', url: currentModelSourceUrl };
             if (!src) return;
-            src.label = currentLoadedFileName ||
+            src.label = (modelClient || modelProduct) ? modelHeader() : currentLoadedFileName ||
                 ((currentModelName && currentModelName !== 'Meuble Global') ? currentModelName
                     : (currentModelUid ? 'Meuble ' + currentModelUid : 'Dernier meuble'));
             try { localStorage.setItem('apfLastModel', JSON.stringify(src)); } catch (e) {}
@@ -7641,6 +7671,10 @@
         }
         function setupResume() {
             document.getElementById('home-resume-btn').addEventListener('click', openLastModel);
+            // Après l'enregistrement sur l'appareil : l'entrée créée prend le nom "Client_Produit_Date"
+            document.getElementById('save-local-btn').addEventListener('click', () => {
+                setTimeout(() => renameInHistory(currentLoadedFileName || null).catch(e => console.warn('APF historique', e)), 1500);
+            });
             renderResumeBtn();
         }
 
@@ -7772,6 +7806,41 @@
                     thumbnail: existing ? existing.thumbnail : null 
                 });
             };
+        }
+
+        // Nom d'historique : "Client_Produit_JJ-MM-AAAA.glb"
+        function historyCleanPart(s) { return String(s || '').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim(); }
+        function historyPrefix() {
+            return `${historyCleanPart(modelClient) || 'Client'}_${historyCleanPart(modelProduct) || 'Produit'}_`;
+        }
+        function historyName(dateMs) {
+            const d = new Date(dateMs || Date.now());
+            const p2 = (n) => String(n).padStart(2, '0');
+            return `${historyPrefix()}${p2(d.getDate())}-${p2(d.getMonth() + 1)}-${d.getFullYear()}.glb`;
+        }
+
+        // Renomme l'entrée d'historique du meuble ouvert (oldName), ou la plus récente si oldName est inconnu
+        async function renameInHistory(oldName) {
+            if (!(modelClient || modelProduct)) return;   // modèle exporté avant l'ajout Client / Produit
+            if (!db) await initDB();
+            const all = await getRecentModels();
+            let rec = oldName ? all.find(r => r.name === oldName) : null;
+            if (!rec && !oldName) {
+                rec = all.filter(r => Date.now() - (r.date || 0) < 15000).sort((a, b) => b.date - a.date)[0];
+            }
+            if (!rec || rec.name.startsWith(historyPrefix())) return;   // introuvable, ou déjà au bon format
+            const newName = historyName(rec.date);
+            await new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                store.put(Object.assign({}, rec, { name: newName }));
+                store.delete(rec.name);
+                tx.oncomplete = resolve;
+                tx.onerror = () => reject(tx.error);
+            });
+            if (currentLoadedFileName === rec.name) currentLoadedFileName = newName;
+            rememberLastModel();
+            if (typeof renderRecentGallery === 'function') renderRecentGallery();
         }
 
         async function updateModelThumbnailInDB(name, dataUrl) {
@@ -8107,6 +8176,8 @@
                 globalModel.traverse(o => { o.userData.sid = sidCounter++; });   // avant tout ajout (traits, contours)
                 const fjRoot = gltf.userData && gltf.userData.finjat;
                 exportEdgeMats = ((fjRoot && fjRoot.edge_materials) || []).map(edgeNameKey).filter(Boolean);
+                modelClient  = String((fjRoot && fjRoot.client)  || '').trim();
+                modelProduct = String((fjRoot && fjRoot.product) || '').trim();
                 if (fjRoot && fjRoot.model_uid) currentModelUid = String(fjRoot.model_uid);
                 // Anciens exports Finjat (lien ?model=…/finjat-models/xxx.glb) : l'ID = nom du fichier en ligne
                 if (!currentModelUid && currentModelSourceUrl) {
@@ -8488,6 +8559,10 @@
                 loadModelLocation();
                 placeGroundGrid(globalBox.min.y);   // sol = point le plus bas du meuble
                 rememberLastModel();                // bouton "Reprendre" sur l'accueil
+                if (currentLoadedFileName) {        // historique : renommé "Client_Produit_Date" (après la miniature)
+                    const nm = currentLoadedFileName;
+                    setTimeout(() => renameInHistory(nm).catch(e => console.warn('APF historique', e)), 1500);
+                }
                 
                 URL.revokeObjectURL(url);
             }, undefined, function (err) {
