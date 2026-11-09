@@ -8105,6 +8105,19 @@
             return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, opts));
         }
 
+        // Écoute la position jusqu'au premier relevé, puis s'arrête (refus = arrêt immédiat, autres erreurs = on attend)
+        function watchPos(opts, ms) {
+            return new Promise((resolve, reject) => {
+                let id = null;
+                const stop = () => { if (id !== null) navigator.geolocation.clearWatch(id); };
+                const timer = setTimeout(() => { stop(); reject({ code: 3, message: 'aucun relevé reçu' }); }, ms);
+                id = navigator.geolocation.watchPosition(
+                    (p) => { clearTimeout(timer); stop(); resolve(p); },
+                    (e) => { if (e.code === 1) { clearTimeout(timer); stop(); reject(e); } },
+                    opts);
+            });
+        }
+
         async function locateMe() {
             const linkIn = document.getElementById('addr-link');
             const nameIn = document.getElementById('addr-name');
@@ -8126,9 +8139,9 @@
             } catch (e1) {
                 if (e1.code === 1) { setAddrPreview(GEO_DENIED_MSG, true); return; }
                 try {
-                    // 2) GPS précis, plus lent
-                    setAddrPreview("Recherche GPS…", false);
-                    pos = await getPos({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+                    // 2) Écoute continue jusqu'au premier relevé réel (indispensable dans l'appli installée)
+                    setAddrPreview("Recherche de la position…", false);
+                    pos = await watchPos({ enableHighAccuracy: true, maximumAge: 0 }, 25000);
                 } catch (e2) {
                     setAddrPreview(
                         e2.code === 1 ? GEO_DENIED_MSG :
