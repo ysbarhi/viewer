@@ -792,6 +792,36 @@
         }
         .recent-src.cloud { background: #2563eb; }
         .recent-src.local { background: #475569; }
+
+        /* ===== Vitesse de lecture : menu horizontal (appui long sur ▶) ===== */
+        #speed-pop {
+            position: absolute; left: 72px; bottom: 74px; height: 44px; z-index: 850 !important;
+            display: none; align-items: center; gap: 4px; padding: 0 12px; box-sizing: border-box;
+            background: #fff; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #speed-pop.open { display: flex; }
+        .sp-line { position: absolute; left: 32px; right: 32px; top: 28px; height: 2px; background: #555; }
+        .sp-pin {
+            position: relative; z-index: 1; width: 40px; height: 44px; padding: 0; border: none; background: none;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer;
+        }
+        .sp-lbl { order: -1; font-size: 10px; font-weight: bold; color: #555; line-height: 10px; }
+        .sp-dot { width: 10px; height: 10px; border-radius: 50%; background: #555; transition: all 0.15s; }
+        .sp-pin.on .sp-dot { width: 16px; height: 16px; background: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2); }
+        .sp-pin.on .sp-lbl { color: #2563eb; }
+
+        /* ===== Carte "Ajouter le lieu de livraison" : style polaroïd, plus compacte ===== */
+        .addr-card.empty { padding: 6px !important; border: 1px solid #ddd !important; gap: 0 !important; }
+        .addr-frame {
+            position: relative; width: 100%; height: 50px; border-radius: 8px; background: #eceff3;
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }
+        .addr-plus-bg {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -54%);
+            font-size: 56px; font-weight: 200; line-height: 1; color: #c5ccd6; pointer-events: none;
+        }
+        .addr-add-text { position: relative; z-index: 1; font-size: 14px; font-weight: 300; color: #111; text-align: center; line-height: 1.25; }
+        .addr-add-text b { font-size: 12px; font-weight: 500; color: #2563eb; }
         .recent-src svg { width: 12px; height: 12px; display: block; }
         #recent-gallery.layout-grid .recent-thumb-wrap { width: 100%; }
         #recent-gallery.layout-grid .recent-src { left: 6px; bottom: 6px; width: 26px; height: 26px; }
@@ -1449,10 +1479,7 @@
             <span>Sélection tactile</span>
             <button id="touch-toggle" class="h-toggle" type="button" aria-label="Sélection tactile"><span class="h-knob"></span></button>
         </div>
-        <div class="side-card" style="margin: 8px 0 0;">
-            <div class="speed-head"><span>Vitesse de lecture</span><b id="speed-value">x1</b></div>
-            <div id="speed-track"></div>
-        </div>
+
         <div id="push-row" class="side-row" style="margin-top: 8px; display: none;">
             <span>Notifications</span>
             <button id="push-toggle" class="h-toggle" type="button" aria-label="Notifications"><span class="h-knob"></span></button>
@@ -2043,13 +2070,10 @@
         let isGridOn = (() => { try { return localStorage.getItem('finjatGrid') !== '0'; } catch (e) { return true; } })();
 
         // ===== Lecture automatique de l'assemblage =====
-        const PLAY_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
+        const PLAY_SPEEDS = [1, 1.25, 1.5, 1.75, 2];
         const PLAY_STEPS_PER_SEC = 1.75;   // vitesse x1 : 1,75 étape par seconde
         let isAsmPlaying = false;
-        let playSpeedIdx = (() => {
-            try { const i = parseInt(localStorage.getItem('finjatPlaySpeed'), 10); return (i >= 0 && i < 12) ? i : 3; }
-            catch (e) { return 3; }
-        })();                             // x1 par défaut
+        let playSpeedIdx = 0;             // x1 ; la préférence de chaque compte est chargée à la connexion
         const EXPLODE_PLAY_SECONDS = 2.0;  // .glb sans étapes : 100 -> 0 en 2 s à x1
 
         // ===== Comptes & permissions =====
@@ -5841,8 +5865,13 @@
             if (!loc) {
                 if (!can('location_edit')) { wrap.style.display = 'none'; return; }   // rien à voir, rien à ajouter
                 card.className = 'addr-card empty';
-                card.innerHTML = '<span class="addr-plus">+</span><span>Ajouter le lieu de livraison / montage' +
-                                 (modelClient ? `<br><b>${escapeHtml(modelClient)}</b>` : '') + '</span>';
+                card.innerHTML =
+                    '<div class="addr-frame">' +
+                        '<span class="addr-plus-bg">+</span>' +
+                        '<span class="addr-add-text">Ajouter le lieu de livraison' +
+                            (modelClient ? `<br><b>${escapeHtml(modelClient)}</b>` : '') +
+                        '</span>' +
+                    '</div>';
                 edit.style.display = 'none';
                 return;
             }
@@ -6048,45 +6077,79 @@
             slider.dispatchEvent(new Event('input'));
         }
 
+        // ▶ : tap = lecture / pause ; appui long = menu des vitesses
         function setupAsmPlay(slider) {
-            document.getElementById('play-btn').addEventListener('click', () => setAsmPlaying(!isAsmPlaying));
+            const btn = document.getElementById('play-btn');
+            let timer = null, longPressed = false;
+            btn.addEventListener('pointerdown', () => {
+                longPressed = false;
+                clearTimeout(timer);
+                timer = setTimeout(() => {
+                    longPressed = true;
+                    openSpeedPop();
+                    if (navigator.vibrate) navigator.vibrate(20);
+                }, 450);
+            });
+            ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, () => clearTimeout(timer)));
+            btn.addEventListener('click', (e) => {
+                if (longPressed) { longPressed = false; e.preventDefault(); return; }   // appui long : pas de lecture
+                setAsmPlaying(!isAsmPlaying);
+            });
+            btn.addEventListener('contextmenu', (e) => e.preventDefault());
             slider.addEventListener('pointerdown', () => { if (isAsmPlaying) setAsmPlaying(false); });   // reprise en main
 
-            // Vitesse (panneau ⚙) : une ligne + repères, toucher ou glisser pour choisir
-            const track = document.getElementById('speed-track');
-            PLAY_SPEEDS.forEach((sp, i) => {
-                const d = document.createElement('span');
-                d.className = 'speed-dot' + (sp === 1 ? ' x1' : '');
-                d.style.left = (i / (PLAY_SPEEDS.length - 1) * 100) + '%';
-                track.appendChild(d);
-            });
-            const pick = (e) => {
-                const r = track.getBoundingClientRect();
-                const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-                setPlaySpeed(Math.round(f * (PLAY_SPEEDS.length - 1)));
-            };
-            let dragging = false;
-            track.addEventListener('pointerdown', (e) => { dragging = true; track.setPointerCapture(e.pointerId); pick(e); });
-            track.addEventListener('pointermove', (e) => { if (dragging) pick(e); });
-            ['pointerup', 'pointercancel'].forEach(ev => track.addEventListener(ev, () => { dragging = false; }));
-            // Glisser sur la ligne ne doit pas refermer le panneau (balayage gauche)
-            ['touchstart', 'touchend'].forEach(ev => track.addEventListener(ev, (e) => e.stopPropagation(), { passive: true }));
+            buildSpeedPop();
+            // Toucher ailleurs ferme le menu
+            document.addEventListener('pointerdown', (e) => {
+                const pop = document.getElementById('speed-pop');
+                if (pop && pop.classList.contains('open') && !pop.contains(e.target) && !btn.contains(e.target)) {
+                    pop.classList.remove('open');
+                }
+            }, true);
             renderSpeedUi();
         }
 
+        function buildSpeedPop() {
+            const pop = document.createElement('div');
+            pop.id = 'speed-pop';
+            pop.innerHTML = '<div class="sp-line"></div>' + PLAY_SPEEDS.map((s, i) =>
+                `<button type="button" class="sp-pin" data-i="${i}" aria-label="Vitesse x${s}">` +
+                `<span class="sp-dot"></span><span class="sp-lbl">x${s}</span></button>`).join('');
+            pop.addEventListener('click', (e) => {
+                const b = e.target.closest('.sp-pin');
+                if (!b) return;
+                setPlaySpeed(parseInt(b.dataset.i, 10));
+                pop.classList.remove('open');   // choix fait : le menu disparaît
+            });
+            document.body.appendChild(pop);
+        }
+
+        function openSpeedPop() {
+            renderSpeedUi();
+            document.getElementById('speed-pop').classList.add('open');
+        }
+
+        // Vitesse mémorisée par compte (visiteur à part)
+        function speedPrefKey() { return 'apfPlaySpeed:' + (currentMember ? currentMember.id : 'visitor'); }
+
         function setPlaySpeed(i) {
             playSpeedIdx = Math.max(0, Math.min(PLAY_SPEEDS.length - 1, i));
-            try { localStorage.setItem('finjatPlaySpeed', String(playSpeedIdx)); } catch (e) {}   // mémorisé sur l'appareil
+            try { localStorage.setItem(speedPrefKey(), String(PLAY_SPEEDS[playSpeedIdx])); } catch (e) {}
+            renderSpeedUi();
+        }
+
+        function loadSpeedPref() {
+            let v = NaN;
+            try { v = parseFloat(localStorage.getItem(speedPrefKey())); } catch (e) {}
+            const i = PLAY_SPEEDS.indexOf(v);
+            playSpeedIdx = i >= 0 ? i : 0;
             renderSpeedUi();
         }
 
         function renderSpeedUi() {
-            const txt = 'x' + PLAY_SPEEDS[playSpeedIdx];
-            const v = document.getElementById('speed-value');
-            if (v) v.textContent = txt;
             const b = document.getElementById('play-speed-badge');
-            if (b) b.textContent = txt;
-            document.querySelectorAll('#speed-track .speed-dot').forEach((d, i) => d.classList.toggle('on', i === playSpeedIdx));
+            if (b) b.textContent = 'x' + PLAY_SPEEDS[playSpeedIdx];
+            document.querySelectorAll('#speed-pop .sp-pin').forEach((p, i) => p.classList.toggle('on', i === playSpeedIdx));
         }
 
         // Lecture = toujours vers 0 (assemblage). À 0 : repart de l'éclaté complet.
@@ -6758,6 +6821,7 @@
             else if (presenceChannel && sbClient) { sbClient.removeChannel(presenceChannel); presenceChannel = null; }
             syncPushSubscription();
             syncPushUi();
+            loadSpeedPref();   // vitesse de lecture de ce compte
             loadContacts();
             if (globalModel) {
                 chatTeardown();
