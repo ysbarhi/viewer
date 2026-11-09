@@ -5758,22 +5758,7 @@
                 window.open('https://www.google.com/maps/' + q, '_blank');
             });
 
-            document.getElementById('addr-here').addEventListener('click', () => {
-                if (!navigator.geolocation) { setAddrPreview("Géolocalisation non disponible", true); return; }
-                setAddrPreview("Localisation en cours…", false);
-                navigator.geolocation.getCurrentPosition(async (pos) => {
-                    const lat = +pos.coords.latitude.toFixed(6), lng = +pos.coords.longitude.toFixed(6);
-                    addrDraft = { lat, lng, maps_url: null, address: null };
-                    linkIn.value = `${lat}, ${lng}`;
-                    updateAddrPreview();
-                    if (!nameIn.value.trim()) {
-                        const name = await reverseGeocode(lat, lng);
-                        if (name && !nameIn.value.trim()) { nameIn.value = name; updateAddrPreview(); }
-                    }
-                }, (err) => {
-                    setAddrPreview(err.code === 1 ? "Localisation refusée (autorisez-la pour ce site)" : "Position introuvable, réessayez", true);
-                }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
-            });
+            document.getElementById('addr-here').addEventListener('click', locateMe);
         }
 
         function setAddrPreview(txt, warn) {
@@ -8108,6 +8093,64 @@
             box.appendChild(row);
             if (resume) box.appendChild(resume);
             if (install) box.appendChild(install);
+        }
+
+        // ==========================================
+        // LIEU : "Ma position actuelle" (rapide d'abord, GPS ensuite, messages clairs)
+        // ==========================================
+        const GEO_DENIED_MSG = "Localisation bloquée : Réglages Android > Applications > Assembly Part Finder " +
+                               "(ou Chrome) > Autorisations > Position > Autoriser, puis réessayez";
+
+        function getPos(opts) {
+            return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, opts));
+        }
+
+        async function locateMe() {
+            const linkIn = document.getElementById('addr-link');
+            const nameIn = document.getElementById('addr-name');
+            if (!('geolocation' in navigator)) { setAddrPreview("Géolocalisation non disponible sur cet appareil", true); return; }
+
+            // Autorisation déjà refusée : on explique où la débloquer
+            try {
+                if (navigator.permissions && navigator.permissions.query) {
+                    const st = await navigator.permissions.query({ name: 'geolocation' });
+                    if (st.state === 'denied') { setAddrPreview(GEO_DENIED_MSG, true); return; }
+                }
+            } catch (e) {}
+
+            setAddrPreview("Localisation en cours…", false);
+            let pos = null;
+            try {
+                // 1) Position rapide (Wi-Fi / réseau, ou dernière position connue de moins de 2 min)
+                pos = await getPos({ enableHighAccuracy: false, timeout: 8000, maximumAge: 120000 });
+            } catch (e1) {
+                if (e1.code === 1) { setAddrPreview(GEO_DENIED_MSG, true); return; }
+                try {
+                    // 2) GPS précis, plus lent
+                    setAddrPreview("Recherche GPS…", false);
+                    pos = await getPos({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+                } catch (e2) {
+                    setAddrPreview(
+                        e2.code === 1 ? GEO_DENIED_MSG :
+                        e2.code === 3 ? "Délai dépassé : activez la localisation (GPS) du téléphone et réessayez" :
+                                        "Position introuvable : activez la localisation du téléphone et réessayez", true);
+                    return;
+                }
+            }
+
+            const lat = +pos.coords.latitude.toFixed(6), lng = +pos.coords.longitude.toFixed(6);
+            addrDraft = { lat, lng, maps_url: null, address: null };
+            linkIn.value = `${lat}, ${lng}`;
+            updateAddrPreview();
+            const acc = Math.round(pos.coords.accuracy || 0);
+            if (acc) setAddrPreview(`✓ Position : ${lat.toFixed(5)}, ${lng.toFixed(5)} (± ${acc} m)`, false);
+
+            // Adresse lisible (OpenStreetMap) si le champ est vide
+            if (!nameIn.value.trim()) {
+                const name = await reverseGeocode(lat, lng);
+                if (name && !nameIn.value.trim()) nameIn.value = name;
+                document.getElementById('addr-save').disabled = false;
+            }
         }
 
         // ==========================================
