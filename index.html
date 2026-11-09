@@ -809,6 +809,7 @@
         .sp-dot { width: 10px; height: 10px; border-radius: 50%; background: #555; transition: all 0.15s; }
         .sp-pin.on .sp-dot { width: 16px; height: 16px; background: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2); }
         .sp-pin.on .sp-lbl { color: #2563eb; }
+        #play-btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
 
         /* ===== Carte "Ajouter le lieu de livraison" : style polaroïd, plus compacte ===== */
         .addr-card.empty { padding: 6px !important; border: 1px solid #ddd !important; gap: 0 !important; }
@@ -2481,7 +2482,7 @@
             getAssemblyPhases().forEach(p => {
                 const t = document.createElement('div');
                 t.className = 'slider-tick';
-                t.style.setProperty('--f', 1 - p.end / maxAssemblyStep);
+                t.style.setProperty('--f', p.end / maxAssemblyStep);
                 box.appendChild(t);
             });
         }
@@ -3649,9 +3650,9 @@
                 animBtn.classList.toggle('active', isAnimationModeOn);
 
                 if (isAnimationModeOn) {
-                    // Animer depuis la pose assemblée (curseur à 0)
+                    // Animer depuis la pose assemblée (étapes : à droite ; éclatement : à gauche)
                     setAsmPlaying(false);
-                    slider.value = "0";
+                    slider.value = isAssemblyModeOn ? String(maxAssemblyStep) : "0";
                     slider.dispatchEvent(new Event('input'));
 
                     if (animatedPartNodes.length > 0) {
@@ -3745,7 +3746,8 @@
                 const val = parseFloat(e.target.value);
 
                 // Si l'utilisateur manipule l'éclatement pendant que des portes sont ouvertes, on les referme
-                if (val > 0 && isAnimationModeOn) {
+                const isExploded = isAssemblyModeOn ? val < maxAssemblyStep - 1e-6 : val > 0;
+                if (isExploded && isAnimationModeOn) {
                     isAnimationModeOn = false;
                     animBtn.classList.remove('active');
                     animBanner.style.display = 'none';
@@ -3756,7 +3758,7 @@
                 const phaseBanner = document.getElementById('phase-banner');
                 const phaseInd = document.getElementById('phase-indicator');
                 if (isAssemblyModeOn) {
-                    const stepVal = Math.ceil((maxAssemblyStep - val) - 1e-6);   // curseur 0 = assemblé = dernière étape
+                    const stepVal = Math.ceil(val - 1e-6);   // curseur à droite (max) = assemblé
                     stepInd.innerText = `${stepVal}/${maxAssemblyStep}`;
                     if (phaseBanner) {
                         const txt = assemblyPhaseLabel(stepVal);
@@ -3784,12 +3786,12 @@
                             const sq = node.userData.seq;
                             node.position.copy(node.userData.originalPosition);
                             const kG = (sq.group.final_step > 0)
-                                ? asmProgress(maxAssemblyStep - val, assemblyHierarchy.finalOffset + sq.group.final_step) : 1;
+                                ? asmProgress(val, assemblyHierarchy.finalOffset + sq.group.final_step) : 1;
                             if (kG < 1) node.position.addScaledVector(sq.groupDir, 1.5 * 0.85 * (1 - kG));
-                            const kL = asmProgress(maxAssemblyStep - val, sq.globalStep);
+                            const kL = asmProgress(val, sq.globalStep);
                             if (kL < 1) node.position.addScaledVector(sq.localDir, 1.5 * (1 - kL));
                         } else if (isAssemblyModeOn) {
-                            const k = asmProgress(maxAssemblyStep - val, node.userData.assemblyStep);
+                            const k = asmProgress(val, node.userData.assemblyStep);
                             node.position.copy(node.userData.originalPosition)
                                 .addScaledVector(node.userData.explodeDirection, 1.5 * (1 - k));
                         } else {
@@ -6054,8 +6056,14 @@
             slider.min = '0';
             slider.max = isAssemblyModeOn ? String(maxAssemblyStep) : '100';
             slider.step = 'any';
-            slider.value = '0';
+            slider.value = isAssemblyModeOn ? String(maxAssemblyStep) : '0';   // toujours ouvert assemblé
             if (prevBtn) prevBtn.disabled = !isAssemblyModeOn;
+            const playBtn = document.getElementById('play-btn');
+            if (playBtn) {
+                playBtn.disabled = !isAssemblyModeOn;   // lecture réservée aux meubles avec étapes de montage
+                playBtn.title = isAssemblyModeOn ? "Lecture de l'assemblage" : "Lecture : meubles avec étapes de montage uniquement";
+            }
+            if (!isAssemblyModeOn) setAsmPlaying(false);
             if (nextBtn) nextBtn.disabled = !isAssemblyModeOn;
             if (stepInd) stepInd.classList.toggle('active', isAssemblyModeOn);
             renderSliderTicks();
@@ -6067,6 +6075,7 @@
             const btn = document.getElementById('play-btn');
             let timer = null, longPressed = false;
             btn.addEventListener('pointerdown', () => {
+                if (btn.disabled) return;
                 longPressed = false;
                 clearTimeout(timer);
                 timer = setTimeout(() => {
@@ -6137,12 +6146,12 @@
             document.querySelectorAll('#speed-pop .sp-pin').forEach((p, i) => p.classList.toggle('on', i === playSpeedIdx));
         }
 
-        // Lecture = toujours vers 0 (assemblage). À 0 : repart de l'éclaté complet.
+        // Lecture (étapes uniquement) : vers la droite = assemblé. Déjà assemblé : repart de 0 (éclaté).
         function setAsmPlaying(on) {
             const slider = document.getElementById('explode-slider');
-            isAsmPlaying = !!on && !!globalModel;
-            if (isAsmPlaying && slider && (parseFloat(slider.value) || 0) <= 1e-6) {
-                slider.value = slider.max;
+            isAsmPlaying = !!on && !!globalModel && isAssemblyModeOn && maxAssemblyStep > 0;
+            if (isAsmPlaying && slider && (parseFloat(slider.value) || 0) >= maxAssemblyStep - 1e-6) {
+                slider.value = '0';
                 slider.dispatchEvent(new Event('input'));
             }
             const icon = document.getElementById('play-icon');
@@ -6166,15 +6175,13 @@
             if (s.style.getPropertyValue('--p') !== val) s.style.setProperty('--p', val);
         }
 
-        // Chaque image : le curseur descend en continu vers 0
+        // Chaque image : le curseur avance en continu vers l'assemblé (à droite)
         function updateAssemblyPlayback(dt) {
             paintExplodeSlider();
-            if (!isAsmPlaying || !globalModel) return;
+            if (!isAsmPlaying || !globalModel || !isAssemblyModeOn) return;
             const slider = document.getElementById('explode-slider');
-            const max = parseFloat(slider.max) || 100;
-            const rate = isAssemblyModeOn ? PLAY_STEPS_PER_SEC : (max / EXPLODE_PLAY_SECONDS);
-            let v = (parseFloat(slider.value) || 0) - dt * rate * PLAY_SPEEDS[playSpeedIdx];
-            if (v <= 0) { v = 0; setAsmPlaying(false); }
+            let v = (parseFloat(slider.value) || 0) + dt * PLAY_STEPS_PER_SEC * PLAY_SPEEDS[playSpeedIdx];
+            if (v >= maxAssemblyStep) { v = maxAssemblyStep; setAsmPlaying(false); }
             slider.value = String(v);
             slider.dispatchEvent(new Event('input'));
         }
