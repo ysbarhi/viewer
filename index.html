@@ -761,6 +761,42 @@
         #recent-gallery:not(.layout-grid) .recent-name {
             flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; font-size: 15px;
         }
+        /* ===== Accueil : boutons cohérents ===== */
+        #home-actions {
+            width: 100%; max-width: min(640px, calc(100vw - 24px)); box-sizing: border-box;
+            display: flex; flex-direction: column; gap: 10px; margin: 18px auto 0;
+        }
+        #home-actions .home-row { display: flex; gap: 10px; }
+        #home-actions .home-row > * { flex: 1 1 0; min-width: 0; }
+        #home-scan-btn, #file-btn, #home-source-btn, #home-resume-btn {
+            display: block; width: 100%; height: 52px; line-height: 48px; box-sizing: border-box;
+            margin: 0 !important; padding: 0 14px !important; border-radius: 12px !important;
+            border: 2px solid transparent !important; font-size: 16px !important; font-weight: bold;
+            text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer;
+        }
+        #home-scan-btn   { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
+        #file-btn        { background: #fff !important; color: #2563eb !important; border-color: #2563eb !important; }
+        #home-source-btn { background: #fff !important; color: #0f766e !important; border-color: #14b8a6 !important; }
+        #home-resume-btn { background: #16a34a !important; color: #fff !important; border-color: #16a34a !important; font-size: 15px !important; }
+        #home-scan-btn:active, #file-btn:active, #home-source-btn:active, #home-resume-btn:active { transform: scale(0.98); }
+        #home-install-btn { margin-top: 2px !important; align-self: center; }
+        #recent-gallery-container { margin-top: 14px !important; }   /* historique remonté */
+
+        /* ===== Historique : badge d'origine sur la miniature ===== */
+        .recent-thumb-wrap { position: relative; flex-shrink: 0; line-height: 0; }
+        .recent-src {
+            position: absolute; left: 3px; bottom: 3px; width: 20px; height: 20px; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center; font-style: normal;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.35); border: 1.5px solid #fff; box-sizing: border-box;
+        }
+        .recent-src.cloud { background: #2563eb; }
+        .recent-src.local { background: #475569; }
+        .recent-src svg { width: 12px; height: 12px; display: block; }
+        #recent-gallery.layout-grid .recent-thumb-wrap { width: 100%; }
+        #recent-gallery.layout-grid .recent-src { left: 6px; bottom: 6px; width: 26px; height: 26px; }
+        #recent-gallery.layout-grid .recent-src svg { width: 15px; height: 15px; }
+
         #recent-gallery:not(.layout-grid) .recent-delete {
             flex: 0 0 40px; width: 40px; height: 40px; min-width: 40px; max-width: 40px; max-height: 40px;
             padding: 0; margin-left: auto; border-radius: 10px; font-size: 16px; box-sizing: border-box;
@@ -1548,7 +1584,7 @@
         <input type="file" id="file-input" accept=".glb,model/gltf-binary,application/octet-stream" style="display: none;">
         <button id="home-resume-btn" type="button"></button>
         <button id="home-scan-btn" type="button">📷 SCANNER UNE ÉTIQUETTE</button>
-        <button id="home-source-btn" type="button">🗂 TROUVER SOURCE</button>
+        <button id="home-source-btn" class="perm-hidden" type="button">🗂 SOURCE</button>
         <button id="home-install-btn" type="button">📲 Installer l'application</button>
         
         <div id="recent-gallery-container">
@@ -3226,7 +3262,7 @@
         animate();
         setupSplashScreen();   // en premier : l'intro se ferme même si un module plante plus loin
         [setupUI, setupTape, setupLasso, setupLed, setupChat, setupAddress, setupAngles,
-         setupNoticeMarquee, setupAccounts, setupInstall, setupPush, setupChatExtras, setupResume, setupExportKeys, setupScanner, setupFileUploader, setupSidebar, setupHistoryLinks].forEach(fn => {
+         setupNoticeMarquee, setupAccounts, setupInstall, setupPush, setupChatExtras, setupResume, setupExportKeys, setupScanner, setupFileUploader, setupSidebar, setupHistoryLinks, setupHomeLayout].forEach(fn => {
             try { fn(); }
             catch (e) { console.error('Finjat : échec au démarrage de ' + fn.name, e); }   // les autres modules continuent
         });
@@ -7677,7 +7713,7 @@
             else if (currentModelUid) src = { type: 'url', uid: currentModelUid };
             else if (currentModelSourceUrl) src = { type: 'url', url: currentModelSourceUrl };
             if (!src) return;
-            src.label = (modelClient || modelProduct) ? modelHeader() : currentLoadedFileName ||
+            src.label = (modelClient || modelProduct) ? [modelClient, modelProduct].filter(Boolean).join('_') : currentLoadedFileName ||
                 ((currentModelName && currentModelName !== 'Meuble Global') ? currentModelName
                     : (currentModelUid ? 'Meuble ' + currentModelUid : 'Dernier meuble'));
             try { localStorage.setItem('apfLastModel', JSON.stringify(src)); } catch (e) {}
@@ -7687,8 +7723,11 @@
             const btn = document.getElementById('home-resume-btn');
             if (!btn) return;
             const lm = readLastModel();
-            btn.style.display = lm ? 'inline-block' : 'none';
-            if (lm) btn.textContent = '↩ Reprendre : ' + (lm.label || 'dernier meuble');
+            btn.style.display = lm ? 'block' : 'none';
+            if (lm) {
+                btn.textContent = '↩ ' + (lm.label || 'Dernier meuble');
+                btn.title = 'Reprendre : ' + (lm.label || 'dernier meuble');
+            }
         }
         async function openLastModel() {
             const lm = readLastModel();
@@ -7979,6 +8018,35 @@
         }
 
         // ==========================================
+        // ACCUEIL : SCANNER / [CHARGER | SOURCE] / dernier meuble
+        // ==========================================
+        function setupHomeLayout() {
+            const fileBtn = document.getElementById('file-btn');
+            const scanBtn = document.getElementById('home-scan-btn');
+            const srcBtn = document.getElementById('home-source-btn');
+            const resume = document.getElementById('home-resume-btn');
+            const install = document.getElementById('home-install-btn');
+            if (!fileBtn || !scanBtn) return;
+
+            fileBtn.textContent = '📁 CHARGER (.glb)';
+            scanBtn.textContent = '📷 SCANNER';
+            if (srcBtn) srcBtn.textContent = '🗂 SOURCE';
+
+            const box = document.createElement('div');
+            box.id = 'home-actions';
+            const row = document.createElement('div');
+            row.className = 'home-row';
+
+            fileBtn.parentNode.insertBefore(box, fileBtn);   // même place dans l'accueil, éléments déplacés (écouteurs conservés)
+            box.appendChild(scanBtn);
+            row.appendChild(fileBtn);
+            if (srcBtn) row.appendChild(srcBtn);             // SOURCE masqué => CHARGER prend toute la ligne
+            box.appendChild(row);
+            if (resume) box.appendChild(resume);
+            if (install) box.appendChild(install);
+        }
+
+        // ==========================================
         // BASE DE DONNÉES INTERNE & GALERIE VISUELLE
         // ==========================================
         const DB_NAME = 'Finjat3D_DB';
@@ -8229,7 +8297,18 @@
                     }
                 };
 
-                infoDiv.appendChild(thumb);
+                // Miniature + badge d'origine : ☁ meuble en ligne (lien) / 🖥 fichier .glb local
+                const thumbWrap = document.createElement('div');
+                thumbWrap.className = 'recent-thumb-wrap';
+                thumbWrap.appendChild(thumb);
+                const badge = document.createElement('i');
+                badge.className = 'recent-src ' + (model.uid ? 'cloud' : 'local');
+                badge.title = model.uid ? 'Meuble en ligne (lien)' : 'Fichier .glb sur cet appareil';
+                badge.innerHTML = model.uid
+                    ? '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 9.5H7z"/></svg>'
+                    : '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>';
+                thumbWrap.appendChild(badge);
+                infoDiv.appendChild(thumbWrap);
                 infoDiv.appendChild(nameBox);
                 item.appendChild(infoDiv);
                 item.appendChild(delBtn);
